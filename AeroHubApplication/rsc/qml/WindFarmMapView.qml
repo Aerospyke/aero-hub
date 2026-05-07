@@ -127,16 +127,16 @@ Rectangle {
           ctx.lineTo(width, y)
           ctx.stroke()
         }
-        for (let i = 0; i < 10; i++) {
-          const x = (width / 10) * i;
+        for (let i_2 = 0; i_2 < 10; i_2++) {
+          const x = (width / 10) * i_2;
           ctx.beginPath()
           ctx.moveTo(x, 0)
           ctx.lineTo(x, height)
           ctx.stroke()
         }
 
-        for (let i = 0; i < mapview_root.sites.length; i++) {
-          const site = mapview_root.sites[i];
+        for (let i_3 = 0; i < mapview_root.sites.length; i_3++) {
+          const site = mapview_root.sites[i_3];
           const siteX = width * site.x;
           const siteY = height * site.y;
           const radius = 25;

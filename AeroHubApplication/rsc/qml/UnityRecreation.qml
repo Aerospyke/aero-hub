@@ -250,7 +250,7 @@ Flickable {
 
     // Table: Key Indicators
     Rectangle {
-      id: "table_container"
+      id: table_container
       Layout.fillWidth: true
       Layout.preferredHeight: 350
       Layout.leftMargin: 20

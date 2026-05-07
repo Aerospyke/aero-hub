@@ -84,9 +84,10 @@ Rectangle {
 
     // Chart (only if dataPoints provided)
     Loader {
+      id: loader_chart
+      active: false
       Layout.fillWidth: true
       Layout.preferredHeight: 65
-      active: root.dataPoints.length > 0
 
       sourceComponent: GraphsView {
         theme: GraphsTheme {
@@ -121,6 +122,7 @@ Rectangle {
 
     // Spacer when no chart
     Item {
+      id: spacer_when_no_chart
       Layout.fillHeight: true
       visible: root.dataPoints.length === 0
     }
