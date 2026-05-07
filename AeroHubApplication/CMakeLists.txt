@@ -1,7 +1,7 @@
 set(APPLICATION_NAME "AeroHub")
 set(APPLICATION_URI aero_hub)
 set(APPLICATION_BUNDLE_GUI_ID de.conorco.aero-hub)
-set(APPLICATION_ICON_PATH ${CMAKE_CURRENT_SOURCE_DIR}/rsc/icons/linova.icns)
+set(APPLICATION_ICON_PATH ${CMAKE_CURRENT_SOURCE_DIR}/rsc/icons/conor_co.icns)
 
 set(QT_PACKAGES
         Gui

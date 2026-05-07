@@ -91,7 +91,7 @@ function(setup_qt_application)
 
     # Optional one-value args with defaults + warning
     if (NOT ARG_APPLICATION_BUNDLE_GUI_ID)
-        set(ARG_APPLICATION_BUNDLE_GUI_ID "com.linova.${ARG_APPLICATION_NAME}")
+        set(ARG_APPLICATION_BUNDLE_GUI_ID "de.conorco.${ARG_APPLICATION_NAME}")
         message(WARNING "APPLICATION_BUNDLE_GUI_ID not passed - using default: ${ARG_APPLICATION_BUNDLE_GUI_ID}")
     endif ()
 
