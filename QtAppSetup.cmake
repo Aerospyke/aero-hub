@@ -96,7 +96,7 @@ function(setup_qt_application)
     endif ()
 
     if (NOT ARG_APPLICATION_RESOURCE_DECLARATION_FILE)
-        set(ARG_APPLICATION_RESOURCE_DECLARATION_FILE "rsc/${ARG_APPLICATION_NAME}.qrc")
+        set(ARG_APPLICATION_RESOURCE_DECLARATION_FILE "AeroHubApplication/rsc/${ARG_APPLICATION_NAME}.qrc")
         message(WARNING "APPLICATION_RESOURCE_DECLARATION_FILE not passed - using default: ${ARG_APPLICATION_RESOURCE_DECLARATION_FILE}")
     endif ()
 
@@ -117,7 +117,7 @@ function(setup_qt_application)
     endif ()
 
     if (NOT ARG_APPLICATION_INCLUDE_DIRECTORIES)
-        set(ARG_APPLICATION_INCLUDE_DIRECTORIES "src/include")
+        set(ARG_APPLICATION_INCLUDE_DIRECTORIES "AeroHubApplication/src/include")
         message(WARNING "APPLICATION_INCLUDE_DIRECTORIES not passed - using default: ${ARG_APPLICATION_INCLUDE_DIRECTORIES}")
     endif ()
 
@@ -141,7 +141,7 @@ function(setup_qt_application)
     )
 
     target_include_directories(${ARG_APPLICATION_NAME} PRIVATE
-            src/include
+            AeroHubApplication/src/include
             ${ARG_APPLICATION_INCLUDE_DIRECTORIES}
     )
 
