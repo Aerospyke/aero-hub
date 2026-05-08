@@ -135,7 +135,7 @@ Rectangle {
           ctx.stroke()
         }
 
-        for (let i_3 = 0; i < mapview_root.sites.length; i_3++) {
+        for (let i_3 = 0; i_3 < mapview_root.sites.length; i_3++) {
           const site = mapview_root.sites[i_3];
           const siteX = width * site.x;
           const siteY = height * site.y;
