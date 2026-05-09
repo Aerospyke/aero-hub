@@ -22,7 +22,8 @@ int main(int argc, char* argv[]) {
   QQmlApplicationEngine application_engine;
   // QmlAvailableResources qml_available_resources;
 
-  application_engine.load(QUrl(QStringLiteral("qrc:/qml/windfarm_phms_pitch_main.qml")));
+  // application_engine.load(QUrl(QStringLiteral("qrc:/qml/windfarm_phms_pitch_main.qml")));
+  application_engine.load(QUrl(QStringLiteral("qrc:/qml/tesla_main.qml")));
 
   if (application_engine.rootObjects().isEmpty()) {
     return -1;

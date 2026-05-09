@@ -15,5 +15,6 @@
         <file>UnityRecreation.qml</file>
         <file>windfarm_phms_pitch_main.qml</file>
         <file>WindFarmMapView.qml</file>
+        <file>tesla_main.qml</file>
     </qresource>
 </RCC>

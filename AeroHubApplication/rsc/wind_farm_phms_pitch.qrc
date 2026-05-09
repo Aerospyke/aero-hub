@@ -8,6 +8,7 @@
     <file alias="node_simulation_system.png">icons/node_simulation_system.png</file>
   </qresource>
   <qresource prefix="/qml">
+    <file alias="tesla_main.qml">qml/tesla_main.qml</file>
     <file alias="windfarm_phms_pitch_main.qml">qml/windfarm_phms_pitch_main.qml</file>
     <file alias="RevenueSummaryForm.ui.qml">qml/RevenueSummaryForm.ui.qml</file>
     <file alias="KpiRow.qml">qml/KpiRow.qml</file>
