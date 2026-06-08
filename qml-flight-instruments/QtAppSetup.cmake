@@ -91,12 +91,12 @@ function(setup_qt_application)
 
     # Optional one-value args with defaults + warning
     if (NOT ARG_APPLICATION_BUNDLE_GUI_ID)
-        set(ARG_APPLICATION_BUNDLE_GUI_ID "de.conorco.${ARG_APPLICATION_NAME}")
+        set(ARG_APPLICATION_BUNDLE_GUI_ID "de.dummycompany.${ARG_APPLICATION_NAME}")
         message(WARNING "APPLICATION_BUNDLE_GUI_ID not passed - using default: ${ARG_APPLICATION_BUNDLE_GUI_ID}")
     endif ()
 
     if (NOT ARG_APPLICATION_RESOURCE_DECLARATION_FILE)
-        set(ARG_APPLICATION_RESOURCE_DECLARATION_FILE "app/rsc/${ARG_APPLICATION_NAME}.qrc")
+        set(ARG_APPLICATION_RESOURCE_DECLARATION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/rsc/${ARG_APPLICATION_NAME}.qrc")
         message(WARNING "APPLICATION_RESOURCE_DECLARATION_FILE not passed - using default: ${ARG_APPLICATION_RESOURCE_DECLARATION_FILE}")
     endif ()
 
@@ -117,7 +117,7 @@ function(setup_qt_application)
     endif ()
 
     if (NOT ARG_APPLICATION_INCLUDE_DIRECTORIES)
-        set(ARG_APPLICATION_INCLUDE_DIRECTORIES "app/src/include")
+        set(ARG_APPLICATION_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/src/include")
         message(WARNING "APPLICATION_INCLUDE_DIRECTORIES not passed - using default: ${ARG_APPLICATION_INCLUDE_DIRECTORIES}")
     endif ()
 
@@ -141,7 +141,6 @@ function(setup_qt_application)
     )
 
     target_include_directories(${ARG_APPLICATION_NAME} PRIVATE
-            app/src/include
             ${ARG_APPLICATION_INCLUDE_DIRECTORIES}
     )
 

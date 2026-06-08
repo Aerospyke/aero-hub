@@ -1,0 +1,13 @@
+<RCC>
+  <qresource prefix="/icons">
+    <file alias="angry_face.png">icons/angry_face.png</file>
+    <file alias="happy_face.png">icons/happy_face.png</file>
+    <file alias="node_fleet.png">icons/node_fleet.png</file>
+    <file alias="node_aircraft.png">icons/node_aircraft.png</file>
+    <file alias="node_simulation_ahms.png">icons/node_simulation_ahms.png</file>
+    <file alias="node_simulation_system.png">icons/node_simulation_system.png</file>
+  </qresource>
+  <qresource prefix="/qml">
+    <file alias="AeroHubMainWindow.qml">qml/aero_hub_main_window.qml</file>
+  </qresource>
+</RCC>
