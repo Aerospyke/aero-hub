@@ -8,7 +8,10 @@ ApplicationWindow {
   title: "AeroHub Simulation Connector"
   color: "#314155"
 
-  RootPanel {
+  FontLoader {
+    source: "qrc:/fonts/CenturyGothic.ttf"
   }
+
+
 
 }

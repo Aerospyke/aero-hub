@@ -4,6 +4,7 @@
 #include <QQmlApplicationEngine>
 
 int main(int argc, char* argv[]) {
+  Q_INIT_RESOURCE(QmlFlightInstruments);
   // QQuickStyle::setStyle("Fusion");
 
   QGuiApplication app(argc, argv);
@@ -21,7 +22,7 @@ int main(int argc, char* argv[]) {
 
   QQmlApplicationEngine application_engine;
 
-  application_engine.load(QUrl(QStringLiteral("qrc:/qml/windfarm_phms_pitch_main.qml")));
+  application_engine.load(QUrl(QStringLiteral("qrc:/qml/AeroHubMainWindow.qml")));
 
   if (application_engine.rootObjects().isEmpty()) {
     return -1;

@@ -1,4 +1,6 @@
-// import "BasicSix"
+// Example standalone display (opens its own Window).
+// Component names (e.g. AirspeedIndicatorBasicSix) resolve because all the
+// instrument QML files are registered under the same qrc:/qml/ prefix (via aliases).
 
 import QtQuick 2.15
 import QtQuick.Window 2.15

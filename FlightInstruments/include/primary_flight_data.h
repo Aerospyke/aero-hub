@@ -1,9 +1,12 @@
 #pragma once
 
 #include <QObject>
+#include <QtQmlIntegration>
 
 class PrimaryFlightData : public QObject {
   Q_OBJECT
+  QML_ELEMENT
+  QML_NAMED_ELEMENT(PrimaryFlightData)
  public:
   explicit PrimaryFlightData(QObject* parent = nullptr);
 
@@ -13,12 +16,14 @@ class PrimaryFlightData : public QObject {
     FD,       ///<
     CMD       ///<
   };
+  Q_ENUM(FlightMode)
 
   /** Speed mode enum. */
   enum class SpeedMode {
     Off = 0,  ///<
     FMC_SPD   ///<
   };
+  Q_ENUM(SpeedMode)
 
   /** Lateral navigation mode enum. */
   enum class LNAV {
@@ -31,6 +36,7 @@ class PrimaryFlightData : public QObject {
     BC,       ///<
     BC_ARM    ///<
   };
+  Q_ENUM(LNAV)
 
   /** Vertical navigation mode enum. */
   enum class VNAV {
@@ -42,6 +48,7 @@ class PrimaryFlightData : public QObject {
     GS,       ///<
     GS_ARM    ///<
   };
+  Q_ENUM(VNAV)
 
   /** Altimeter pressure units. */
   enum class PressureMode {
@@ -49,6 +56,7 @@ class PrimaryFlightData : public QObject {
     MB,       ///< milibars
     IN        ///< inches of mercury
   };
+  Q_ENUM(PressureMode)
 
   /** Course Deviation Indicator (CDI). */
   enum class CDI {
@@ -56,6 +64,7 @@ class PrimaryFlightData : public QObject {
     TO,       ///<
     FROM      ///<
   };
+  Q_ENUM(CDI)
 
   double angleOfAttack() const;
   void setAngleOfAttack(double newAngleOfAttack);

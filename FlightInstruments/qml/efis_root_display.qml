@@ -1,3 +1,7 @@
+// Example standalone display (opens its own Window).
+// Component names resolve because all the instrument QML files are registered
+// under the same qrc:/qml/ prefix via the module's .qrc (aliases).
+
 import QtQuick 2.15
 import QtQuick.Window 2.15
 import QtQuick.Layouts 1.15

@@ -8,7 +8,7 @@ set(QT_PACKAGES
 )
 
 set(APPLICATION_RESOURCE_DECLARATION_FILE
-        ui/wind_farm_phms_pitch.qrc)
+        ui/aero_hub.qrc)
 
 set(APPLICATION_SOURCE_FILES
         src/cpp/main.cpp
@@ -20,8 +20,8 @@ set(APPLICATION_HEADER_FILES
 set(APPLICATION_INCLUDE_DIRECTORIES
         AeroHubApplication/src/include)
 
-# TODO: Verify that I don't need to add CyberThemeplugin here
 set(LINKED_LIBRARIES_INTERNAL
+        QmlFlightInstruments
 )
 
 set(LINKED_LIBRARIES_QT
