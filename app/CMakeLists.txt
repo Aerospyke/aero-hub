@@ -12,13 +12,15 @@ set(APPLICATION_RESOURCE_DECLARATION_FILE
 
 set(APPLICATION_SOURCE_FILES
         src/cpp/main.cpp
+        src/cpp/animation.cpp
 )
 
 set(APPLICATION_HEADER_FILES
+        src/include/animation.h
 )
 
 set(APPLICATION_INCLUDE_DIRECTORIES
-        AeroHubApplication/src/include)
+        src/include)
 
 set(LINKED_LIBRARIES_INTERNAL
         QmlFlightInstruments
