@@ -1,11 +1,20 @@
 #include <QGuiApplication>
 #include <QtQml/QtQml>
+// #include <QString>
+#include <iostream>
 #include "animation.h"
 #include "primary_flight_data.h"
+
+static const char* DebugSettingsFilePath = "./aerohub_settings.ini";
 
 int main(int argc, char* argv[]) {
   Q_INIT_RESOURCE(QmlFlightInstruments);
   const QGuiApplication Application(argc, argv);
+  const auto* settings = new QSettings(DebugSettingsFilePath, QSettings::IniFormat);
+  // QTextStream coutStream(stdout);
+  // coutStream << "Check Setting: " << settings->value("JSBSim/command_line/aircraft").toString() << Qt::endl;
+  // std::cout << "Check Setting: " << qPrintable(settings->value("JSBSim/airport/ILS-runway-near-latitude").toString()) << std::endl;
+  std::cout << "Check Setting: " << settings->value("JSBSim/command_line/aircraft").toString().toStdString() << std::endl;
 
   QQmlApplicationEngine engine;
 
