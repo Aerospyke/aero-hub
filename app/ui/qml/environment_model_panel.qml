@@ -3,10 +3,15 @@ import QtQuick.Controls
 import QtQuick.Layouts
 
 Rectangle {
+  id: panelRoot
   color: "#0d1620"
   border.color: "#243140"
   border.width: 1
   radius: 6
+
+  property string contextMenuTargetName: ""
+  property bool contextMenuIsGroup: false
+  property int contextMenuRow: -1
 
   ColumnLayout {
     anchors.fill: parent
@@ -121,6 +126,74 @@ Rectangle {
           anchors.right: parent.right
           color: "#243140"
         }
+
+        // Right-click context menu support (covers both columns' delegates)
+        MouseArea {
+          anchors.fill: parent
+          acceptedButtons: Qt.RightButton
+
+          onClicked: (mouse) => {
+            if (mouse.button === Qt.RightButton) {
+              panelRoot.contextMenuTargetName = model.name || ""
+              panelRoot.contextMenuIsGroup = treeviewDelegate.hasChildren
+              panelRoot.contextMenuRow = treeviewDelegate.row
+
+              const pos = mapToItem(panelRoot, mouse.x, mouse.y)
+              if (panelRoot.contextMenuIsGroup) {
+                groupContextMenu.x = pos.x
+                groupContextMenu.y = pos.y
+                groupContextMenu.open()
+              } else {
+                settingContextMenu.x = pos.x
+                settingContextMenu.y = pos.y
+                settingContextMenu.open()
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Context menus - separate menus so height matches exact item count
+  Menu {
+    id: groupContextMenu
+    // x/y set dynamically before open()
+
+    palette.window: "#0d1620"
+    palette.text: "#c8d1dc"
+    palette.highlight: "#243140"
+
+    MenuItem {
+      text: "Add Setting to " + panelRoot.contextMenuTargetName
+      onTriggered: {
+        console.log("Add Setting to group:", panelRoot.contextMenuTargetName, "row:", panelRoot.contextMenuRow)
+        // TODO: implement add setting dialog/logic
+      }
+    }
+  }
+
+  Menu {
+    id: settingContextMenu
+    // x/y set dynamically before open()
+
+    palette.window: "#0d1620"
+    palette.text: "#c8d1dc"
+    palette.highlight: "#243140"
+
+    MenuItem {
+      text: "Change " + panelRoot.contextMenuTargetName
+      onTriggered: {
+        console.log("Change setting:", panelRoot.contextMenuTargetName, "row:", panelRoot.contextMenuRow)
+        // TODO: implement change value dialog/logic
+      }
+    }
+
+    MenuItem {
+      text: "Remove " + panelRoot.contextMenuTargetName
+      onTriggered: {
+        console.log("Remove setting:", panelRoot.contextMenuTargetName, "row:", panelRoot.contextMenuRow)
+        // TODO: implement remove logic (and confirm?)
       }
     }
   }
