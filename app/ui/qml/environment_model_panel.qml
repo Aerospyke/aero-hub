@@ -13,6 +13,118 @@ Rectangle {
   property bool contextMenuIsGroup: false
   property int contextMenuRow: -1
 
+  property int settingColumnWidth: 180
+
+  TextMetrics {
+    id: textMetrics
+    font.pixelSize: 12
+  }
+
+  function updateSettingColumnWidth() {
+    // Full traversal - forces column to absolute max needed by entire tree
+    if (!jsbSettingsModel) {
+      settingColumnWidth = 180
+      return
+    }
+
+    let maxW = 60
+
+    function visit(parentIndex, depth) {
+      const rows = jsbSettingsModel.rowCount(parentIndex)
+      for (let r = 0; r < rows; r++) {
+        const idx = jsbSettingsModel.index(r, 0, parentIndex)
+        const name = jsbSettingsModel.data(idx, Qt.DisplayRole) || ""
+        const childCount = jsbSettingsModel.rowCount(idx)
+        const hasChildren = childCount > 0
+
+        textMetrics.text = name
+        const textW = textMetrics.width
+
+        const indent = depth * 16
+        const indicatorSpace = hasChildren ? 16 : 0
+        const extraPadding = 16
+
+        const needed = indent + indicatorSpace + textW + extraPadding
+        if (needed > maxW)
+          maxW = needed
+
+        if (hasChildren) {
+          visit(idx, depth + 1)
+        }
+      }
+    }
+
+    visit(jsbSettingsModel.index(-1, -1), 0)
+
+    settingColumnWidth = Math.max(100, maxW)
+
+    Qt.callLater(function() {
+      if (treeView && treeView.forceLayout)
+        treeView.forceLayout()
+    })
+  }
+
+  function considerSettingWidth(name, depth, hasChildren) {
+    // Kept for backward compatibility with some delegate paths
+    textMetrics.text = name || ""
+    const indent = depth * 16
+    const indSpace = hasChildren ? 16 : 0
+    const pad = 16
+    const needed = indent + indSpace + textMetrics.width + pad
+    if (needed > settingColumnWidth) {
+      settingColumnWidth = needed
+      Qt.callLater(function() {
+        if (treeView && treeView.forceLayout)
+          treeView.forceLayout()
+      })
+    }
+  }
+
+  function recomputeVisibleSettingWidth() {
+    // Computes required width using only currently visible (expanded) rows.
+    // This allows the Setting column to shrink when branches are collapsed.
+    if (!treeView || !jsbSettingsModel) {
+      settingColumnWidth = 100
+      return
+    }
+
+    let maxW = 60
+    const numVisualRows = treeView.rows || 0
+
+    for (let visualRow = 0; visualRow < numVisualRows; visualRow++) {
+      const modelIdx = treeView.index(visualRow, 0)
+      if (!modelIdx || !modelIdx.valid) continue
+
+      const name = jsbSettingsModel.data(modelIdx, Qt.DisplayRole) || ""
+
+      // Walk parents in the model to determine depth
+      let depth = 0
+      let current = jsbSettingsModel.parent(modelIdx)
+      while (current && current.valid) {
+        depth++
+        current = jsbSettingsModel.parent(current)
+      }
+
+      textMetrics.text = name
+      const textW = textMetrics.width
+
+      const indent = depth * 16
+      const hasChildren = jsbSettingsModel.rowCount(modelIdx) > 0
+      const indicatorSpace = hasChildren ? 16 : 0
+      const pad = 16
+
+      const needed = indent + indicatorSpace + textW + pad
+      if (needed > maxW) maxW = needed
+    }
+
+    settingColumnWidth = Math.max(100, maxW)
+
+    Qt.callLater(function() {
+      if (treeView && treeView.forceLayout)
+        treeView.forceLayout()
+    })
+  }
+
   ColumnLayout {
     anchors.fill: parent
     anchors.margins: 8
@@ -64,13 +176,23 @@ Rectangle {
       clip: true
       model: jsbSettingsModel
 
+      // Make column 0 (Setting names + tree indentation) size to content.
+      // Value column takes the remaining space.
+      columnWidthProvider: function(column) {
+        if (column === 0)
+          return panelRoot.settingColumnWidth
+        return Math.max(120, treeView.width - panelRoot.settingColumnWidth)
+      }
+
+      onWidthChanged: Qt.callLater(forceLayout)
+
+      Component.onCompleted: Qt.callLater(panelRoot.recomputeVisibleSettingWidth)
+
       delegate: Item {
         id: treeviewDelegate
 
         implicitHeight: 22
-        implicitWidth: column === 0
-            ? treeView.width * 0.5
-            : treeView.width * 0.5
+        implicitWidth: column === 0 ? panelRoot.settingColumnWidth : 0
 
         readonly property real indentation: 16
         readonly property real padding: 4
@@ -84,6 +206,12 @@ Rectangle {
         required property int row
         required property int column
         required property bool current
+
+        Component.onCompleted: {
+          if (column === 0) {
+            panelRoot.recomputeVisibleSettingWidth()
+          }
+        }
 
         // Expand/collapse indicator (▶)
         Label {
@@ -99,6 +227,12 @@ Rectangle {
           TapHandler {
             onTapped: treeviewDelegate.treeView.toggleExpanded(treeviewDelegate.row)
           }
+        }
+
+        onExpandedChanged: {
+          indicator.rotation = expanded ? 90 : 0
+          // Recompute visible content width on both expand (grow) and collapse (shrink)
+          panelRoot.recomputeVisibleSettingWidth()
         }
 
         // Main label (col 0 = setting name, col 1 = value)
@@ -139,11 +273,22 @@ Rectangle {
               panelRoot.contextMenuRow = treeviewDelegate.row
 
               const pos = mapToItem(panelRoot, mouse.x, mouse.y)
+
               if (panelRoot.contextMenuIsGroup) {
+                textMetrics.text = "Add Setting to " + panelRoot.contextMenuTargetName
+                const w = textMetrics.width + 48
+                groupContextMenu.implicitWidth = w
+                groupContextMenu.width = w
                 groupContextMenu.x = pos.x
                 groupContextMenu.y = pos.y
                 groupContextMenu.open()
               } else {
+                const t1 = "Change " + panelRoot.contextMenuTargetName
+                const t2 = "Remove " + panelRoot.contextMenuTargetName
+                textMetrics.text = t1.length > t2.length ? t1 : t2
+                const w = textMetrics.width + 48
+                settingContextMenu.implicitWidth = w
+                settingContextMenu.width = w
                 settingContextMenu.x = pos.x
                 settingContextMenu.y = pos.y
                 settingContextMenu.open()
