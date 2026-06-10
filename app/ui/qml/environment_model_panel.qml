@@ -126,6 +126,16 @@ Rectangle {
     anchors.margins: 8
     spacing: 2
 
+    // Main panel title (restored from earlier placeholder version)
+    Text {
+      Layout.fillWidth: true
+      text: "Environment Model (JSB, Gazebo, X-Plane)"
+      color: "#c8d1dc"
+      font.pixelSize: 20
+      font.bold: true
+      horizontalAlignment: Text.AlignHCenter
+    }
+
     // Small section title above the table
     Text {
       Layout.fillWidth: true
