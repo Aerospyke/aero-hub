@@ -13,10 +13,12 @@ set(APPLICATION_RESOURCE_DECLARATION_FILE
 set(APPLICATION_SOURCE_FILES
         src/cpp/main.cpp
         src/cpp/animation.cpp
+        src/cpp/jsb_settings_tree_model.cpp
 )
 
 set(APPLICATION_HEADER_FILES
         src/include/animation.h
+        src/include/jsb_settings_tree_model.h
 )
 
 set(APPLICATION_INCLUDE_DIRECTORIES
