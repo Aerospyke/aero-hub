@@ -40,11 +40,9 @@ Rectangle {
         textMetrics.text = name
         const textW = textMetrics.width
 
-        const indent = depth * 16
-        const indicatorSpace = hasChildren ? 16 : 0
-        const extraPadding = 16
-
-        const needed = indent + indicatorSpace + textW + extraPadding
+        // Match the x calculation in the delegate label exactly
+        const x = (depth + (hasChildren ? 1 : 0)) * 16 + 4 + (hasChildren ? 14 : 0)
+        const needed = x + textW + 16  // right padding + margin/buffer so text isn't pressed against the divider
         if (needed > maxW)
           maxW = needed
 
@@ -67,10 +65,10 @@ Rectangle {
   function considerSettingWidth(name, depth, hasChildren) {
     // Kept for backward compatibility with some delegate paths
     textMetrics.text = name || ""
-    const indent = depth * 16
-    const indSpace = hasChildren ? 16 : 0
-    const pad = 16
-    const needed = indent + indSpace + textMetrics.width + pad
+    const hasCh = hasChildren
+    // Match the x calculation in the delegate label exactly
+    const x = (depth + (hasCh ? 1 : 0)) * 16 + 4 + (hasCh ? 14 : 0)
+    const needed = x + textMetrics.width + 16  // right padding + margin/buffer so text isn't pressed against the divider
     if (needed > settingColumnWidth) {
       settingColumnWidth = needed
       Qt.callLater(function() {
@@ -108,12 +106,10 @@ Rectangle {
       textMetrics.text = name
       const textW = textMetrics.width
 
-      const indent = depth * 16
       const hasChildren = jsbSettingsModel.rowCount(modelIdx) > 0
-      const indicatorSpace = hasChildren ? 16 : 0
-      const pad = 16
-
-      const needed = indent + indicatorSpace + textW + pad
+      // Match the x calculation in the delegate label exactly
+      const x = (depth + (hasChildren ? 1 : 0)) * 16 + 4 + (hasChildren ? 14 : 0)
+      const needed = x + textW + 16  // right padding + margin/buffer so text isn't pressed against the divider
       if (needed > maxW) maxW = needed
     }
 
@@ -137,6 +133,7 @@ Rectangle {
       color: "#c8d1dc"
       font.pixelSize: 16
       font.bold: true
+      horizontalAlignment: Text.AlignHCenter
       leftPadding: 4
     }
 
@@ -243,7 +240,7 @@ Rectangle {
                 : 0)
              + treeviewDelegate.padding + (indicator.visible ? 14 : 0)
           anchors.verticalCenter: parent.verticalCenter
-          width: parent.width - x - treeviewDelegate.padding
+          width: parent.width - x - treeviewDelegate.padding - 8  // extra right margin before the column divider line
           text: treeviewDelegate.column === 0 ? model.name : model.value
           color: treeviewDelegate.column === 0 ? "#c8d1dc" : "#a8c0d0"
           font.pixelSize: 12
