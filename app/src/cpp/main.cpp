@@ -8,16 +8,26 @@
 
 static const char* DebugSettingsFilePath = "./aerohub_settings.ini";
 
+
 int main(int argc, char* argv[]) {
   Q_INIT_RESOURCE(QmlFlightInstruments);
   const QGuiApplication Application(argc, argv);
   auto* settings = new QSettings(DebugSettingsFilePath, QSettings::IniFormat);
-  // QTextStream coutStream(stdout);
-  // coutStream << "Check Setting: " << settings->value("JSBSim/command_line/aircraft").toString() << Qt::endl;
-  // std::cout << "Check Setting: " << qPrintable(settings->value("JSBSim/airport/ILS-runway-near-latitude").toString()) << std::endl;
-  std::cout << "Check Setting: " << settings->value("JSBSim/command_line/aircraft").toString().toStdString() << std::endl;
+  
+  // qDebug() << "Check Setting: " << settings->value("JSBSim/command_line/aircraft").toString();
 
   QQmlApplicationEngine engine;
+
+  // Load AeroHubTheme as a context property so it is available globally
+  // in all QML files (like the instrument types) without per-file imports.
+  QQmlComponent theme_component(&engine, QUrl(QStringLiteral("qrc:/qml/AeroHubTheme.qml")));
+  QObject *theme_object = theme_component.create();
+  if (theme_object) {
+    theme_object->setParent(&engine);
+    engine.rootContext()->setContextProperty("AeroHubTheme", theme_object);
+  } else {
+    qWarning() << "Failed to create AeroHubTheme:" << theme_component.errorString();
+  }
 
   const QUrl RootUrl("qrc:/qml/AeroHubMainWindow.qml");
   QObject::connect(

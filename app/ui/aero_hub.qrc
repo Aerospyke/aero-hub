@@ -8,6 +8,7 @@
     <file alias="node_simulation_system.png">icons/node_simulation_system.png</file>
   </qresource>
   <qresource prefix="/qml">
+    <file alias="AeroHubTheme.qml">qml/aero_hub_theme.qml</file>
     <file alias="AeroHubMainWindow.qml">qml/aero_hub_main_window.qml</file>
     <file alias="EnvironmentModelPanel.qml">qml/environment_model_panel.qml</file>
     <file alias="HubPanel.qml">qml/hub_panel.qml</file>

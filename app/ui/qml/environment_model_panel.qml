@@ -17,7 +17,12 @@ Rectangle {
 
   TextMetrics {
     id: textMetrics
-    font.pixelSize: 12
+    font.pixelSize: AeroHubTheme.fontSize.tableEntry
+  }
+
+  TextMetrics {
+    id: menuMetrics
+    font.pixelSize: AeroHubTheme.fontSize.subTitle
   }
 
   function updateSettingColumnWidth() {
@@ -131,7 +136,7 @@ Rectangle {
       Layout.fillWidth: true
       text: "Environment Model (JSB, Gazebo, X-Plane)"
       color: "#c8d1dc"
-      font.pixelSize: 20
+      font.pixelSize: AeroHubTheme.fontSize.mainTitle
       font.bold: true
       horizontalAlignment: Text.AlignHCenter
     }
@@ -141,7 +146,7 @@ Rectangle {
       Layout.fillWidth: true
       text: "JSB Settings"
       color: "#c8d1dc"
-      font.pixelSize: 16
+      font.pixelSize: AeroHubTheme.fontSize.subTitle
       font.bold: true
       horizontalAlignment: Text.AlignHCenter
       leftPadding: 4
@@ -160,7 +165,7 @@ Rectangle {
         horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
         color: "#8fa0b0"
-        font.pixelSize: 13
+        font.pixelSize: AeroHubTheme.fontSize.columnHeader
         font.bold: true
         elide: Text.ElideRight
 
@@ -228,7 +233,7 @@ Rectangle {
           visible: treeviewDelegate.isTreeNode && treeviewDelegate.hasChildren
           text: "▶"
           color: "#c8d1dc"
-          font.pixelSize: 11
+          font.pixelSize: AeroHubTheme.fontSize.tableEntry
           rotation: treeviewDelegate.expanded ? 90 : 0
 
           TapHandler {
@@ -253,7 +258,7 @@ Rectangle {
           width: parent.width - x - treeviewDelegate.padding - 8  // extra right margin before the column divider line
           text: treeviewDelegate.column === 0 ? model.name : model.value
           color: treeviewDelegate.column === 0 ? "#c8d1dc" : "#a8c0d0"
-          font.pixelSize: 12
+          font.pixelSize: AeroHubTheme.fontSize.tableEntry
           elide: Text.ElideRight
           horizontalAlignment: treeviewDelegate.column === 0 ? Text.AlignLeft : Text.AlignHCenter
         }
@@ -282,8 +287,8 @@ Rectangle {
               const pos = mapToItem(panelRoot, mouse.x, mouse.y)
 
               if (panelRoot.contextMenuIsGroup) {
-                textMetrics.text = "Add Setting to " + panelRoot.contextMenuTargetName
-                const w = textMetrics.width + 48
+                menuMetrics.text = "Add Setting to " + panelRoot.contextMenuTargetName
+                const w = Math.max(220, menuMetrics.width + 40)
                 groupContextMenu.implicitWidth = w
                 groupContextMenu.width = w
                 groupContextMenu.x = pos.x
@@ -292,8 +297,8 @@ Rectangle {
               } else {
                 const t1 = "Change " + panelRoot.contextMenuTargetName
                 const t2 = "Remove " + panelRoot.contextMenuTargetName
-                textMetrics.text = t1.length > t2.length ? t1 : t2
-                const w = textMetrics.width + 48
+                menuMetrics.text = t1.length > t2.length ? t1 : t2
+                const w = Math.max(220, menuMetrics.width + 40)
                 settingContextMenu.implicitWidth = w
                 settingContextMenu.width = w
                 settingContextMenu.x = pos.x
@@ -307,17 +312,18 @@ Rectangle {
     }
   }
 
-  // Context menus - separate menus so height matches exact item count
   Menu {
     id: groupContextMenu
-    // x/y set dynamically before open()
-
+    font.pixelSize: AeroHubTheme.fontSize.subTitle
     palette.window: "#0d1620"
     palette.text: "#c8d1dc"
     palette.highlight: "#243140"
 
+
     MenuItem {
+      font.pixelSize: AeroHubTheme.fontSize.subTitle
       text: "Add Setting to " + panelRoot.contextMenuTargetName
+
       onTriggered: {
         console.log("Add Setting to group:", panelRoot.contextMenuTargetName, "row:", panelRoot.contextMenuRow)
         // TODO: implement add setting dialog/logic
@@ -328,12 +334,13 @@ Rectangle {
   Menu {
     id: settingContextMenu
     // x/y set dynamically before open()
-
+    font.pixelSize: AeroHubTheme.fontSize.subTitle
     palette.window: "#0d1620"
     palette.text: "#c8d1dc"
     palette.highlight: "#243140"
 
     MenuItem {
+      font.pixelSize: AeroHubTheme.fontSize.subTitle
       text: "Change " + panelRoot.contextMenuTargetName
       onTriggered: {
         console.log("Change setting:", panelRoot.contextMenuTargetName, "row:", panelRoot.contextMenuRow)
@@ -342,6 +349,7 @@ Rectangle {
     }
 
     MenuItem {
+      font.pixelSize: AeroHubTheme.fontSize.subTitle
       text: "Remove " + panelRoot.contextMenuTargetName
       onTriggered: {
         console.log("Remove setting:", panelRoot.contextMenuTargetName, "row:", panelRoot.contextMenuRow)
