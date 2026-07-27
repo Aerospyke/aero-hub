@@ -25,64 +25,6 @@ Rectangle {
     font.pixelSize: AeroHubTheme.fontSize.subTitle
   }
 
-  function updateSettingColumnWidth() {
-    // Full traversal - forces column to absolute max needed by entire tree
-    if (!jsbSettingsModel) {
-      settingColumnWidth = 180
-      return
-    }
-
-    let maxW = 60
-
-    function visit(parentIndex, depth) {
-      const rows = jsbSettingsModel.rowCount(parentIndex)
-      for (let r = 0; r < rows; r++) {
-        const idx = jsbSettingsModel.index(r, 0, parentIndex)
-        const name = jsbSettingsModel.data(idx, Qt.DisplayRole) || ""
-        const childCount = jsbSettingsModel.rowCount(idx)
-        const hasChildren = childCount > 0
-
-        textMetrics.text = name
-        const textW = textMetrics.width
-
-        // Match the x calculation in the delegate label exactly
-        const x = (depth + (hasChildren ? 1 : 0)) * 16 + 4 + (hasChildren ? 14 : 0)
-        const needed = x + textW + 16  // right padding + margin/buffer so text isn't pressed against the divider
-        if (needed > maxW)
-          maxW = needed
-
-        if (hasChildren) {
-          visit(idx, depth + 1)
-        }
-      }
-    }
-
-    visit(jsbSettingsModel.index(-1, -1), 0)
-
-    settingColumnWidth = Math.max(100, maxW)
-
-    Qt.callLater(function() {
-      if (treeView && treeView.forceLayout)
-        treeView.forceLayout()
-    })
-  }
-
-  function considerSettingWidth(name, depth, hasChildren) {
-    // Kept for backward compatibility with some delegate paths
-    textMetrics.text = name || ""
-    const hasCh = hasChildren
-    // Match the x calculation in the delegate label exactly
-    const x = (depth + (hasCh ? 1 : 0)) * 16 + 4 + (hasCh ? 14 : 0)
-    const needed = x + textMetrics.width + 16  // right padding + margin/buffer so text isn't pressed against the divider
-    if (needed > settingColumnWidth) {
-      settingColumnWidth = needed
-      Qt.callLater(function() {
-        if (treeView && treeView.forceLayout)
-          treeView.forceLayout()
-      })
-    }
-  }
-
   function recomputeVisibleSettingWidth() {
     // Computes required width using only currently visible (expanded) rows.
     // This allows the Setting column to shrink when branches are collapsed.

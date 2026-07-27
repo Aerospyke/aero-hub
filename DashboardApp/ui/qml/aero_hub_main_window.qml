@@ -12,7 +12,7 @@ ApplicationWindow {
   maximumWidth: width
 
   visible: true
-  title: "AeroHub Simulation Connector"
+  title: "AeroHub Dashboard"
   color: "#6171A5"
 
   FontLoader {

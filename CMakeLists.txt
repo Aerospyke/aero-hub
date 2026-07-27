@@ -13,7 +13,7 @@ set(QT_VERSION_TO_USE 6.11)
 set(APPLICATION_NAME "AeroHub")
 set(APPLICATION_URI aero_hub)
 set(APPLICATION_BUNDLE_GUI_ID de.conorco.aero-hub)
-set(APPLICATION_ICON_PATH ${CMAKE_CURRENT_SOURCE_DIR}/app/ui/icons/conor_co.icns)
+set(APPLICATION_ICON_PATH ${CMAKE_CURRENT_SOURCE_DIR}/DashboardApp/ui/icons/conor_co.icns)
 
 set(FLIGHT_INSTRUMENTS_MODULE_NAME "FlightInstruments")
 
@@ -40,4 +40,4 @@ if (QT_KNOWN_POLICY_QTP0004)
 endif ()
 
 add_subdirectory(FlightInstruments)
-add_subdirectory(app)
+add_subdirectory(DashboardApp)
