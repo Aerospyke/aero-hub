@@ -4,13 +4,11 @@ import QtQuick.Layouts 1.15
 import QtQuick.Controls 2.15
 
 ApplicationWindow {
+  id: window
   width: 1920
   height: 1080
-  minimumWidth: width
-  minimumHeight: height
-  maximumHeight: height
-  maximumWidth: width
-
+  minimumWidth: 1280
+  minimumHeight: 720
   visible: true
   title: "AeroHub Dashboard"
   color: "#6171A5"
@@ -19,48 +17,41 @@ ApplicationWindow {
     source: "qrc:/fonts/CenturyGothic.ttf"
   }
 
-  ColumnLayout {
-    anchors.fill: parent
-    anchors.margins: 16
-    spacing: 16
-
-    // Row 1: Environment Model | Flight Instruments (EFIS) | Visualization
-    RowLayout {
-      Layout.fillWidth: true
-      Layout.fillHeight: true
-      spacing: 16
-
-      EnvironmentModelPanel {
-        Layout.fillWidth: true
-        Layout.fillHeight: true
-      }
-
-      HubPanel {
-        Layout.fillWidth: true
-        Layout.fillHeight: true
-      }
-
-      VisualizationPanel {
-        Layout.fillWidth: true
-        Layout.fillHeight: true
-      }
+  header: TabBar {
+    id: modeBar
+    width: parent.width
+    background: Rectangle {
+      color: "#0d1620"
     }
 
-    // Row 2: Autopilot (PX4) | High Fidelity Models
-    RowLayout {
-      Layout.fillWidth: true
-      Layout.fillHeight: true
-      spacing: 16
+    TabButton {
+      text: qsTr("Ops")
+      width: implicitWidth + 32
+    }
+    TabButton {
+      text: qsTr("Control")
+      width: implicitWidth + 32
+    }
+    TabButton {
+      text: qsTr("Settings")
+      width: implicitWidth + 32
+    }
+  }
 
-      AutopilotPanel {
-        Layout.fillWidth: true
-        Layout.fillHeight: true
-      }
+  StackLayout {
+    anchors.fill: parent
+    currentIndex: modeBar.currentIndex
 
-      HighFidelityModelsPanel {
-        Layout.fillWidth: true
-        Layout.fillHeight: true
-      }
+    OpsDashboard {
+      // index 0 — multi-panel ops wall
+    }
+
+    ControlPage {
+      // index 1 — stub control surface
+    }
+
+    SettingsPage {
+      // index 2 — stub settings
     }
   }
 }

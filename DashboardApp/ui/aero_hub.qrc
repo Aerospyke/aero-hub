@@ -10,6 +10,9 @@
   <qresource prefix="/qml">
     <file alias="AeroHubTheme.qml">qml/aero_hub_theme.qml</file>
     <file alias="AeroHubMainWindow.qml">qml/aero_hub_main_window.qml</file>
+    <file alias="OpsDashboard.qml">qml/ops_dashboard.qml</file>
+    <file alias="ControlPage.qml">qml/control_page.qml</file>
+    <file alias="SettingsPage.qml">qml/settings_page.qml</file>
     <file alias="EnvironmentModelPanel.qml">qml/environment_model_panel.qml</file>
     <file alias="HubPanel.qml">qml/hub_panel.qml</file>
     <file alias="VisualizationPanel.qml">qml/visualization_panel.qml</file>
