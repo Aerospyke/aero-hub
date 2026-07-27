@@ -3,7 +3,7 @@
 <package format="3">
   <name>ah_core</name>
   <version>0.1.0</version>
-  <description>AeroHub core node (Milestone_1 stub: status publisher).</description>
+  <description>AeroHub core node (Milestone_1 stub: status + synthetic video).</description>
   <maintainer email="dev@aerohub.local">AeroHub</maintainer>
   <license>Apache-2.0</license>
 
@@ -11,6 +11,7 @@
 
   <depend>rclcpp</depend>
   <depend>std_msgs</depend>
+  <depend>sensor_msgs</depend>
 
   <export>
     <build_type>ament_cmake</build_type>

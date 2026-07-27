@@ -46,10 +46,12 @@ source /opt/ros/jazzy/setup.bash
 colcon build --packages-select ah_core    # no --symlink-install (CLion-friendly)
 source install/setup.bash
 ros2 run ah_core ah_core_node
+# publishes /ah/system/status + synthetic /ah/video/compressed
 
 # Second shell
 docker exec -it ros2_dev /bin/bash
 source /opt/ros/jazzy/setup.bash
 source /aero-hub-ros/install/setup.bash
 ros2 topic echo /ah/system/status
+ros2 topic echo /ah/video/compressed --no-arr
 ```

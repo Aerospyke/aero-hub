@@ -1,22 +1,32 @@
 // ah_core_node — Milestone_1 stub
-// Publishes /ah/system/status as JSON in std_msgs/String (see ros2-interface-map §3.1).
+// - /ah/system/status  : JSON in std_msgs/String  (ros2-interface-map §3.1)
+// - /ah/video/compressed : synthetic JPEG frames   (ros2-interface-map §5)
 
 #include <chrono>
-#include <cmath>
+#include <cstdint>
 #include <memory>
 #include <sstream>
 #include <string>
+#include <vector>
+
+#include <opencv2/imgcodecs.hpp>
+#include <opencv2/imgproc.hpp>
 
 #include "rclcpp/rclcpp.hpp"
+#include "sensor_msgs/msg/compressed_image.hpp"
 #include "std_msgs/msg/string.hpp"
 
 using namespace std::chrono_literals;
 
 namespace
 {
-std::string make_status_json(double stamp_sec)
+constexpr int kFrameWidth = 640;
+constexpr int kFrameHeight = 480;
+constexpr int kJpegQuality = 80;
+constexpr int kPublishHz = 10;
+
+std::string make_status_json(double stamp_sec, const char * video_status)
 {
-  // Fixed stub flags; stamp advances so subscribers can see liveliness.
   std::ostringstream oss;
   oss.setf(std::ios::fixed);
   oss.precision(3);
@@ -25,12 +35,61 @@ std::string make_status_json(double stamp_sec)
       << "\"tracking_started\":false,"
       << "\"segmentation_active\":false,"
       << "\"following_active\":false,"
-      << "\"video_status\":\"unavailable\","
+      << "\"video_status\":\"" << video_status << "\","
       << "\"tracker_type\":\"stub\","
       << "\"follower_mode\":\"none\","
       << "\"stamp\":" << stamp_sec
       << '}';
   return oss.str();
+}
+
+// Simple synthetic pattern: dark background, color bar strip, bouncing box, frame id.
+cv::Mat make_synthetic_bgr(int frame_id)
+{
+  cv::Mat frame(kFrameHeight, kFrameWidth, CV_8UC3, cv::Scalar(20, 24, 32));
+
+  // Horizontal color bands
+  const int band_h = 40;
+  for (int i = 0; i < 6; ++i) {
+    const cv::Scalar colors[] = {
+      {0, 0, 200}, {0, 200, 200}, {0, 200, 0},
+      {200, 200, 0}, {200, 0, 0}, {200, 0, 200},
+    };
+    cv::rectangle(
+      frame,
+      cv::Rect(0, i * band_h, kFrameWidth, band_h),
+      colors[i],
+      cv::FILLED);
+  }
+
+  // Bouncing box
+  const int box = 48;
+  const int span_x = kFrameWidth - box;
+  const int span_y = kFrameHeight - box - 6 * band_h;
+  const int x = (frame_id * 3) % (span_x > 0 ? span_x : 1);
+  const int y = 6 * band_h + ((frame_id * 2) % (span_y > 0 ? span_y : 1));
+  cv::rectangle(frame, cv::Rect(x, y, box, box), cv::Scalar(255, 255, 255), cv::FILLED);
+  cv::rectangle(frame, cv::Rect(x, y, box, box), cv::Scalar(0, 140, 255), 2);
+
+  // Overlay text
+  cv::putText(
+    frame,
+    "AeroHub ah_core synthetic",
+    cv::Point(12, kFrameHeight - 36),
+    cv::FONT_HERSHEY_SIMPLEX,
+    0.7,
+    cv::Scalar(230, 230, 230),
+    2);
+  cv::putText(
+    frame,
+    "frame " + std::to_string(frame_id),
+    cv::Point(12, kFrameHeight - 12),
+    cv::FONT_HERSHEY_SIMPLEX,
+    0.6,
+    cv::Scalar(180, 200, 220),
+    1);
+
+  return frame;
 }
 }  // namespace
 
@@ -40,29 +99,58 @@ public:
   AhCoreNode()
   : Node("ah_core")
   {
-    // Reliable, small queue — matches interface intent for status.
-    rclcpp::QoS qos(rclcpp::KeepLast(1));
-    qos.reliable();
+    rclcpp::QoS status_qos(rclcpp::KeepLast(1));
+    status_qos.reliable();
 
-    status_pub_ = create_publisher<std_msgs::msg::String>("/ah/system/status", qos);
+    // Video: latest-frame only, best effort (interface map §5).
+    rclcpp::QoS video_qos(rclcpp::KeepLast(1));
+    video_qos.best_effort();
 
-    // 5 Hz — within 5–10 Hz guidance in interface map.
-    timer_ = create_wall_timer(200ms, std::bind(&AhCoreNode::on_timer, this));
+    status_pub_ = create_publisher<std_msgs::msg::String>("/ah/system/status", status_qos);
+    video_pub_ =
+      create_publisher<sensor_msgs::msg::CompressedImage>("/ah/video/compressed", video_qos);
 
-    RCLCPP_INFO(get_logger(), "ah_core stub started; publishing /ah/system/status at 5 Hz");
+    const auto period = std::chrono::milliseconds(1000 / kPublishHz);
+    timer_ = create_wall_timer(period, std::bind(&AhCoreNode::on_timer, this));
+
+    RCLCPP_INFO(
+      get_logger(),
+      "ah_core stub: /ah/system/status + /ah/video/compressed (synthetic JPEG) at %d Hz",
+      kPublishHz);
   }
 
 private:
   void on_timer()
   {
     const auto now = get_clock()->now();
-    std_msgs::msg::String msg;
-    msg.data = make_status_json(now.seconds());
-    status_pub_->publish(msg);
+    ++frame_id_;
+
+    // --- status ---
+    std_msgs::msg::String status_msg;
+    status_msg.data = make_status_json(now.seconds(), "connected");
+    status_pub_->publish(status_msg);
+
+    // --- synthetic compressed video ---
+    cv::Mat bgr = make_synthetic_bgr(frame_id_);
+    std::vector<int> params = {cv::IMWRITE_JPEG_QUALITY, kJpegQuality};
+    std::vector<uint8_t> jpeg;
+    if (!cv::imencode(".jpg", bgr, jpeg, params)) {
+      RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 2000, "JPEG encode failed");
+      return;
+    }
+
+    sensor_msgs::msg::CompressedImage video_msg;
+    video_msg.header.stamp = now;
+    video_msg.header.frame_id = "ah_camera_stub";
+    video_msg.format = "jpeg";
+    video_msg.data = std::move(jpeg);
+    video_pub_->publish(video_msg);
   }
 
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr status_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::CompressedImage>::SharedPtr video_pub_;
   rclcpp::TimerBase::SharedPtr timer_;
+  int frame_id_{0};
 };
 
 int main(int argc, char ** argv)
