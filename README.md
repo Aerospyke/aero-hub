@@ -20,6 +20,25 @@ Primary docs live in the Obsidian vault:
 
 Full notes: vault `reference/ros-lab-notes.md` · package steps: `ros/README.md`.
 
+| Role | Runtime |
+|------|---------|
+| **DashboardApp** + `rclcpp` (Task_15+) | macOS **RoboStack** + **plain CMake/Qt** (not colcon); `conda activate ros_env` |
+| **`ah_core`** | Docker Jazzy + **colcon** under `ros/`, domain **42**, `rmw_fastrtps_cpp` |
+
+All AeroHub IPC stays on ROS for now. Optional WS/HTTP gateway node is later (parking lot).
+
+**CLion + RoboStack tip:** if Compilation Database fails on conda’s `arm64-apple-darwin*-clang`, build with system compilers for the DB only:
+
+```bash
+conda activate ros_env
+colcon build --cmake-args \
+  -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+  -DCMAKE_C_COMPILER=/usr/bin/clang \
+  -DCMAKE_CXX_COMPILER=/usr/bin/clang++
+```
+
+See vault `reference/ros-lab-notes.md`.
+
 ## Build
 
 ### Dashboard (Qt)

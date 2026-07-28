@@ -1,3 +1,5 @@
+find_package(rclcpp REQUIRED) # Required to use ROS/ROS node functionality
+
 set(QT_PACKAGES
         Gui
         Quick

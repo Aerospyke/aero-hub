@@ -2,6 +2,8 @@
 CMakeUserPresets.json
 .vscode
 build
+log
+install
 Install-check
 
 # Qt Design Studio temporary / generated files
