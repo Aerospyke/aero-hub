@@ -10,58 +10,59 @@
 // Keep in sync with aerohub_settings_template.ini
 const AhSettings::SettingDefault AhSettings::Defaults[] = {
     // [ROS]
-    {"ROS/domain_id", "42"},
+    {.key="ROS/domain_id", .value="42"},
 
     // [JSBSim/command_line]
-    {"JSBSim/command_line/executable", ""},
-    {"JSBSim/command_line/realtime", "--realtime"},
-    {"JSBSim/command_line/aircraft", "--aircraft=737"},
-    {"JSBSim/command_line/initfile", "--initfile=reset00"},
-    {"JSBSim/command_line/arg1", "--property=propulsion/engine[0]/set-running=1"},
-    {"JSBSim/command_line/arg2", "--property=propulsion/engine[1]/set-running=1"},
-    {"JSBSim/command_line/arg3", "--suspend"},
-    {"JSBSim/command_line/arg4", ""},
-    {"JSBSim/command_line/arg5", ""},
-    {"JSBSim/command_line/arg6", ""},
+    {.key = "JSBSim/command_line/executable", .value = ""},
+    {.key="JSBSim/command_line/realtime", .value="--realtime"},
+    {.key="JSBSim/command_line/aircraft", .value="--aircraft=737"},
+    {.key="JSBSim/command_line/initfile", .value="--initfile=reset00"},
+    {.key="JSBSim/command_line/arg1", .value="--property=propulsion/engine[0]/set-running=1"},
+    {.key="JSBSim/command_line/arg2", .value="--property=propulsion/engine[1]/set-running=1"},
+    {.key="JSBSim/command_line/arg3", .value="--suspend"},
+    {.key="JSBSim/command_line/arg4", .value=""},
+    {.key="JSBSim/command_line/arg5", .value=""},
+    {.key="JSBSim/command_line/arg6", .value=""},
 
     // [JSBSim/ports]
-    {"JSBSim/ports/input", "5138"},
-    {"JSBSim/ports/output", "5139"},
-    {"JSBSim/ports/telnet", "5137"},
-    {"JSBSim/ports/flightgear", "5508"},
+    {.key="JSBSim/ports/input", .value="5138"},
+    {.key="JSBSim/ports/output", .value="5139"},
+    {.key="JSBSim/ports/telnet", .value="5137"},
+    {.key="JSBSim/ports/flightgear", .value="5508"},
 
     // [JSBSim/rates]
-    {"JSBSim/rates/UI", "100"},
-    {"JSBSim/rates/output", "10"},
-    {"JSBSim/rates/FlightGear", "30"},
+    {.key="JSBSim/rates/UI", .value="100"},
+    {.key="JSBSim/rates/output", .value="10"},
+    {.key="JSBSim/rates/FlightGear", .value="30"},
 
     // [JSBSim/aircraft]
-    {"JSBSim/aircraft/pitch-trim", "-0.32"},
-    {"JSBSim/aircraft/pitch-trim-rate", "0.2"},
+    {.key="JSBSim/aircraft/pitch-trim", .value="-0.32"},
+    {.key="JSBSim/aircraft/pitch-trim-rate", .value="0.2"},
 
     // [JSBSim/joystick]
-    {"JSBSim/joystick/elevator-axis", "1"},
-    {"JSBSim/joystick/aileron-axis", "0"},
-    {"JSBSim/joystick/rudder-axis", "2"},
-    {"JSBSim/joystick/throttle-axis", "3"},
-    {"JSBSim/joystick/aileron-trim-axis", "4"},
-    {"JSBSim/joystick/elevator-trim-axis", "5"},
-    {"JSBSim/joystick/axis-0-deadband", "0.04"},
-    {"JSBSim/joystick/axis-1-deadband", "0.04"},
-    {"JSBSim/joystick/axis-2-deadband", "0.07"},
+    {.key="JSBSim/joystick/elevator-axis", .value="1"},
+    {.key="JSBSim/joystick/aileron-axis", .value="0"},
+    {.key="JSBSim/joystick/rudder-axis", .value="2"},
+    {.key="JSBSim/joystick/throttle-axis", .value="3"},
+    {.key="JSBSim/joystick/aileron-trim-axis", .value="4"},
+    {.key="JSBSim/joystick/elevator-trim-axis", .value="5"},
+    {.key="JSBSim/joystick/axis-0-deadband", .value="0.04"},
+    {.key="JSBSim/joystick/axis-1-deadband", .value="0.04"},
+    {.key="JSBSim/joystick/axis-2-deadband", .value="0.07"},
 
     // [JSBSim/airport]
-    {"JSBSim/airport/magvar", "12.0"},
-    {"JSBSim/airport/runway-length-ft", "11095"},
-    {"JSBSim/airport/ILS-runway-near-latitude", "33.937363033"},
-    {"JSBSim/airport/ILS-runway-near-longitude", "-118.382713917"},
-    {"JSBSim/airport/ILS-runway-far-latitude", "33.933649383"},
-    {"JSBSim/airport/ILS-runway-far-longitude", "-118.419018333"},
-    {"JSBSim/airport/ILS-frequency", "109.9"},
-    {"JSBSim/airport/ILS-course-mag", "251.0"},
-    {"JSBSim/airport/ILS-GS", "3.0"},
-    {"JSBSim/airport/ILS-TDZE", "97.8"},
+    {.key="JSBSim/airport/magvar", .value="12.0"},
+    {.key="JSBSim/airport/runway-length-ft", .value="11095"},
+    {.key="JSBSim/airport/ILS-runway-near-latitude", .value="33.937363033"},
+    {.key="JSBSim/airport/ILS-runway-near-longitude", .value="-118.382713917"},
+    {.key="JSBSim/airport/ILS-runway-far-latitude", .value="33.933649383"},
+    {.key="JSBSim/airport/ILS-runway-far-longitude", .value="-118.419018333"},
+    {.key="JSBSim/airport/ILS-frequency", .value="109.9"},
+    {.key="JSBSim/airport/ILS-course-mag", .value="251.0"},
+    {.key="JSBSim/airport/ILS-GS", .value="3.0"},
+    {.key="JSBSim/airport/ILS-TDZE", .value="97.8"},
 };
+
 
 const std::size_t AhSettings::DefaultsCount = sizeof(AhSettings::Defaults) / sizeof(AhSettings::Defaults[0]);
 
@@ -93,14 +94,9 @@ AhSettings::AhSettings()
 }
 
 void AhSettings::PopulateDefaults() {
-  for (std::size_t i = 0; i < DefaultsCount; ++i) {
-    const SettingDefault& entry = Defaults[i];
-    settings_.setValue(QString::fromUtf8(entry.key), QString::fromUtf8(entry.value));
+  for (auto [key, value] : Defaults) {
+    settings_.setValue(QString::fromUtf8(key), QString::fromUtf8(value));
   }
-}
-
-void AhSettings::OverlayFromFile() {
-  // Overlay is applied in the constructor after PopulateDefaults().
 }
 
 void AhSettings::WriteSettingsFile() {

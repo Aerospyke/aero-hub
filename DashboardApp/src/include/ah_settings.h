@@ -44,7 +44,6 @@ class AhSettings final {
   static const std::size_t DefaultsCount;
 
   void PopulateDefaults();
-  void OverlayFromFile();
   void WriteSettingsFile();
 
   QString path_;
