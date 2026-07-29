@@ -4,6 +4,8 @@
 
 #include <chrono>
 #include <cstdint>
+#include <cstdlib>
+#include <fstream>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -153,8 +155,68 @@ private:
   int frame_id_{0};
 };
 
+namespace
+{
+// Same Qt-style INI as aero-hub/aerohub_settings.ini (see aerohub_settings_template.ini):
+// [ROS] domain_id=N. Env ROS_DOMAIN_ID wins if already set (Docker --env). Else read file.
+void apply_ros_domain_from_settings()
+{
+  if (const char * existing = std::getenv("ROS_DOMAIN_ID");
+    existing != nullptr && existing[0] != '\0')
+  {
+    return;
+  }
+
+  const char * candidates[] = {
+    std::getenv("AERO_HUB_SETTINGS"),
+    "aerohub_settings.ini",
+    "../aerohub_settings.ini",
+    "../../aerohub_settings.ini",
+    "/aero-hub/aerohub_settings.ini",  // optional full-repo mount
+  };
+
+  for (const char * path : candidates) {
+    if (path == nullptr || path[0] == '\0') {
+      continue;
+    }
+    std::ifstream in(path);
+    if (!in) {
+      continue;
+    }
+    std::string line;
+    bool in_ros = false;
+    while (std::getline(in, line)) {
+      if (!line.empty() && line.back() == '\r') {
+        line.pop_back();
+      }
+      if (line.empty() || line[0] == ';' || line[0] == '#') {
+        continue;
+      }
+      if (line.front() == '[') {
+        in_ros = (line == "[ROS]");
+        continue;
+      }
+      if (!in_ros) {
+        continue;
+      }
+      const auto eq = line.find('=');
+      if (eq == std::string::npos) {
+        continue;
+      }
+      const std::string key = line.substr(0, eq);
+      std::string val = line.substr(eq + 1);
+      if (key == "domain_id" && !val.empty()) {
+        setenv("ROS_DOMAIN_ID", val.c_str(), 1);
+        return;
+      }
+    }
+  }
+}
+}  // namespace
+
 int main(int argc, char ** argv)
 {
+  apply_ros_domain_from_settings();
   rclcpp::init(argc, argv);
   rclcpp::spin(std::make_shared<AhCoreNode>());
   rclcpp::shutdown();

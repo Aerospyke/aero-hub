@@ -6,6 +6,9 @@ log
 install
 Install-check
 
+# Local runtime settings (generated from defaults if missing; see aerohub_settings_template.ini)
+aerohub_settings.ini
+
 # Qt Design Studio temporary / generated files
 *.qtds
 .qmlproject.qtds

@@ -1,9 +1,14 @@
 #include "ah_ros_bridge.h"
 
-AhRosBridge::AhRosBridge(int argc, char** argv)
-{
+#include <iostream>
+
+#include <rclcpp/init_options.hpp>
+
+AhRosBridge::AhRosBridge(std::uint8_t ros_domain_id) : ros_domain_id_(SanitizeDomainId(ros_domain_id)) {
   if (!rclcpp::ok()) {
-    rclcpp::init(argc, argv);
+    rclcpp::InitOptions init_options;
+    init_options.set_domain_id(static_cast<size_t>(ros_domain_id_));
+    rclcpp::init(0, nullptr, init_options);
   }
 
   // Graph name matches interface map §2 (ah_dashboard).
@@ -13,16 +18,14 @@ AhRosBridge::AhRosBridge(int argc, char** argv)
   executor_->add_node(node_);
 
   spin_thread_ = std::thread([this]() {
-    RCLCPP_INFO(
-      node_->get_logger(),
-      "ah_dashboard online — executor spinning (Task_15)");
+    RCLCPP_INFO(node_->get_logger(), "ah_dashboard online — executor spinning (Task_15), ROS_DOMAIN_ID=%u",
+                static_cast<unsigned>(ros_domain_id_));
     executor_->spin();
     RCLCPP_INFO(node_->get_logger(), "ah_dashboard executor stopped");
   });
 }
 
-AhRosBridge::~AhRosBridge()
-{
+AhRosBridge::~AhRosBridge() {
   if (executor_) {
     executor_->cancel();
   }
@@ -38,4 +41,15 @@ AhRosBridge::~AhRosBridge()
   if (rclcpp::ok()) {
     rclcpp::shutdown();
   }
+}
+
+std::uint8_t AhRosBridge::SanitizeDomainId(std::uint8_t ros_domain_id) {
+  if (ros_domain_id > MaxRosDomainId) {
+    // Before rclcpp::init — log without the ROS logging system.
+    std::cerr << "AhRosBridge: invalid ROS domain id " << static_cast<int>(ros_domain_id)
+              << " (valid range 0–" << static_cast<int>(MaxRosDomainId) << "); using default "
+              << static_cast<int>(DefaultRosDomainId) << '\n';
+    return DefaultRosDomainId;
+  }
+  return ros_domain_id;
 }

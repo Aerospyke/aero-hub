@@ -1,24 +1,24 @@
 #include <QGuiApplication>
-#include <QQmlComponent>
 #include <QQmlApplicationEngine>
+#include <QQmlComponent>
 #include <QQmlContext>
 
 #include "ah_ros_bridge.h"
+#include "ah_settings.h"
 #include "animation.h"
 #include "jsb_settings_tree_model.h"
 #include "primary_flight_data.h"
 
-static const char* DebugSettingsFilePath = "./aerohub_settings.ini";
-
 int main(int argc, char* argv[]) {
   Q_INIT_RESOURCE(QmlFlightInstruments);
 
+  // Shared project-root INI; domain id is passed into the ROS bridge (not via env).
+  AhSettings app_settings;
+
   // ROS joins the graph on a background thread; Qt keeps the main loop.
-  // Prefer: conda activate ros_env; ROS_DOMAIN_ID=42; RMW_IMPLEMENTATION=rmw_fastrtps_cpp
-  const AhRosBridge ros_bridge(argc, argv);
+  const AhRosBridge RosBridge(app_settings.RosDomainId());
 
   const QGuiApplication Application(argc, argv);
-  auto* settings = new QSettings(DebugSettingsFilePath, QSettings::IniFormat);
 
   QQmlApplicationEngine engine;
 
@@ -37,8 +37,9 @@ int main(int argc, char* argv[]) {
   QObject::connect(
       &engine, &QQmlApplicationEngine::objectCreated, &Application,
       [RootUrl](const QObject* object, const QUrl& object_url) {
-        if (!object && RootUrl == object_url)
+        if (!object && RootUrl == object_url) {
           QCoreApplication::exit(-1);
+        }
       },
       Qt::QueuedConnection);
 
@@ -46,12 +47,12 @@ int main(int argc, char* argv[]) {
   auto* animation = new Animation;
   animation->setPfd(flight_telemetry);
 
-  auto* jsbSettingsModel = new JsbSettingsTreeModel(settings, &engine);
+  auto* jsb_settings_model = new JsbSettingsTreeModel(&app_settings.Settings(), &engine);
   engine.rootContext()->setContextProperty("flight_telemetry", flight_telemetry);
-  engine.rootContext()->setContextProperty("jsbSettingsModel", jsbSettingsModel);
+  engine.rootContext()->setContextProperty("jsbSettingsModel", jsb_settings_model);
   engine.load(RootUrl);
 
   animation->init();
 
-  return Application.exec();
+  return QGuiApplication::exec();
 }

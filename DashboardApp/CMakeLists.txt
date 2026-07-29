@@ -21,12 +21,14 @@ set(APPLICATION_SOURCE_FILES
         src/cpp/animation.cpp
         src/cpp/jsb_settings_tree_model.cpp
         src/cpp/ah_ros_bridge.cpp
+        src/cpp/ah_settings.cpp
 )
 
 set(APPLICATION_HEADER_FILES
         src/include/animation.h
         src/include/jsb_settings_tree_model.h
         src/include/ah_ros_bridge.h
+        src/include/ah_settings.h
 )
 
 set(APPLICATION_INCLUDE_DIRECTORIES
