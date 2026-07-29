@@ -6,12 +6,114 @@ import QtQuick.Controls 2.15
 Item {
   id: root
 
+  readonly property color chromeBg: "#0d1620"
+  readonly property color chromePanel: "#152030"
+  readonly property color chromeBorder: "#243140"
+  readonly property color chromeText: "#8a96a5"
+  readonly property color chromeTextBright: "#e8eef5"
+  readonly property color chromeInput: "#0a1018"
+
+  // Dark SpinBox used for normalized bbox fields (0.00–1.00 shown, stored as 0–100).
+  component DarkSpinBox: SpinBox {
+    id: control
+    from: 0
+    to: 100
+    stepSize: 1
+    editable: true
+    font.pixelSize: 13
+    implicitWidth: 100
+    implicitHeight: 32
+
+    textFromValue: function (v) { return (v / 100).toFixed(2) }
+    valueFromText: function (t) {
+      const n = parseFloat(t)
+      return isNaN(n) ? 0 : Math.round(Math.min(1, Math.max(0, n)) * 100)
+    }
+
+    contentItem: TextInput {
+      z: 2
+      text: control.displayText
+      font: control.font
+      color: root.chromeTextBright
+      selectionColor: "#3d9eff"
+      selectedTextColor: "#0d1620"
+      horizontalAlignment: Qt.AlignHCenter
+      verticalAlignment: Qt.AlignVCenter
+      readOnly: !control.editable
+      validator: control.validator
+      inputMethodHints: Qt.ImhFormattedNumbersOnly
+    }
+
+    up.indicator: Rectangle {
+      x: control.mirrored ? 0 : parent.width - width
+      height: parent.height
+      implicitWidth: 28
+      implicitHeight: 32
+      color: control.up.pressed ? "#243140" : root.chromePanel
+      border.color: root.chromeBorder
+      Text {
+        anchors.centerIn: parent
+        text: "+"
+        color: control.up.enabled ? root.chromeTextBright : "#5a6572"
+        font.pixelSize: 14
+      }
+    }
+
+    down.indicator: Rectangle {
+      x: control.mirrored ? parent.width - width : 0
+      height: parent.height
+      implicitWidth: 28
+      implicitHeight: 32
+      color: control.down.pressed ? "#243140" : root.chromePanel
+      border.color: root.chromeBorder
+      Text {
+        anchors.centerIn: parent
+        text: "−"
+        color: control.down.enabled ? root.chromeTextBright : "#5a6572"
+        font.pixelSize: 14
+      }
+    }
+
+    background: Rectangle {
+      implicitWidth: 100
+      implicitHeight: 32
+      radius: 4
+      color: root.chromeInput
+      border.color: root.chromeBorder
+      border.width: 1
+    }
+  }
+
+  component DarkButton: Button {
+    id: btn
+    property color face: "#1e5c32"
+    property color faceDown: "#2a6b3a"
+    property color edge: "#3d8f55"
+    font.bold: true
+    font.pixelSize: 13
+    implicitHeight: 34
+    implicitWidth: 96
+    contentItem: Text {
+      text: btn.text
+      font: btn.font
+      color: btn.enabled ? root.chromeTextBright : "#5a6572"
+      horizontalAlignment: Text.AlignHCenter
+      verticalAlignment: Text.AlignVCenter
+    }
+    background: Rectangle {
+      radius: 4
+      color: !btn.enabled ? "#1a2430" : (btn.down ? btn.faceDown : btn.face)
+      border.color: btn.enabled ? btn.edge : root.chromeBorder
+      border.width: 1
+    }
+  }
+
   Rectangle {
     anchors.fill: parent
     anchors.margins: 16
     radius: 8
-    color: "#0d1620"
-    border.color: "#243140"
+    color: root.chromeBg
+    border.color: root.chromeBorder
     border.width: 1
 
     ColumnLayout {
@@ -22,7 +124,7 @@ Item {
       Text {
         Layout.alignment: Qt.AlignHCenter
         text: "Control"
-        color: "#c8d1dc"
+        color: root.chromeTextBright
         font.pixelSize: 28
         font.bold: true
       }
@@ -30,18 +132,18 @@ Item {
       Text {
         Layout.alignment: Qt.AlignHCenter
         text: systemStatus.connected ? "ROS status: live" : "ROS status: waiting for /ah/system/status…"
-        color: systemStatus.connected ? "#6bcf7f" : "#8a96a5"
+        color: systemStatus.connected ? "#6bcf7f" : root.chromeText
         font.pixelSize: 14
       }
 
       // --- Tracking commands ---
       Rectangle {
         Layout.alignment: Qt.AlignHCenter
-        Layout.preferredWidth: Math.min(parent.width - 48, 560)
+        Layout.preferredWidth: Math.min(parent.width - 48, 580)
         Layout.preferredHeight: trackCol.implicitHeight + 28
         radius: 6
-        color: "#152030"
-        border.color: "#243140"
+        color: root.chromePanel
+        border.color: root.chromeBorder
         border.width: 1
 
         ColumnLayout {
@@ -50,11 +152,11 @@ Item {
           anchors.right: parent.right
           anchors.top: parent.top
           anchors.margins: 14
-          spacing: 10
+          spacing: 12
 
           Text {
             text: "Tracking"
-            color: "#c8d1dc"
+            color: root.chromeTextBright
             font.pixelSize: 16
             font.bold: true
           }
@@ -62,157 +164,103 @@ Item {
           Text {
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
-            text: "BBox is normalized [0,1] (interface map). Drag on Ops → Video, or edit fields below."
-            color: "#8a96a5"
+            text: "BBox is normalized [0,1]. Drag on Ops → Video, or edit fields (shown as 0.00–1.00)."
+            color: root.chromeText
             font.pixelSize: 12
           }
 
           GridLayout {
             Layout.fillWidth: true
             columns: 4
-            columnSpacing: 10
-            rowSpacing: 6
+            columnSpacing: 12
+            rowSpacing: 4
 
-            component BboxSpin: ColumnLayout {
-              property string labelText: ""
-              property alias spin: spin
-              spacing: 2
-              Text {
-                text: labelText
-                color: "#8a96a5"
-                font.pixelSize: 11
-              }
-              SpinBox {
-                id: spin
-                from: 0
-                to: 100
-                stepSize: 1
-                editable: true
-                Layout.preferredWidth: 96
-                // display as 0.00–1.00
-                textFromValue: function (v) { return (v / 100).toFixed(2) }
-                valueFromText: function (t) {
-                  const n = parseFloat(t)
-                  return isNaN(n) ? 0 : Math.round(n * 100)
-                }
-              }
-            }
+            Text { text: "x"; color: root.chromeText; font.pixelSize: 11 }
+            Text { text: "y"; color: root.chromeText; font.pixelSize: 11 }
+            Text { text: "width"; color: root.chromeText; font.pixelSize: 11 }
+            Text { text: "height"; color: root.chromeText; font.pixelSize: 11 }
 
-            BboxSpin {
-              id: fieldX
-              labelText: "x"
-              spin.value: Math.round(trackController.bboxX * 100)
-              spin.onValueModified: trackController.bboxX = spin.value / 100
+            // Values are 0–100 internally; display maps to 0.00–1.00.
+            // Only push controller → spin from drag (Connections). User edits use onValueModified.
+            DarkSpinBox {
+              id: spinX
+              value: 35
+              onValueModified: trackController.bboxX = value / 100.0
             }
-            BboxSpin {
-              id: fieldY
-              labelText: "y"
-              spin.value: Math.round(trackController.bboxY * 100)
-              spin.onValueModified: trackController.bboxY = spin.value / 100
+            DarkSpinBox {
+              id: spinY
+              value: 35
+              onValueModified: trackController.bboxY = value / 100.0
             }
-            BboxSpin {
-              id: fieldW
-              labelText: "width"
-              spin.from: 1
-              spin.value: Math.round(trackController.bboxWidth * 100)
-              spin.onValueModified: trackController.bboxWidth = spin.value / 100
+            DarkSpinBox {
+              id: spinW
+              from: 1
+              value: 30
+              onValueModified: trackController.bboxWidth = value / 100.0
             }
-            BboxSpin {
-              id: fieldH
-              labelText: "height"
-              spin.from: 1
-              spin.value: Math.round(trackController.bboxHeight * 100)
-              spin.onValueModified: trackController.bboxHeight = spin.value / 100
+            DarkSpinBox {
+              id: spinH
+              from: 1
+              value: 30
+              onValueModified: trackController.bboxHeight = value / 100.0
             }
           }
 
+          // Keep spins aligned when bbox changes from video drag / ResetBbox.
+          // (No property binding on spin.value — avoids binding loops with onValueModified.)
           Connections {
             target: trackController
             function onBboxChanged() {
-              fieldX.spin.value = Math.round(trackController.bboxX * 100)
-              fieldY.spin.value = Math.round(trackController.bboxY * 100)
-              fieldW.spin.value = Math.round(trackController.bboxWidth * 100)
-              fieldH.spin.value = Math.round(trackController.bboxHeight * 100)
+              spinX.value = Math.round(trackController.bboxX * 100)
+              spinY.value = Math.round(trackController.bboxY * 100)
+              spinW.value = Math.round(trackController.bboxWidth * 100)
+              spinH.value = Math.round(trackController.bboxHeight * 100)
             }
+          }
+
+          Component.onCompleted: {
+            spinX.value = Math.round(trackController.bboxX * 100)
+            spinY.value = Math.round(trackController.bboxY * 100)
+            spinW.value = Math.round(trackController.bboxWidth * 100)
+            spinH.value = Math.round(trackController.bboxHeight * 100)
           }
 
           RowLayout {
             Layout.fillWidth: true
             spacing: 10
 
-            Button {
+            DarkButton {
               text: "Start"
               enabled: !trackController.busy
+              face: "#1e5c32"
+              faceDown: "#2a6b3a"
+              edge: "#3d8f55"
               onClicked: trackController.StartTracking()
-              background: Rectangle {
-                implicitHeight: 34
-                implicitWidth: 88
-                radius: 4
-                color: parent.down ? "#2a6b3a" : (parent.enabled ? "#1e5c32" : "#1a2430")
-                border.color: "#3d8f55"
-                border.width: 1
-              }
-              contentItem: Text {
-                text: parent.text
-                color: parent.enabled ? "#e8eef5" : "#5a6572"
-                horizontalAlignment: Text.AlignHCenter
-                verticalAlignment: Text.AlignVCenter
-                font.bold: true
-              }
             }
-
-            Button {
+            DarkButton {
               text: "Stop"
               enabled: !trackController.busy
+              face: "#5c4a1e"
+              faceDown: "#6b5a20"
+              edge: "#e6c35c"
               onClicked: trackController.StopTracking()
-              background: Rectangle {
-                implicitHeight: 34
-                implicitWidth: 88
-                radius: 4
-                color: parent.down ? "#6b5a20" : (parent.enabled ? "#5c4a1e" : "#1a2430")
-                border.color: "#e6c35c"
-                border.width: 1
-              }
-              contentItem: Text {
-                text: parent.text
-                color: parent.enabled ? "#e8eef5" : "#5a6572"
-                horizontalAlignment: Text.AlignHCenter
-                verticalAlignment: Text.AlignVCenter
-                font.bold: true
-              }
             }
-
-            Button {
+            DarkButton {
               text: "Cancel"
               enabled: !trackController.busy
+              face: "#5c1e1e"
+              faceDown: "#6b2a2a"
+              edge: "#e07a7a"
               onClicked: trackController.CancelTracking()
-              background: Rectangle {
-                implicitHeight: 34
-                implicitWidth: 88
-                radius: 4
-                color: parent.down ? "#6b2a2a" : (parent.enabled ? "#5c1e1e" : "#1a2430")
-                border.color: "#e07a7a"
-                border.width: 1
-              }
-              contentItem: Text {
-                text: parent.text
-                color: parent.enabled ? "#e8eef5" : "#5a6572"
-                horizontalAlignment: Text.AlignHCenter
-                verticalAlignment: Text.AlignVCenter
-                font.bold: true
-              }
             }
-
-            Button {
+            DarkButton {
               text: "Reset box"
               enabled: !trackController.busy
+              face: "#1a2430"
+              faceDown: "#243140"
+              edge: root.chromeBorder
+              font.bold: false
               onClicked: trackController.ResetBbox()
-              flat: true
-              contentItem: Text {
-                text: parent.text
-                color: "#8a96a5"
-                font.pixelSize: 12
-              }
             }
 
             Item { Layout.fillWidth: true }
@@ -231,17 +279,17 @@ Item {
       // --- Status detail ---
       GridLayout {
         Layout.alignment: Qt.AlignHCenter
-        Layout.preferredWidth: Math.min(parent.width - 48, 560)
+        Layout.preferredWidth: Math.min(parent.width - 48, 580)
         columns: 2
         columnSpacing: 24
         rowSpacing: 10
 
         component StatusLabel: Text {
-          color: "#8a96a5"
+          color: root.chromeText
           font.pixelSize: 15
         }
         component StatusValue: Text {
-          color: "#e8eef5"
+          color: root.chromeTextBright
           font.pixelSize: 15
           font.bold: true
           Layout.fillWidth: true
@@ -250,7 +298,7 @@ Item {
         StatusLabel { text: "tracking_started" }
         StatusValue {
           text: systemStatus.trackingStarted ? "true" : "false"
-          color: systemStatus.trackingStarted ? "#6bcf7f" : "#e8eef5"
+          color: systemStatus.trackingStarted ? "#6bcf7f" : root.chromeTextBright
         }
 
         StatusLabel { text: "video_status" }
@@ -263,7 +311,7 @@ Item {
               return "#e6c35c"
             if (systemStatus.videoStatus === "unavailable" || systemStatus.videoStatus === "unknown")
               return "#e07a7a"
-            return "#e8eef5"
+            return root.chromeTextBright
           }
         }
 

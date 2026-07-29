@@ -29,7 +29,7 @@ void AhTrackController::SetBboxX(float value) {
     return;
   }
   bbox_x_ = value;
-  emit BboxChanged();
+  emit bboxChanged();
 }
 
 void AhTrackController::SetBboxY(float value) {
@@ -37,7 +37,7 @@ void AhTrackController::SetBboxY(float value) {
     return;
   }
   bbox_y_ = value;
-  emit BboxChanged();
+  emit bboxChanged();
 }
 
 void AhTrackController::SetBboxWidth(float value) {
@@ -45,7 +45,7 @@ void AhTrackController::SetBboxWidth(float value) {
     return;
   }
   bbox_width_ = value;
-  emit BboxChanged();
+  emit bboxChanged();
 }
 
 void AhTrackController::SetBboxHeight(float value) {
@@ -53,7 +53,7 @@ void AhTrackController::SetBboxHeight(float value) {
     return;
   }
   bbox_height_ = value;
-  emit BboxChanged();
+  emit bboxChanged();
 }
 
 void AhTrackController::ResetBbox() {
@@ -61,7 +61,7 @@ void AhTrackController::ResetBbox() {
   bbox_y_ = 0.35f;
   bbox_width_ = 0.30f;
   bbox_height_ = 0.30f;
-  emit BboxChanged();
+  emit bboxChanged();
 }
 
 void AhTrackController::SetBusy(bool busy) {

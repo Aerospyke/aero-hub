@@ -4,6 +4,7 @@
 #include <QQmlApplicationEngine>
 #include <QQmlComponent>
 #include <QQmlContext>
+#include <QQuickStyle>
 #include <QString>
 #include <QtGlobal>
 
@@ -21,6 +22,10 @@
 #include "primary_flight_data.h"
 
 int main(int argc, char* argv[]) {
+  // macOS "native" style forbids customizing SpinBox/Button backgrounds &
+  // indicators. Use a style that allows full QML chrome (Basic/Fusion/Material).
+  QQuickStyle::setStyle(QStringLiteral("Basic"));
+
   Q_INIT_RESOURCE(QmlFlightInstruments);
 
   AhSettings app_settings;

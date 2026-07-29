@@ -16,10 +16,11 @@ class AhTrackController final : public QObject {
   Q_PROPERTY(bool busy READ Busy NOTIFY BusyChanged)
   Q_PROPERTY(QString lastMessage READ LastMessage NOTIFY LastMessageChanged)
   Q_PROPERTY(bool lastSuccess READ LastSuccess NOTIFY LastSuccessChanged)
-  Q_PROPERTY(float bboxX READ BboxX WRITE SetBboxX NOTIFY BboxChanged)
-  Q_PROPERTY(float bboxY READ BboxY WRITE SetBboxY NOTIFY BboxChanged)
-  Q_PROPERTY(float bboxWidth READ BboxWidth WRITE SetBboxWidth NOTIFY BboxChanged)
-  Q_PROPERTY(float bboxHeight READ BboxHeight WRITE SetBboxHeight NOTIFY BboxChanged)
+  // NOTIFY names are camelCase so QML Connections (onBboxChanged) resolve correctly.
+  Q_PROPERTY(float bboxX READ BboxX WRITE SetBboxX NOTIFY bboxChanged)
+  Q_PROPERTY(float bboxY READ BboxY WRITE SetBboxY NOTIFY bboxChanged)
+  Q_PROPERTY(float bboxWidth READ BboxWidth WRITE SetBboxWidth NOTIFY bboxChanged)
+  Q_PROPERTY(float bboxHeight READ BboxHeight WRITE SetBboxHeight NOTIFY bboxChanged)
 
  public:
   explicit AhTrackController(rclcpp::Node::SharedPtr node, QObject* parent = nullptr);
@@ -51,7 +52,7 @@ class AhTrackController final : public QObject {
   void BusyChanged();
   void LastMessageChanged();
   void LastSuccessChanged();
-  void BboxChanged();
+  void bboxChanged();
   void CommandFinished(bool success, const QString& message);
 
  private:
