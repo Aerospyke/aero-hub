@@ -10,7 +10,7 @@ using namespace std::chrono_literals;
 
 namespace {
 
-bool IsNormalizedTrackingBoundingBox(float x, float y, float width, float height) {
+bool IsTrackingBoundingBoxNormalized(float x, float y, float width, float height) {
   return x >= 0.0f && y >= 0.0f && width > 0.0f && height > 0.0f && x <= 1.0f && y <= 1.0f &&
          width <= 1.0f && height <= 1.0f && (x + width) <= 1.0001f && (y + height) <= 1.0001f;
 }
@@ -98,7 +98,7 @@ void AhTrackController::StartTracking() {
   if (busy_) {
     return;
   }
-  if (!IsNormalizedTrackingBoundingBox(tracking_bounding_box_x_, tracking_bounding_box_y_,
+  if (!IsTrackingBoundingBoxNormalized(tracking_bounding_box_x_, tracking_bounding_box_y_,
                                        tracking_bounding_box_width_, tracking_bounding_box_height_)) {
     SetResult(false, QStringLiteral(
                          "Tracking bounding box must be normalized in [0,1] with positive size"));

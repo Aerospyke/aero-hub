@@ -103,7 +103,7 @@ cv::Mat CreateSyntheticImage(const int frame_id, bool tracking_started)
   return frame;
 }
 
-bool IsNormalizedTrackingBoundingBox(float x, float y, float width, float height)
+bool IsTrackingBoundingBoxNormalized(float x, float y, float width, float height)
 {
   return x >= 0.0f && y >= 0.0f && width > 0.0f && height > 0.0f &&
          x <= 1.0f && y <= 1.0f && width <= 1.0f && height <= 1.0f &&
@@ -187,7 +187,7 @@ private:
     const std::shared_ptr<ah_msgs::srv::StartTracking::Request> request,
     std::shared_ptr<ah_msgs::srv::StartTracking::Response> response)
   {
-    if (!IsNormalizedTrackingBoundingBox(request->x, request->y, request->width, request->height)) {
+    if (!IsTrackingBoundingBoxNormalized(request->x, request->y, request->width, request->height)) {
       response->success = false;
       response->message =
         "tracking bounding box must be normalized in [0,1] with positive width/height (interface map §4)";
