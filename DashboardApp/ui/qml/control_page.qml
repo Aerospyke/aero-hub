@@ -183,23 +183,23 @@ Item {
             // Values are 0–100 internally; display maps to 0.00–1.00.
             // Only push controller → spin from drag (Connections). User edits use onValueModified.
             DarkSpinBox {
-              id: spinX
+              id: spinBoxX
               value: 35
               onValueModified: trackController.trackingBoundingBoxX = value / 100.0
             }
             DarkSpinBox {
-              id: spinY
+              id: spinBoxY
               value: 35
               onValueModified: trackController.trackingBoundingBoxY = value / 100.0
             }
             DarkSpinBox {
-              id: spinW
+              id: spinBoxWidth
               from: 1
               value: 30
               onValueModified: trackController.trackingBoundingBoxWidth = value / 100.0
             }
             DarkSpinBox {
-              id: spinH
+              id: spinBoxHeight
               from: 1
               value: 30
               onValueModified: trackController.trackingBoundingBoxHeight = value / 100.0
@@ -211,18 +211,18 @@ Item {
           Connections {
             target: trackController
             function onTrackingBoundingBoxChanged() {
-              spinX.value = Math.round(trackController.trackingBoundingBoxX * 100)
-              spinY.value = Math.round(trackController.trackingBoundingBoxY * 100)
-              spinW.value = Math.round(trackController.trackingBoundingBoxWidth * 100)
-              spinH.value = Math.round(trackController.trackingBoundingBoxHeight * 100)
+              spinBoxX.value = Math.round(trackController.trackingBoundingBoxX * 100)
+              spinBoxY.value = Math.round(trackController.trackingBoundingBoxY * 100)
+              spinBoxWidth.value = Math.round(trackController.trackingBoundingBoxWidth * 100)
+              spinBoxHeight.value = Math.round(trackController.trackingBoundingBoxHeight * 100)
             }
           }
 
           Component.onCompleted: {
-            spinX.value = Math.round(trackController.trackingBoundingBoxX * 100)
-            spinY.value = Math.round(trackController.trackingBoundingBoxY * 100)
-            spinW.value = Math.round(trackController.trackingBoundingBoxWidth * 100)
-            spinH.value = Math.round(trackController.trackingBoundingBoxHeight * 100)
+            spinBoxX.value = Math.round(trackController.trackingBoundingBoxX * 100)
+            spinBoxY.value = Math.round(trackController.trackingBoundingBoxY * 100)
+            spinBoxWidth.value = Math.round(trackController.trackingBoundingBoxWidth * 100)
+            spinBoxHeight.value = Math.round(trackController.trackingBoundingBoxHeight * 100)
           }
 
           RowLayout {
