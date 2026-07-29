@@ -1,7 +1,9 @@
+#include <QCoreApplication>
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlComponent>
 #include <QQmlContext>
+#include <QtGlobal>
 
 #include "ah_ros_bridge.h"
 #include "ah_settings.h"
@@ -16,7 +18,14 @@ int main(int argc, char* argv[]) {
   AhSettings app_settings;
 
   // ROS joins the graph on a background thread; Qt keeps the main loop.
-  const AhRosBridge RosBridge(app_settings.RosDomainId());
+  // When the executor stops (e.g. CLion Stop / SIGINT), quit Qt from here — not
+  // from AhRosBridge, which stays free of Qt.
+  const AhRosBridge RosBridge(app_settings.RosDomainId(), []() {
+    qInfo("ROS executor stopped; quitting application");
+    if (QCoreApplication::instance() != nullptr) {
+      QCoreApplication::quit();
+    }
+  });
 
   const QGuiApplication Application(argc, argv);
 

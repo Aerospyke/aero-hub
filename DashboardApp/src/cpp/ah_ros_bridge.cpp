@@ -1,10 +1,13 @@
 #include "ah_ros_bridge.h"
 
 #include <iostream>
+#include <utility>
 
 #include <rclcpp/init_options.hpp>
 
-AhRosBridge::AhRosBridge(std::uint8_t ros_domain_id) : ros_domain_id_(SanitizeDomainId(ros_domain_id)) {
+AhRosBridge::AhRosBridge(std::uint8_t ros_domain_id, ExecutorStoppedCallback on_executor_stopped)
+    : ros_domain_id_(SanitizeDomainId(ros_domain_id)),
+      on_executor_stopped_(std::move(on_executor_stopped)) {
   if (!rclcpp::ok()) {
     rclcpp::InitOptions init_options;
     init_options.set_domain_id(static_cast<size_t>(ros_domain_id_));
@@ -22,6 +25,10 @@ AhRosBridge::AhRosBridge(std::uint8_t ros_domain_id) : ros_domain_id_(SanitizeDo
                 static_cast<unsigned>(ros_domain_id_));
     executor_->spin();
     RCLCPP_INFO(node_->get_logger(), "ah_dashboard executor stopped");
+
+    if (on_executor_stopped_) {
+      on_executor_stopped_();
+    }
   });
 }
 
