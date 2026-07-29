@@ -14,7 +14,7 @@ macro(find_and_setup_qt)
             APPLICATION_SOURCE_FILES
             APPLICATION_HEADER_FILES
             APPLICATION_INCLUDE_DIRECTORIES
-            LINKED_LIBRARIES_INTERNAL
+            LINKED_LIBRARIES_NON_QT
             LINKED_LIBRARIES_QT
     )
 
@@ -56,7 +56,7 @@ macro(find_and_setup_qt)
             APPLICATION_SOURCE_FILES ${ARG_APPLICATION_SOURCE_FILES}
             APPLICATION_HEADER_FILES ${ARG_APPLICATION_HEADER_FILES}
             APPLICATION_INCLUDE_DIRECTORIES ${ARG_APPLICATION_INCLUDE_DIRECTORIES}
-            LINKED_LIBRARIES_INTERNAL ${ARG_LINKED_LIBRARIES_INTERNAL}
+            LINKED_LIBRARIES_NON_QT ${ARG_LINKED_LIBRARIES_NON_QT}
             LINKED_LIBRARIES_QT ${ARG_LINKED_LIBRARIES_QT}
     )
 endmacro()
@@ -75,7 +75,7 @@ function(setup_qt_application)
             APPLICATION_SOURCE_FILES
             APPLICATION_HEADER_FILES
             APPLICATION_INCLUDE_DIRECTORIES
-            LINKED_LIBRARIES_INTERNAL
+            LINKED_LIBRARIES_NON_QT
             LINKED_LIBRARIES_QT
     )
 
@@ -121,8 +121,8 @@ function(setup_qt_application)
         message(WARNING "APPLICATION_INCLUDE_DIRECTORIES not passed - using default: ${ARG_APPLICATION_INCLUDE_DIRECTORIES}")
     endif ()
 
-    if (NOT ARG_LINKED_LIBRARIES_INTERNAL)
-        message(STATUS "LINKED_LIBRARIES_INTERNAL not passed - assuming none")
+    if (NOT ARG_LINKED_LIBRARIES_NON_QT)
+        message(STATUS "LINKED_LIBRARIES_NON_QT not passed - assuming none")
     endif ()
 
     if (NOT ARG_LINKED_LIBRARIES_QT)
@@ -152,7 +152,7 @@ function(setup_qt_application)
 
     target_link_libraries(${ARG_APPLICATION_NAME} PRIVATE
             ${ARG_LINKED_LIBRARIES_QT}
-            ${ARG_LINKED_LIBRARIES_INTERNAL}
+            ${ARG_LINKED_LIBRARIES_NON_QT}
     )
 
     # Project Setup - Stop
