@@ -21,7 +21,8 @@ int main(int argc, char* argv[]) {
   // When the executor stops (e.g. CLion Stop / SIGINT), quit Qt from here — not
   // from AhRosBridge, which stays free of Qt.
   const AhRosBridge RosBridge(app_settings.RosDomainId(), []() {
-    qInfo("ROS executor stopped; quitting application");
+    // TODO: Tell the user that the ROS executor has stopped and give them the option to restart the ROS Bridge Node
+    qInfo("AeroHub ROS Node executor stopped; quitting application");
     if (QCoreApplication::instance() != nullptr) {
       QCoreApplication::quit();
     }
