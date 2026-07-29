@@ -15,30 +15,25 @@
 /// the UI event loop stays free. Does not depend on Qt.
 class AhRosBridge {
  public:
-  /// Invoked on the executor thread after spin() returns (e.g. SIGINT/SIGTERM).
   using ExecutorStoppedCallback = std::function<void()>;
-
-  /// Invoked on the executor thread for each `/ah/system/status` message (JSON string).
-  /// Marshal into the UI thread before touching Qt objects.
   using StatusJsonCallback = std::function<void(const std::string& json)>;
-
-  /// Invoked on the executor thread for each `/ah/video/compressed` JPEG payload.
-  /// Marshal into the UI thread before decoding / touching Qt objects.
   using VideoJpegCallback = std::function<void(std::vector<uint8_t> jpeg)>;
 
-  /// Optional hooks; all may be empty.
   struct Hooks {
     ExecutorStoppedCallback on_executor_stopped;
     StatusJsonCallback on_status_json;
     VideoJpegCallback on_video_jpeg;
   };
 
-  /// DDS domain id valid range is [0, MaxRosDomainId]. Out-of-range values log a
-  /// warning and fall back to DefaultRosDomainId; the object remains usable.
   static constexpr std::uint8_t DefaultRosDomainId = 42;
   static constexpr std::uint8_t MaxRosDomainId = 232;
 
-  explicit AhRosBridge(std::uint8_t ros_domain_id, Hooks hooks = {});
+  /// @param ros_domain_id DDS domain for this process.
+  /// @param ros_namespace Node namespace (empty = root). Topics use relative
+  ///        ah/... names so they become /{namespace}/ah/... when set.
+  /// @param hooks Optional status/video/stop callbacks.
+  explicit AhRosBridge(std::uint8_t ros_domain_id, std::string ros_namespace = {},
+                       Hooks hooks = {});
   ~AhRosBridge();
 
   AhRosBridge(const AhRosBridge&) = delete;
@@ -46,12 +41,15 @@ class AhRosBridge {
 
   [[nodiscard]] rclcpp::Node::SharedPtr Node() const { return node_; }
   [[nodiscard]] std::uint8_t RosDomainId() const { return ros_domain_id_; }
+  [[nodiscard]] const std::string& RosNamespace() const { return ros_namespace_; }
 
  private:
   [[nodiscard]] static std::uint8_t SanitizeDomainId(std::uint8_t ros_domain_id);
+  [[nodiscard]] static std::string SanitizeNamespace(std::string ros_namespace);
   void SetupSubscriptions();
 
   std::uint8_t ros_domain_id_;
+  std::string ros_namespace_;
   Hooks hooks_;
   rclcpp::Node::SharedPtr node_;
   rclcpp::Subscription<std_msgs::msg::String>::SharedPtr status_sub_;

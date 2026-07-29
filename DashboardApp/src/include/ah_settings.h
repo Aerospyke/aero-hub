@@ -31,6 +31,11 @@ class AhSettings final {
   /// value is applied.
   [[nodiscard]] std::uint8_t RosDomainId() const;
 
+  /// Value of [ROS]/namespace (empty = root). Used as the rclcpp node namespace
+  /// so topics resolve as /{namespace}/ah/... for multi-vehicle graphs.
+  /// Leading/trailing slashes are stripped.
+  [[nodiscard]] QString RosNamespace() const;
+
  private:
   static constexpr char SettingsFileName[] = "aerohub_settings.ini";
 

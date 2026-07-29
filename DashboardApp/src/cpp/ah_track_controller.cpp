@@ -1,5 +1,7 @@
 #include "ah_track_controller.h"
 
+#include "ah_ros_names.h"
+
 #include <QMetaObject>
 #include <QtGlobal>
 
@@ -19,9 +21,11 @@ bool IsTrackingBoundingBoxNormalized(float x, float y, float width, float height
 
 AhTrackController::AhTrackController(rclcpp::Node::SharedPtr node, QObject* parent)
     : QObject(parent), node_(std::move(node)) {
-  start_client_ = node_->create_client<ah_msgs::srv::StartTracking>("/ah/tracking/start");
-  stop_client_ = node_->create_client<std_srvs::srv::Trigger>("/ah/tracking/stop");
-  cancel_client_ = node_->create_client<std_srvs::srv::Trigger>("/ah/tracking/cancel");
+  // Relative names → same node namespace as status/video (multi-vehicle ready).
+  start_client_ =
+      node_->create_client<ah_msgs::srv::StartTracking>(ah_ros_names::TrackingStartService);
+  stop_client_ = node_->create_client<std_srvs::srv::Trigger>(ah_ros_names::TrackingStopService);
+  cancel_client_ = node_->create_client<std_srvs::srv::Trigger>(ah_ros_names::TrackingCancelService);
 }
 
 void AhTrackController::SetTrackingBoundingBoxX(float value) {

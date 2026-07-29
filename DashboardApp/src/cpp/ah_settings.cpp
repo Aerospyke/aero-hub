@@ -10,7 +10,9 @@
 // Keep in sync with aerohub_settings_template.ini
 const AhSettings::SettingDefault AhSettings::Defaults[] = {
     // [ROS]
-    {.key="ROS/domain_id", .value="42"},
+    {.key = "ROS/domain_id", .value = "42"},
+    // Empty = root graph (/ah/...). e.g. "uav1" → /uav1/ah/...
+    {.key = "ROS/namespace", .value = ""},
 
     // [JSBSim/command_line]
     {.key = "JSBSim/command_line/executable", .value = ""},
@@ -115,4 +117,20 @@ std::uint8_t AhSettings::RosDomainId() const {
     return DefaultRosDomainId;
   }
   return static_cast<std::uint8_t>(Value);
+}
+
+QString AhSettings::RosNamespace() const {
+  QString ns = settings_.value(QStringLiteral("ROS/namespace"), QString()).toString().trimmed();
+  while (ns.startsWith(QLatin1Char('/'))) {
+    ns.remove(0, 1);
+  }
+  while (ns.endsWith(QLatin1Char('/'))) {
+    ns.chop(1);
+  }
+  // Disallow empty path segments like "uav//1"
+  if (ns.contains(QLatin1String("//"))) {
+    qWarning("AhSettings: ROS/namespace contains empty segments; using root namespace");
+    return {};
+  }
+  return ns;
 }

@@ -69,11 +69,12 @@ ros2 run ah_core ah_core_node
 
 | Topic / service | Type | Notes |
 |-----------------|------|--------|
-| `/ah/system/status` | `std_msgs/String` (JSON) | ~10 Hz; `tracking_started` flips with services |
-| `/ah/video/compressed` | `sensor_msgs/CompressedImage` | Synthetic JPEG (color bars + bouncing box) ~10 Hz |
-| `/ah/tracking/start` | `ah_msgs/srv/StartTracking` | normalized tracking bounding box [0,1]; sets tracking on |
-| `/ah/tracking/stop` | `std_srvs/Trigger` | tracking off only |
-| `/ah/tracking/cancel` | `std_srvs/Trigger` | hard reset (tracking + segmentation flag) |
+| `ah/system/status` → `/[ns/]ah/system/status` | `std_msgs/String` (JSON) | ~10 Hz; relative name + node namespace |
+| `ah/video/compressed` | `sensor_msgs/CompressedImage` | Synthetic JPEG ~10 Hz |
+| `ah/tracking/start` | `ah_msgs/srv/StartTracking` | normalized tracking bounding box [0,1] |
+| `ah/tracking/stop` / `cancel` | `std_srvs/Trigger` | stop vs hard reset |
+
+**Namespace (multi-drone):** set `[ROS] namespace=` in `aerohub_settings.ini` (cwd) or `AERO_HUB_ROS_NAMESPACE`. Empty = root (`/ah/...`). Example `uav1` → `/uav1/ah/...`. Dashboard and core must match.
 
 ### 4. Verify (second shell)
 
@@ -82,6 +83,7 @@ docker exec -it ros2_dev /bin/bash
 source /opt/ros/jazzy/setup.bash
 source /aero-hub-ros/install/setup.bash
 
+# root namespace (default); if namespace=uav1 use /uav1/ah/...
 ros2 topic echo /ah/system/status
 ros2 topic echo /ah/video/compressed --no-arr
 
@@ -89,7 +91,6 @@ ros2 topic echo /ah/video/compressed --no-arr
 ros2 service list | grep tracking
 ros2 service call /ah/tracking/start ah_msgs/srv/StartTracking \
   "{x: 0.1, y: 0.1, width: 0.2, height: 0.2}"
-# → status JSON tracking_started: true
 ros2 service call /ah/tracking/stop std_srvs/srv/Trigger {}
 ros2 service call /ah/tracking/cancel std_srvs/srv/Trigger {}
 ```

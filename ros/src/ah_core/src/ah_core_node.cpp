@@ -114,8 +114,10 @@ bool IsTrackingBoundingBoxNormalized(float x, float y, float width, float height
 class AhCoreNode : public rclcpp::Node
 {
 public:
-  AhCoreNode()
-  : Node("ah_core")
+  // Relative names (no leading /) so node namespace prefixes them for multi-vehicle.
+  // Empty namespace → /ah/... ; namespace "uav1" → /uav1/ah/...
+  explicit AhCoreNode(const std::string & ros_namespace)
+  : Node("ah_core", ros_namespace)
   {
     rclcpp::QoS status_qos(rclcpp::KeepLast(1));
     status_qos.reliable();
@@ -124,20 +126,20 @@ public:
     rclcpp::QoS video_qos(rclcpp::KeepLast(1));
     video_qos.best_effort();
 
-    status_pub_ = create_publisher<std_msgs::msg::String>("/ah/system/status", status_qos);
+    status_pub_ = create_publisher<std_msgs::msg::String>("ah/system/status", status_qos);
     video_pub_ =
-      create_publisher<sensor_msgs::msg::CompressedImage>("/ah/video/compressed", video_qos);
+      create_publisher<sensor_msgs::msg::CompressedImage>("ah/video/compressed", video_qos);
 
     start_tracking_srv_ = create_service<ah_msgs::srv::StartTracking>(
-      "/ah/tracking/start",
+      "ah/tracking/start",
       std::bind(&AhCoreNode::OnStartTracking, this, std::placeholders::_1, std::placeholders::_2));
 
     stop_tracking_srv_ = create_service<std_srvs::srv::Trigger>(
-      "/ah/tracking/stop",
+      "ah/tracking/stop",
       std::bind(&AhCoreNode::OnStopTracking, this, std::placeholders::_1, std::placeholders::_2));
 
     cancel_tracking_srv_ = create_service<std_srvs::srv::Trigger>(
-      "/ah/tracking/cancel",
+      "ah/tracking/cancel",
       std::bind(&AhCoreNode::OnCancelTracking, this, std::placeholders::_1, std::placeholders::_2));
 
     const auto period = std::chrono::milliseconds(1000 / kPublishHz);
@@ -145,7 +147,8 @@ public:
 
     RCLCPP_INFO(
       get_logger(),
-      "ah_core stub: status + video @ %d Hz; services /ah/tracking/{start,stop,cancel}",
+      "ah_core stub: fqn=%s status+video @ %d Hz; services ah/tracking/{start,stop,cancel}",
+      get_fully_qualified_name(),
       kPublishHz);
   }
 
@@ -256,14 +259,42 @@ private:
 
 namespace
 {
-// Same Qt-style INI as aero-hub/aerohub_settings.ini (see aerohub_settings_template.ini):
-// [ROS] domain_id=N. Env ROS_DOMAIN_ID wins if already set (Docker --env). Else read file.
-void ApplyRosDomainFromSettings()
+struct RosRuntimeSettings
 {
+  std::string ros_namespace;  // empty = root
+};
+
+std::string SanitizeNamespace(std::string ns)
+{
+  while (!ns.empty() && (ns.front() == '/' || ns.front() == ' ' || ns.front() == '\t')) {
+    ns.erase(ns.begin());
+  }
+  while (!ns.empty() && (ns.back() == '/' || ns.back() == ' ' || ns.back() == '\t')) {
+    ns.pop_back();
+  }
+  if (ns.find("//") != std::string::npos) {
+    return {};
+  }
+  return ns;
+}
+
+// Same Qt-style INI as aero-hub/aerohub_settings.ini:
+// [ROS] domain_id=N, namespace=...
+// Env ROS_DOMAIN_ID wins over file for domain. Namespace: env AERO_HUB_ROS_NAMESPACE or file.
+RosRuntimeSettings LoadRosRuntimeSettings()
+{
+  RosRuntimeSettings out;
+
   if (const char * existing = std::getenv("ROS_DOMAIN_ID");
-    existing != nullptr && existing[0] != '\0')
+    existing == nullptr || existing[0] == '\0')
   {
-    return;
+    // domain from file only if env unset
+  }
+
+  if (const char * ns_env = std::getenv("AERO_HUB_ROS_NAMESPACE");
+    ns_env != nullptr)
+  {
+    out.ros_namespace = SanitizeNamespace(ns_env);
   }
 
   const char * candidates[] = {
@@ -271,8 +302,12 @@ void ApplyRosDomainFromSettings()
     "aerohub_settings.ini",
     "../aerohub_settings.ini",
     "../../aerohub_settings.ini",
-    "/aero-hub/aerohub_settings.ini",  // optional full-repo mount
+    "/aero-hub/aerohub_settings.ini",
   };
+
+  bool domain_from_env = (std::getenv("ROS_DOMAIN_ID") != nullptr &&
+    std::getenv("ROS_DOMAIN_ID")[0] != '\0');
+  bool namespace_from_env = (std::getenv("AERO_HUB_ROS_NAMESPACE") != nullptr);
 
   for (const char * path : candidates) {
     if (path == nullptr || path[0] == '\0') {
@@ -304,20 +339,24 @@ void ApplyRosDomainFromSettings()
       }
       const std::string key = line.substr(0, eq);
       std::string val = line.substr(eq + 1);
-      if (key == "domain_id" && !val.empty()) {
+      if (key == "domain_id" && !val.empty() && !domain_from_env) {
         setenv("ROS_DOMAIN_ID", val.c_str(), 1);
-        return;
+      }
+      if (key == "namespace" && !namespace_from_env) {
+        out.ros_namespace = SanitizeNamespace(val);
       }
     }
+    break;  // first readable settings file wins
   }
+  return out;
 }
 }  // namespace
 
 int main(int argc, char ** argv)
 {
-  ApplyRosDomainFromSettings();
+  const RosRuntimeSettings runtime = LoadRosRuntimeSettings();
   rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<AhCoreNode>());
+  rclcpp::spin(std::make_shared<AhCoreNode>(runtime.ros_namespace));
   rclcpp::shutdown();
   return 0;
 }

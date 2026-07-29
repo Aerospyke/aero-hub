@@ -61,7 +61,8 @@ int main(int argc, char* argv[]) {
         Qt::QueuedConnection);
   };
 
-  const AhRosBridge RosBridge(app_settings.RosDomainId(), std::move(hooks));
+  const AhRosBridge RosBridge(app_settings.RosDomainId(),
+                              app_settings.RosNamespace().toStdString(), std::move(hooks));
   auto* track_controller = new AhTrackController(RosBridge.Node(), QCoreApplication::instance());
 
   QQmlApplicationEngine engine;
