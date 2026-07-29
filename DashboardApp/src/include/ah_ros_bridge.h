@@ -3,17 +3,22 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <string>
 #include <thread>
 
 #include "rclcpp/rclcpp.hpp"
+#include "std_msgs/msg/string.hpp"
 
 /// Hosts the ah_dashboard rclcpp node and spins it on a background thread so
-/// the Qt event loop stays free. Task_15: appear on the ROS graph.
-/// Task_16+: subscribe /ah/system/status and marshal into Qt/QML.
+/// the UI event loop stays free. Does not depend on Qt.
 class AhRosBridge {
  public:
   /// Invoked on the executor thread after spin() returns (e.g. SIGINT/SIGTERM).
   using ExecutorStoppedCallback = std::function<void()>;
+
+  /// Invoked on the executor thread for each `/ah/system/status` message (JSON string).
+  /// Marshal into the UI thread before touching Qt objects.
+  using StatusJsonCallback = std::function<void(const std::string& json)>;
 
   /// DDS domain id valid range is [0, MaxRosDomainId]. Out-of-range values log a
   /// warning and fall back to DefaultRosDomainId; the object remains usable.
@@ -21,10 +26,10 @@ class AhRosBridge {
   static constexpr std::uint8_t MaxRosDomainId = 232;
 
   /// @param ros_domain_id DDS domain for this process.
-  /// @param on_executor_stopped Optional hook when the background spin ends
-  ///        (does not know about Qt; the app decides what to do).
-  explicit AhRosBridge(std::uint8_t ros_domain_id,
-                       ExecutorStoppedCallback on_executor_stopped = {});
+  /// @param on_executor_stopped Optional hook when the background spin ends.
+  /// @param on_status_json Optional hook for `/ah/system/status` payloads.
+  explicit AhRosBridge(std::uint8_t ros_domain_id, ExecutorStoppedCallback on_executor_stopped = {},
+                       StatusJsonCallback on_status_json = {});
   ~AhRosBridge();
 
   AhRosBridge(const AhRosBridge&) = delete;
@@ -35,10 +40,13 @@ class AhRosBridge {
 
  private:
   [[nodiscard]] static std::uint8_t SanitizeDomainId(std::uint8_t ros_domain_id);
+  void SetupStatusSubscription();
 
   std::uint8_t ros_domain_id_;
   ExecutorStoppedCallback on_executor_stopped_;
+  StatusJsonCallback on_status_json_;
   rclcpp::Node::SharedPtr node_;
+  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr status_sub_;
   std::shared_ptr<rclcpp::executors::SingleThreadedExecutor> executor_;
   std::thread spin_thread_;
 };

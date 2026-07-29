@@ -27,7 +27,7 @@ constexpr int kFrameHeight = 480;
 constexpr int kJpegQuality = 80;
 constexpr int kPublishHz = 10;
 
-std::string make_status_json(double stamp_sec, const char * video_status)
+std::string CreateStatusJson(double stamp_sec, const char * video_status)
 {
   std::ostringstream oss;
   oss.setf(std::ios::fixed);
@@ -46,7 +46,7 @@ std::string make_status_json(double stamp_sec, const char * video_status)
 }
 
 // Simple synthetic pattern: dark background, color bar strip, bouncing box, frame id.
-cv::Mat make_synthetic_bgr(int frame_id)
+cv::Mat CreateSyntheticImage(const int frame_id)
 {
   cv::Mat frame(kFrameHeight, kFrameWidth, CV_8UC3, cv::Scalar(20, 24, 32));
 
@@ -129,11 +129,11 @@ private:
 
     // --- status ---
     std_msgs::msg::String status_msg;
-    status_msg.data = make_status_json(now.seconds(), "connected");
+    status_msg.data = CreateStatusJson(now.seconds(), "connected");
     status_pub_->publish(status_msg);
 
     // --- synthetic compressed video ---
-    cv::Mat bgr = make_synthetic_bgr(frame_id_);
+    cv::Mat bgr = CreateSyntheticImage(frame_id_);
     std::vector<int> params = {cv::IMWRITE_JPEG_QUALITY, kJpegQuality};
     std::vector<uint8_t> jpeg;
     if (!cv::imencode(".jpg", bgr, jpeg, params)) {

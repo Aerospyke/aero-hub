@@ -13,6 +13,7 @@
     <file alias="OpsDashboard.qml">qml/ops_dashboard.qml</file>
     <file alias="ControlPage.qml">qml/control_page.qml</file>
     <file alias="SettingsPage.qml">qml/settings_page.qml</file>
+    <file alias="StatusBar.qml">qml/status_bar.qml</file>
     <file alias="EnvironmentModelPanel.qml">qml/environment_model_panel.qml</file>
     <file alias="HubPanel.qml">qml/hub_panel.qml</file>
     <file alias="VisualizationPanel.qml">qml/visualization_panel.qml</file>

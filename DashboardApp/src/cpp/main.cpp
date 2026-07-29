@@ -3,10 +3,14 @@
 #include <QQmlApplicationEngine>
 #include <QQmlComponent>
 #include <QQmlContext>
+#include <QString>
 #include <QtGlobal>
+
+#include <string>
 
 #include "ah_ros_bridge.h"
 #include "ah_settings.h"
+#include "ah_system_status.h"
 #include "animation.h"
 #include "jsb_settings_tree_model.h"
 #include "primary_flight_data.h"
@@ -17,18 +21,30 @@ int main(int argc, char* argv[]) {
   // Shared project-root INI; domain id is passed into the ROS bridge (not via env).
   AhSettings app_settings;
 
+  // QObject model for QML; updated from ROS via queued ApplyJson.
+  auto* system_status = new AhSystemStatus();
+
   // ROS joins the graph on a background thread; Qt keeps the main loop.
-  // When the executor stops (e.g. CLion Stop / SIGINT), quit Qt from here — not
-  // from AhRosBridge, which stays free of Qt.
-  const AhRosBridge RosBridge(app_settings.RosDomainId(), []() {
-    // TODO: Tell the user that the ROS executor has stopped and give them the option to restart the ROS Bridge Node
-    qInfo("AeroHub ROS Node executor stopped; quitting application");
-    if (QCoreApplication::instance() != nullptr) {
-      QCoreApplication::quit();
-    }
-  });
+  // Bridge stays free of Qt: status JSON is marshalled onto the UI thread here.
+  const AhRosBridge RosBridge(
+      app_settings.RosDomainId(),
+      []() {
+        // TODO: option to restart the ROS bridge node without quitting the app
+        qInfo("AeroHub ROS Node executor stopped; quitting application");
+        if (QCoreApplication::instance() != nullptr) {
+          QCoreApplication::quit();
+        }
+      },
+      [system_status](const std::string& json) {
+        const QString payload = QString::fromStdString(json);
+        QMetaObject::invokeMethod(
+            system_status,
+            [system_status, payload]() { system_status->ApplyJson(payload); },
+            Qt::QueuedConnection);
+      });
 
   const QGuiApplication Application(argc, argv);
+  system_status->setParent(QCoreApplication::instance());
 
   QQmlApplicationEngine engine;
 
@@ -60,6 +76,7 @@ int main(int argc, char* argv[]) {
   auto* jsb_settings_model = new JsbSettingsTreeModel(&app_settings.Settings(), &engine);
   engine.rootContext()->setContextProperty("flight_telemetry", flight_telemetry);
   engine.rootContext()->setContextProperty("jsbSettingsModel", jsb_settings_model);
+  engine.rootContext()->setContextProperty("systemStatus", system_status);
   engine.load(RootUrl);
 
   animation->init();

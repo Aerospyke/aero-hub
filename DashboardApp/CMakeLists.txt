@@ -1,4 +1,5 @@
 find_package(rclcpp REQUIRED) # Required to use ROS/ROS node functionality
+find_package(std_msgs REQUIRED) # /ah/system/status is std_msgs/String (JSON)
 # RoboStack's rclcpp deps pull in *_rosidl_generator_py dylibs that reference
 # CPython symbols but do not link libpython. A pure C++ app must link Python
 # or dyld fails at launch with: symbol not found … '_PyExc_RuntimeError'.
@@ -22,6 +23,7 @@ set(APPLICATION_SOURCE_FILES
         src/cpp/jsb_settings_tree_model.cpp
         src/cpp/ah_ros_bridge.cpp
         src/cpp/ah_settings.cpp
+        src/cpp/ah_system_status.cpp
 )
 
 set(APPLICATION_HEADER_FILES
@@ -29,15 +31,17 @@ set(APPLICATION_HEADER_FILES
         src/include/jsb_settings_tree_model.h
         src/include/ah_ros_bridge.h
         src/include/ah_settings.h
+        src/include/ah_system_status.h
 )
 
 set(APPLICATION_INCLUDE_DIRECTORIES
         src/include)
 
-# RoboStack / plain CMake: rclcpp + CPython (for generator_py typesupport)
+# RoboStack / plain CMake: rclcpp + std_msgs + CPython (for generator_py typesupport)
 set(LINKED_LIBRARIES_NON_QT
         QmlFlightInstruments
         rclcpp::rclcpp
+        ${std_msgs_TARGETS}
         Python3::Python
 )
 

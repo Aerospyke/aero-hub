@@ -38,6 +38,10 @@ ApplicationWindow {
     }
   }
 
+  footer: StatusBar {
+    width: parent.width
+  }
+
   StackLayout {
     anchors.fill: parent
     currentIndex: modeBar.currentIndex
@@ -47,7 +51,7 @@ ApplicationWindow {
     }
 
     ControlPage {
-      // index 1 — stub control surface
+      // index 1 — control surface + detailed status
     }
 
     SettingsPage {
@@ -55,3 +59,4 @@ ApplicationWindow {
     }
   }
 }
+
