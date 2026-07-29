@@ -1,10 +1,53 @@
 #include "ah_system_status.h"
 
+#include <QDateTime>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QtGlobal>
 
-AhSystemStatus::AhSystemStatus(QObject* parent) : QObject(parent) {}
+AhSystemStatus::AhSystemStatus(QObject* parent) : QObject(parent) {
+  link_watchdog_.setInterval(250);
+  QObject::connect(&link_watchdog_, &QTimer::timeout, this, &AhSystemStatus::CheckLinkHealth);
+  link_watchdog_.start();
+}
+
+void AhSystemStatus::SetLinkState(const QString& state) {
+  if (link_state_ == state) {
+    return;
+  }
+  link_state_ = state;
+  emit LinkStateChanged();
+
+  QString message;
+  if (state == QLatin1String("live")) {
+    message = QStringLiteral("Connected to ah_core");
+  } else if (state == QLatin1String("lost")) {
+    message = QStringLiteral(
+        "Lost contact with ah_core — dashboard still running; will recover when status returns");
+  } else {
+    message = QStringLiteral("Waiting for ah_core (/ah/system/status) on this ROS domain…");
+  }
+  if (connection_message_ != message) {
+    connection_message_ = message;
+    emit ConnectionMessageChanged();
+  }
+
+  const bool connected = (state == QLatin1String("live"));
+  if (connected_ != connected) {
+    connected_ = connected;
+    emit ConnectedChanged();
+  }
+}
+
+void AhSystemStatus::CheckLinkHealth() {
+  if (!ever_connected_) {
+    return;
+  }
+  const qint64 now = QDateTime::currentMSecsSinceEpoch();
+  if (now - last_status_ms_ > LinkStaleTimeoutMs) {
+    SetLinkState(QStringLiteral("lost"));
+  }
+}
 
 void AhSystemStatus::ApplyJson(const QString& json) {
   const QJsonDocument doc = QJsonDocument::fromJson(json.toUtf8());
@@ -15,10 +58,9 @@ void AhSystemStatus::ApplyJson(const QString& json) {
 
   const QJsonObject obj = doc.object();
 
-  if (!connected_) {
-    connected_ = true;
-    emit ConnectedChanged();
-  }
+  last_status_ms_ = QDateTime::currentMSecsSinceEpoch();
+  ever_connected_ = true;
+  SetLinkState(QStringLiteral("live"));
 
   if (raw_json_ != json) {
     raw_json_ = json;

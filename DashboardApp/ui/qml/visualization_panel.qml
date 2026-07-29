@@ -27,10 +27,13 @@ Rectangle {
       }
 
       Text {
-        text: videoFeed.hasFrame
-              ? (videoFeed.frameWidth + "×" + videoFeed.frameHeight + "  #" + videoFeed.frameId)
-              : "waiting for /ah/video/compressed…"
-        color: videoFeed.hasFrame ? "#6bcf7f" : "#8a96a5"
+        text: !videoFeed.hasFrame
+              ? "waiting for /ah/video/compressed…"
+              : (videoFeed.frameLive
+                 ? (videoFeed.frameWidth + "×" + videoFeed.frameHeight + "  #" + videoFeed.frameId)
+                 : "STALE (no new frames — is ah_core running?)")
+        color: !videoFeed.hasFrame ? "#8a96a5"
+             : (videoFeed.frameLive ? "#6bcf7f" : "#e6c35c")
         font.pixelSize: 12
         Layout.fillWidth: true
         elide: Text.ElideRight
@@ -59,6 +62,7 @@ Rectangle {
         fillMode: Image.PreserveAspectFit
         asynchronous: false
         cache: false
+        opacity: videoFeed.frameLive || !videoFeed.hasFrame ? 1.0 : 0.55
         source: videoFeed.hasFrame ? ("image://ahvideo/frame/" + videoFeed.frameId) : ""
       }
 

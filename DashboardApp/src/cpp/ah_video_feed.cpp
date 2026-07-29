@@ -1,13 +1,36 @@
 #include "ah_video_feed.h"
 
+#include <QDateTime>
 #include <QMutexLocker>
 #include <QtGlobal>
 
-AhVideoFeed::AhVideoFeed(QObject* parent) : QObject(parent) {}
+AhVideoFeed::AhVideoFeed(QObject* parent) : QObject(parent) {
+  frame_watchdog_.setInterval(250);
+  QObject::connect(&frame_watchdog_, &QTimer::timeout, this, &AhVideoFeed::CheckFrameHealth);
+  frame_watchdog_.start();
+}
 
 QImage AhVideoFeed::CopyFrame() const {
   QMutexLocker lock(&mutex_);
   return frame_;
+}
+
+void AhVideoFeed::SetFrameLive(bool live) {
+  if (frame_live_ == live) {
+    return;
+  }
+  frame_live_ = live;
+  emit FrameLiveChanged();
+}
+
+void AhVideoFeed::CheckFrameHealth() {
+  if (!has_frame_) {
+    return;
+  }
+  const qint64 now = QDateTime::currentMSecsSinceEpoch();
+  if (now - last_frame_ms_ > FrameStaleTimeoutMs) {
+    SetFrameLive(false);
+  }
 }
 
 void AhVideoFeed::ApplyJpeg(const QByteArray& jpeg) {
@@ -27,6 +50,9 @@ void AhVideoFeed::ApplyJpeg(const QByteArray& jpeg) {
     QMutexLocker lock(&mutex_);
     frame_ = std::move(decoded);
   }
+
+  last_frame_ms_ = QDateTime::currentMSecsSinceEpoch();
+  SetFrameLive(true);
 
   if (!has_frame_) {
     has_frame_ = true;
@@ -61,8 +87,7 @@ QImage AhVideoImageProvider::requestImage(const QString& /*id*/, QSize* size,
     *size = img.size();
   }
 
-  if (requested_size.isValid() && !requested_size.isEmpty() &&
-      requested_size != img.size()) {
+  if (requested_size.isValid() && !requested_size.isEmpty() && requested_size != img.size()) {
     return img.scaled(requested_size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
   }
   return img;

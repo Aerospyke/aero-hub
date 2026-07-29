@@ -30,8 +30,12 @@ int main(int argc, char* argv[]) {
 
   AhSettings app_settings;
 
-  auto* system_status = new AhSystemStatus();
-  auto* video_feed = new AhVideoFeed();
+  // QGuiApplication must exist before QTimer-based watchdogs (status link + video
+  // stale detection) or the timers never fire and the UI stays "live" forever.
+  const QGuiApplication Application(argc, argv);
+
+  auto* system_status = new AhSystemStatus(QCoreApplication::instance());
+  auto* video_feed = new AhVideoFeed(QCoreApplication::instance());
 
   AhRosBridge::Hooks hooks;
   hooks.on_executor_stopped = []() {
@@ -58,12 +62,7 @@ int main(int argc, char* argv[]) {
   };
 
   const AhRosBridge RosBridge(app_settings.RosDomainId(), std::move(hooks));
-  auto* track_controller = new AhTrackController(RosBridge.Node());
-
-  const QGuiApplication Application(argc, argv);
-  system_status->setParent(QCoreApplication::instance());
-  video_feed->setParent(QCoreApplication::instance());
-  track_controller->setParent(QCoreApplication::instance());
+  auto* track_controller = new AhTrackController(RosBridge.Node(), QCoreApplication::instance());
 
   QQmlApplicationEngine engine;
   engine.addImageProvider(QStringLiteral("ahvideo"), new AhVideoImageProvider(video_feed));

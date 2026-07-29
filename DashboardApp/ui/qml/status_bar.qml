@@ -26,9 +26,10 @@ Rectangle {
     spacing: 10
 
     Text {
-      // Same label always; color shows link health (green = receiving status, red = not yet / lost).
-      text: "ROS"
-      color: systemStatus.connected ? "#6bcf7f" : "#e07a7a"
+      // ROS: green=live, amber=waiting, red=lost contact with ah_core
+      text: systemStatus.linkState === "lost" ? "ROS LOST" : "ROS"
+      color: systemStatus.linkState === "live" ? "#6bcf7f"
+           : (systemStatus.linkState === "lost" ? "#e07a7a" : "#e6c35c")
       font.pixelSize: 12
       font.bold: true
       Layout.alignment: Qt.AlignVCenter
@@ -81,8 +82,14 @@ Rectangle {
 
     StatusChip {
       label: "Video"
-      value: systemStatus.videoStatus
+      value: !systemStatus.connected ? "—"
+           : (!videoFeed.frameLive && videoFeed.hasFrame ? "stale"
+           : systemStatus.videoStatus)
       accent: {
+        if (!systemStatus.connected)
+          return "#8a96a5"
+        if (!videoFeed.frameLive && videoFeed.hasFrame)
+          return "#e6c35c"
         const v = systemStatus.videoStatus
         if (v === "connected" || v === "ok")
           return "#6bcf7f"

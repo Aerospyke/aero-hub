@@ -131,8 +131,12 @@ Item {
 
       Text {
         Layout.alignment: Qt.AlignHCenter
-        text: systemStatus.connected ? "ROS status: live" : "ROS status: waiting for /ah/system/status…"
-        color: systemStatus.connected ? "#6bcf7f" : root.chromeText
+        Layout.fillWidth: true
+        horizontalAlignment: Text.AlignHCenter
+        wrapMode: Text.WordWrap
+        text: systemStatus.connectionMessage
+        color: systemStatus.linkState === "live" ? "#6bcf7f"
+             : (systemStatus.linkState === "lost" ? "#e07a7a" : root.chromeText)
         font.pixelSize: 14
       }
 

@@ -136,20 +136,59 @@ ApplicationWindow {
     width: parent.width
   }
 
-  StackLayout {
+  // Content + disconnect banner (Task_21)
+  ColumnLayout {
     anchors.fill: parent
-    currentIndex: modeBar.currentIndex
+    spacing: 0
 
-    OpsDashboard {
-      // index 0 — multi-panel ops wall
+    Rectangle {
+      id: linkBanner
+      Layout.fillWidth: true
+      // Taller strip so the message is readable (Task_21)
+      Layout.preferredHeight: visible ? 48 : 0
+      visible: systemStatus.linkState !== "live"
+      // waiting = amber, lost = red
+      color: systemStatus.linkState === "lost" ? "#4a1818" : "#3a2e12"
+      border.width: 0
+
+      Rectangle {
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        height: 2
+        color: systemStatus.linkState === "lost" ? "#e07a7a" : "#e6c35c"
+      }
+
+      Text {
+        anchors.fill: parent
+        anchors.leftMargin: 16
+        anchors.rightMargin: 16
+        verticalAlignment: Text.AlignVCenter
+        elide: Text.ElideRight
+        text: systemStatus.connectionMessage
+        color: systemStatus.linkState === "lost" ? "#ffb0b0" : "#f0d78c"
+        font.pixelSize: 16
+        font.bold: true
+      }
     }
 
-    ControlPage {
-      // index 1 — control surface + detailed status
-    }
+    StackLayout {
+      Layout.fillWidth: true
+      Layout.fillHeight: true
+      currentIndex: modeBar.currentIndex
 
-    SettingsPage {
-      // index 2 — stub settings
+      OpsDashboard {
+        // index 0 — multi-panel ops wall
+      }
+
+      ControlPage {
+        // index 1 — control surface + detailed status
+      }
+
+      SettingsPage {
+        // index 2 — stub settings
+      }
     }
   }
 }
+
