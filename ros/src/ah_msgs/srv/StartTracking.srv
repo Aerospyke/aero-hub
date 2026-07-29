@@ -1,0 +1,8 @@
+# Normalized bbox relative to displayed video [0, 1] (interface map §4).
+float32 x
+float32 y
+float32 width
+float32 height
+---
+bool success
+string message
