@@ -1,4 +1,4 @@
-# Normalized bbox relative to displayed video [0, 1] (interface map §4).
+# Normalized tracking bounding box relative to displayed video [0, 1] (interface map §4).
 float32 x
 float32 y
 float32 width

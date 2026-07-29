@@ -71,7 +71,7 @@ ros2 run ah_core ah_core_node
 |-----------------|------|--------|
 | `/ah/system/status` | `std_msgs/String` (JSON) | ~10 Hz; `tracking_started` flips with services |
 | `/ah/video/compressed` | `sensor_msgs/CompressedImage` | Synthetic JPEG (color bars + bouncing box) ~10 Hz |
-| `/ah/tracking/start` | `ah_msgs/srv/StartTracking` | normalized bbox [0,1]; sets tracking on |
+| `/ah/tracking/start` | `ah_msgs/srv/StartTracking` | normalized tracking bounding box [0,1]; sets tracking on |
 | `/ah/tracking/stop` | `std_srvs/Trigger` | tracking off only |
 | `/ah/tracking/cancel` | `std_srvs/Trigger` | hard reset (tracking + segmentation flag) |
 

@@ -13,7 +13,7 @@ Item {
   readonly property color chromeTextBright: "#e8eef5"
   readonly property color chromeInput: "#0a1018"
 
-  // Dark SpinBox used for normalized bbox fields (0.00–1.00 shown, stored as 0–100).
+  // Dark SpinBox used for normalized tracking bounding box fields (0.00–1.00 shown, stored as 0–100).
   component DarkSpinBox: SpinBox {
     id: control
     from: 0
@@ -164,7 +164,7 @@ Item {
           Text {
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
-            text: "BBox is normalized [0,1]. Drag on Ops → Video, or edit fields (shown as 0.00–1.00)."
+            text: "Tracking bounding box is normalized [0,1]. Drag on Ops → Video, or edit fields (shown as 0.00–1.00)."
             color: root.chromeText
             font.pixelSize: 12
           }
@@ -185,44 +185,44 @@ Item {
             DarkSpinBox {
               id: spinX
               value: 35
-              onValueModified: trackController.bboxX = value / 100.0
+              onValueModified: trackController.trackingBoundingBoxX = value / 100.0
             }
             DarkSpinBox {
               id: spinY
               value: 35
-              onValueModified: trackController.bboxY = value / 100.0
+              onValueModified: trackController.trackingBoundingBoxY = value / 100.0
             }
             DarkSpinBox {
               id: spinW
               from: 1
               value: 30
-              onValueModified: trackController.bboxWidth = value / 100.0
+              onValueModified: trackController.trackingBoundingBoxWidth = value / 100.0
             }
             DarkSpinBox {
               id: spinH
               from: 1
               value: 30
-              onValueModified: trackController.bboxHeight = value / 100.0
+              onValueModified: trackController.trackingBoundingBoxHeight = value / 100.0
             }
           }
 
-          // Keep spins aligned when bbox changes from video drag / ResetBbox.
+          // Keep spins aligned when tracking bounding box changes from video drag / ResetTrackingBoundingBox.
           // (No property binding on spin.value — avoids binding loops with onValueModified.)
           Connections {
             target: trackController
-            function onBboxChanged() {
-              spinX.value = Math.round(trackController.bboxX * 100)
-              spinY.value = Math.round(trackController.bboxY * 100)
-              spinW.value = Math.round(trackController.bboxWidth * 100)
-              spinH.value = Math.round(trackController.bboxHeight * 100)
+            function onTrackingBoundingBoxChanged() {
+              spinX.value = Math.round(trackController.trackingBoundingBoxX * 100)
+              spinY.value = Math.round(trackController.trackingBoundingBoxY * 100)
+              spinW.value = Math.round(trackController.trackingBoundingBoxWidth * 100)
+              spinH.value = Math.round(trackController.trackingBoundingBoxHeight * 100)
             }
           }
 
           Component.onCompleted: {
-            spinX.value = Math.round(trackController.bboxX * 100)
-            spinY.value = Math.round(trackController.bboxY * 100)
-            spinW.value = Math.round(trackController.bboxWidth * 100)
-            spinH.value = Math.round(trackController.bboxHeight * 100)
+            spinX.value = Math.round(trackController.trackingBoundingBoxX * 100)
+            spinY.value = Math.round(trackController.trackingBoundingBoxY * 100)
+            spinW.value = Math.round(trackController.trackingBoundingBoxWidth * 100)
+            spinH.value = Math.round(trackController.trackingBoundingBoxHeight * 100)
           }
 
           RowLayout {
@@ -254,13 +254,13 @@ Item {
               onClicked: trackController.CancelTracking()
             }
             DarkButton {
-              text: "Reset box"
+              text: "Reset"
               enabled: !trackController.busy
               face: "#1a2430"
               faceDown: "#243140"
               edge: root.chromeBorder
               font.bold: false
-              onClicked: trackController.ResetBbox()
+              onClicked: trackController.ResetTrackingBoundingBox()
             }
 
             Item { Layout.fillWidth: true }

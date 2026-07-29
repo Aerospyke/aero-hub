@@ -1,7 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Layouts 1.15
 
-// Live ROS camera + drag bbox for start tracking (Task_18 / Task_19)
+// Live ROS camera + drag tracking bounding box for start tracking (Task_18 / Task_19)
 Rectangle {
   id: root
   color: "#0d1620"
@@ -37,7 +37,7 @@ Rectangle {
       }
 
       Text {
-        text: "drag to set bbox"
+        text: "drag to set tracking box"
         color: "#5a6572"
         font.pixelSize: 11
         visible: videoFeed.hasFrame
@@ -73,13 +73,13 @@ Rectangle {
         height: areaAspect > imgAspect ? stage.height : stage.width / imgAspect
         anchors.centerIn: parent
 
-        // Selection rectangle (normalized bbox → pixels in imageArea)
+        // Selection rectangle (normalized tracking bounding box → pixels in imageArea)
         Rectangle {
-          id: bboxRect
-          x: trackController.bboxX * imageArea.width
-          y: trackController.bboxY * imageArea.height
-          width: trackController.bboxWidth * imageArea.width
-          height: trackController.bboxHeight * imageArea.height
+          id: trackingBoundingBoxRect
+          x: trackController.trackingBoundingBoxX * imageArea.width
+          y: trackController.trackingBoundingBoxY * imageArea.height
+          width: trackController.trackingBoundingBoxWidth * imageArea.width
+          height: trackController.trackingBoundingBoxHeight * imageArea.height
           color: systemStatus.trackingStarted ? "#336bcf7f" : "#33e6c35c"
           border.color: systemStatus.trackingStarted ? "#6bcf7f" : "#e6c35c"
           border.width: 2
@@ -96,10 +96,10 @@ Rectangle {
           onPressed: function (mouse) {
             startX = mouse.x
             startY = mouse.y
-            trackController.bboxX = mouse.x / width
-            trackController.bboxY = mouse.y / height
-            trackController.bboxWidth = 0.01
-            trackController.bboxHeight = 0.01
+            trackController.trackingBoundingBoxX = mouse.x / width
+            trackController.trackingBoundingBoxY = mouse.y / height
+            trackController.trackingBoundingBoxWidth = 0.01
+            trackController.trackingBoundingBoxHeight = 0.01
           }
           onPositionChanged: function (mouse) {
             if (!pressed)
@@ -108,10 +108,10 @@ Rectangle {
             const y0 = Math.min(startY, mouse.y)
             const x1 = Math.max(startX, mouse.x)
             const y1 = Math.max(startY, mouse.y)
-            trackController.bboxX = Math.max(0, Math.min(1, x0 / width))
-            trackController.bboxY = Math.max(0, Math.min(1, y0 / height))
-            trackController.bboxWidth = Math.max(0.01, Math.min(1 - trackController.bboxX, (x1 - x0) / width))
-            trackController.bboxHeight = Math.max(0.01, Math.min(1 - trackController.bboxY, (y1 - y0) / height))
+            trackController.trackingBoundingBoxX = Math.max(0, Math.min(1, x0 / width))
+            trackController.trackingBoundingBoxY = Math.max(0, Math.min(1, y0 / height))
+            trackController.trackingBoundingBoxWidth = Math.max(0.01, Math.min(1 - trackController.trackingBoundingBoxX, (x1 - x0) / width))
+            trackController.trackingBoundingBoxHeight = Math.max(0.01, Math.min(1 - trackController.trackingBoundingBoxY, (y1 - y0) / height))
           }
         }
       }

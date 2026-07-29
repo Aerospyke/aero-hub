@@ -103,7 +103,7 @@ cv::Mat CreateSyntheticImage(const int frame_id, bool tracking_started)
   return frame;
 }
 
-bool IsNormalizedBbox(float x, float y, float width, float height)
+bool IsNormalizedTrackingBoundingBox(float x, float y, float width, float height)
 {
   return x >= 0.0f && y >= 0.0f && width > 0.0f && height > 0.0f &&
          x <= 1.0f && y <= 1.0f && width <= 1.0f && height <= 1.0f &&
@@ -187,10 +187,10 @@ private:
     const std::shared_ptr<ah_msgs::srv::StartTracking::Request> request,
     std::shared_ptr<ah_msgs::srv::StartTracking::Response> response)
   {
-    if (!IsNormalizedBbox(request->x, request->y, request->width, request->height)) {
+    if (!IsNormalizedTrackingBoundingBox(request->x, request->y, request->width, request->height)) {
       response->success = false;
       response->message =
-        "bbox must be normalized in [0,1] with positive width/height (interface map §4)";
+        "tracking bounding box must be normalized in [0,1] with positive width/height (interface map §4)";
       RCLCPP_WARN(
         get_logger(),
         "start rejected: x=%.3f y=%.3f w=%.3f h=%.3f",
@@ -199,17 +199,17 @@ private:
     }
 
     tracking_started_ = true;
-    track_x_ = request->x;
-    track_y_ = request->y;
-    track_w_ = request->width;
-    track_h_ = request->height;
+    tracking_bounding_box_x_ = request->x;
+    tracking_bounding_box_y_ = request->y;
+    tracking_bounding_box_width_ = request->width;
+    tracking_bounding_box_height_ = request->height;
 
     response->success = true;
     response->message = "tracking started (stub)";
     RCLCPP_INFO(
       get_logger(),
-      "tracking started (stub) bbox norm x=%.3f y=%.3f w=%.3f h=%.3f",
-      track_x_, track_y_, track_w_, track_h_);
+      "tracking started (stub) tracking bounding box norm x=%.3f y=%.3f w=%.3f h=%.3f",
+      tracking_bounding_box_x_, tracking_bounding_box_y_, tracking_bounding_box_width_, tracking_bounding_box_height_);
   }
 
   void OnStopTracking(
@@ -248,10 +248,10 @@ private:
   bool segmentation_active_{false};
   bool smart_mode_active_{false};
   bool following_active_{false};
-  float track_x_{0.0f};
-  float track_y_{0.0f};
-  float track_w_{0.0f};
-  float track_h_{0.0f};
+  float tracking_bounding_box_x_{0.0f};
+  float tracking_bounding_box_y_{0.0f};
+  float tracking_bounding_box_width_{0.0f};
+  float tracking_bounding_box_height_{0.0f};
 };
 
 namespace

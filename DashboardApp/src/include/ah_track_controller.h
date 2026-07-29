@@ -16,11 +16,15 @@ class AhTrackController final : public QObject {
   Q_PROPERTY(bool busy READ Busy NOTIFY BusyChanged)
   Q_PROPERTY(QString lastMessage READ LastMessage NOTIFY LastMessageChanged)
   Q_PROPERTY(bool lastSuccess READ LastSuccess NOTIFY LastSuccessChanged)
-  // NOTIFY names are camelCase so QML Connections (onBboxChanged) resolve correctly.
-  Q_PROPERTY(float bboxX READ BboxX WRITE SetBboxX NOTIFY bboxChanged)
-  Q_PROPERTY(float bboxY READ BboxY WRITE SetBboxY NOTIFY bboxChanged)
-  Q_PROPERTY(float bboxWidth READ BboxWidth WRITE SetBboxWidth NOTIFY bboxChanged)
-  Q_PROPERTY(float bboxHeight READ BboxHeight WRITE SetBboxHeight NOTIFY bboxChanged)
+  // NOTIFY camelCase so QML Connections (onTrackingBoundingBoxChanged) resolve.
+  Q_PROPERTY(float trackingBoundingBoxX READ TrackingBoundingBoxX WRITE SetTrackingBoundingBoxX
+                 NOTIFY trackingBoundingBoxChanged)
+  Q_PROPERTY(float trackingBoundingBoxY READ TrackingBoundingBoxY WRITE SetTrackingBoundingBoxY
+                 NOTIFY trackingBoundingBoxChanged)
+  Q_PROPERTY(float trackingBoundingBoxWidth READ TrackingBoundingBoxWidth WRITE
+                 SetTrackingBoundingBoxWidth NOTIFY trackingBoundingBoxChanged)
+  Q_PROPERTY(float trackingBoundingBoxHeight READ TrackingBoundingBoxHeight WRITE
+                 SetTrackingBoundingBoxHeight NOTIFY trackingBoundingBoxChanged)
 
  public:
   explicit AhTrackController(rclcpp::Node::SharedPtr node, QObject* parent = nullptr);
@@ -28,31 +32,31 @@ class AhTrackController final : public QObject {
   [[nodiscard]] bool Busy() const { return busy_; }
   [[nodiscard]] QString LastMessage() const { return last_message_; }
   [[nodiscard]] bool LastSuccess() const { return last_success_; }
-  [[nodiscard]] float BboxX() const { return bbox_x_; }
-  [[nodiscard]] float BboxY() const { return bbox_y_; }
-  [[nodiscard]] float BboxWidth() const { return bbox_width_; }
-  [[nodiscard]] float BboxHeight() const { return bbox_height_; }
+  [[nodiscard]] float TrackingBoundingBoxX() const { return tracking_bounding_box_x_; }
+  [[nodiscard]] float TrackingBoundingBoxY() const { return tracking_bounding_box_y_; }
+  [[nodiscard]] float TrackingBoundingBoxWidth() const { return tracking_bounding_box_width_; }
+  [[nodiscard]] float TrackingBoundingBoxHeight() const { return tracking_bounding_box_height_; }
 
-  void SetBboxX(float value);
-  void SetBboxY(float value);
-  void SetBboxWidth(float value);
-  void SetBboxHeight(float value);
+  void SetTrackingBoundingBoxX(float value);
+  void SetTrackingBoundingBoxY(float value);
+  void SetTrackingBoundingBoxWidth(float value);
+  void SetTrackingBoundingBoxHeight(float value);
 
  public slots:
-  /// Calls `/ah/tracking/start` with current normalized bbox [0,1].
+  /// Calls `/ah/tracking/start` with current normalized tracking bounding box [0,1].
   void StartTracking();
   /// Calls `/ah/tracking/stop`.
   void StopTracking();
   /// Calls `/ah/tracking/cancel` (hard reset).
   void CancelTracking();
-  /// Reset bbox to a default center box.
-  void ResetBbox();
+  /// Reset tracking bounding box to a default center rectangle.
+  void ResetTrackingBoundingBox();
 
  signals:
   void BusyChanged();
   void LastMessageChanged();
   void LastSuccessChanged();
-  void bboxChanged();
+  void trackingBoundingBoxChanged();
   void CommandFinished(bool success, const QString& message);
 
  private:
@@ -68,8 +72,8 @@ class AhTrackController final : public QObject {
   bool busy_ = false;
   bool last_success_ = false;
   QString last_message_ = QStringLiteral("Ready");
-  float bbox_x_ = 0.35f;
-  float bbox_y_ = 0.35f;
-  float bbox_width_ = 0.30f;
-  float bbox_height_ = 0.30f;
+  float tracking_bounding_box_x_ = 0.35f;
+  float tracking_bounding_box_y_ = 0.35f;
+  float tracking_bounding_box_width_ = 0.30f;
+  float tracking_bounding_box_height_ = 0.30f;
 };

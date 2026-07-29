@@ -10,7 +10,7 @@ using namespace std::chrono_literals;
 
 namespace {
 
-bool IsNormalizedBbox(float x, float y, float width, float height) {
+bool IsNormalizedTrackingBoundingBox(float x, float y, float width, float height) {
   return x >= 0.0f && y >= 0.0f && width > 0.0f && height > 0.0f && x <= 1.0f && y <= 1.0f &&
          width <= 1.0f && height <= 1.0f && (x + width) <= 1.0001f && (y + height) <= 1.0001f;
 }
@@ -24,44 +24,44 @@ AhTrackController::AhTrackController(rclcpp::Node::SharedPtr node, QObject* pare
   cancel_client_ = node_->create_client<std_srvs::srv::Trigger>("/ah/tracking/cancel");
 }
 
-void AhTrackController::SetBboxX(float value) {
-  if (qFuzzyCompare(bbox_x_ + 1.0f, value + 1.0f)) {
+void AhTrackController::SetTrackingBoundingBoxX(float value) {
+  if (qFuzzyCompare(tracking_bounding_box_x_ + 1.0f, value + 1.0f)) {
     return;
   }
-  bbox_x_ = value;
-  emit bboxChanged();
+  tracking_bounding_box_x_ = value;
+  emit trackingBoundingBoxChanged();
 }
 
-void AhTrackController::SetBboxY(float value) {
-  if (qFuzzyCompare(bbox_y_ + 1.0f, value + 1.0f)) {
+void AhTrackController::SetTrackingBoundingBoxY(float value) {
+  if (qFuzzyCompare(tracking_bounding_box_y_ + 1.0f, value + 1.0f)) {
     return;
   }
-  bbox_y_ = value;
-  emit bboxChanged();
+  tracking_bounding_box_y_ = value;
+  emit trackingBoundingBoxChanged();
 }
 
-void AhTrackController::SetBboxWidth(float value) {
-  if (qFuzzyCompare(bbox_width_ + 1.0f, value + 1.0f)) {
+void AhTrackController::SetTrackingBoundingBoxWidth(float value) {
+  if (qFuzzyCompare(tracking_bounding_box_width_ + 1.0f, value + 1.0f)) {
     return;
   }
-  bbox_width_ = value;
-  emit bboxChanged();
+  tracking_bounding_box_width_ = value;
+  emit trackingBoundingBoxChanged();
 }
 
-void AhTrackController::SetBboxHeight(float value) {
-  if (qFuzzyCompare(bbox_height_ + 1.0f, value + 1.0f)) {
+void AhTrackController::SetTrackingBoundingBoxHeight(float value) {
+  if (qFuzzyCompare(tracking_bounding_box_height_ + 1.0f, value + 1.0f)) {
     return;
   }
-  bbox_height_ = value;
-  emit bboxChanged();
+  tracking_bounding_box_height_ = value;
+  emit trackingBoundingBoxChanged();
 }
 
-void AhTrackController::ResetBbox() {
-  bbox_x_ = 0.35f;
-  bbox_y_ = 0.35f;
-  bbox_width_ = 0.30f;
-  bbox_height_ = 0.30f;
-  emit bboxChanged();
+void AhTrackController::ResetTrackingBoundingBox() {
+  tracking_bounding_box_x_ = 0.35f;
+  tracking_bounding_box_y_ = 0.35f;
+  tracking_bounding_box_width_ = 0.30f;
+  tracking_bounding_box_height_ = 0.30f;
+  emit trackingBoundingBoxChanged();
 }
 
 void AhTrackController::SetBusy(bool busy) {
@@ -98,8 +98,10 @@ void AhTrackController::StartTracking() {
   if (busy_) {
     return;
   }
-  if (!IsNormalizedBbox(bbox_x_, bbox_y_, bbox_width_, bbox_height_)) {
-    SetResult(false, QStringLiteral("BBox must be normalized in [0,1] with positive size"));
+  if (!IsNormalizedTrackingBoundingBox(tracking_bounding_box_x_, tracking_bounding_box_y_,
+                                       tracking_bounding_box_width_, tracking_bounding_box_height_)) {
+    SetResult(false, QStringLiteral(
+                         "Tracking bounding box must be normalized in [0,1] with positive size"));
     emit CommandFinished(false, last_message_);
     return;
   }
@@ -111,10 +113,10 @@ void AhTrackController::StartTracking() {
 
   SetBusy(true);
   auto request = std::make_shared<ah_msgs::srv::StartTracking::Request>();
-  request->x = bbox_x_;
-  request->y = bbox_y_;
-  request->width = bbox_width_;
-  request->height = bbox_height_;
+  request->x = tracking_bounding_box_x_;
+  request->y = tracking_bounding_box_y_;
+  request->width = tracking_bounding_box_width_;
+  request->height = tracking_bounding_box_height_;
 
   start_client_->async_send_request(
       request, [this](rclcpp::Client<ah_msgs::srv::StartTracking>::SharedFuture future) {
