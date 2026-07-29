@@ -1,3 +1,4 @@
+#include <QByteArray>
 #include <QCoreApplication>
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
@@ -7,10 +8,13 @@
 #include <QtGlobal>
 
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "ah_ros_bridge.h"
 #include "ah_settings.h"
 #include "ah_system_status.h"
+#include "ah_video_feed.h"
 #include "animation.h"
 #include "jsb_settings_tree_model.h"
 #include "primary_flight_data.h"
@@ -18,38 +22,44 @@
 int main(int argc, char* argv[]) {
   Q_INIT_RESOURCE(QmlFlightInstruments);
 
-  // Shared project-root INI; domain id is passed into the ROS bridge (not via env).
   AhSettings app_settings;
 
-  // QObject model for QML; updated from ROS via queued ApplyJson.
   auto* system_status = new AhSystemStatus();
+  auto* video_feed = new AhVideoFeed();
 
-  // ROS joins the graph on a background thread; Qt keeps the main loop.
-  // Bridge stays free of Qt: status JSON is marshalled onto the UI thread here.
-  const AhRosBridge RosBridge(
-      app_settings.RosDomainId(),
-      []() {
-        // TODO: option to restart the ROS bridge node without quitting the app
-        qInfo("AeroHub ROS Node executor stopped; quitting application");
-        if (QCoreApplication::instance() != nullptr) {
-          QCoreApplication::quit();
-        }
-      },
-      [system_status](const std::string& json) {
-        const QString payload = QString::fromStdString(json);
-        QMetaObject::invokeMethod(
-            system_status,
-            [system_status, payload]() { system_status->ApplyJson(payload); },
-            Qt::QueuedConnection);
-      });
+  AhRosBridge::Hooks hooks;
+  hooks.on_executor_stopped = []() {
+    // TODO: option to restart the ROS bridge node without quitting the app
+    qInfo("AeroHub ROS Node executor stopped; quitting application");
+    if (QCoreApplication::instance() != nullptr) {
+      QCoreApplication::quit();
+    }
+  };
+  hooks.on_status_json = [system_status](const std::string& json) {
+    const QString payload = QString::fromStdString(json);
+    QMetaObject::invokeMethod(
+        system_status,
+        [system_status, payload]() { system_status->ApplyJson(payload); },
+        Qt::QueuedConnection);
+  };
+  hooks.on_video_jpeg = [video_feed](std::vector<uint8_t> jpeg) {
+    const QByteArray bytes(reinterpret_cast<const char*>(jpeg.data()),
+                           static_cast<int>(jpeg.size()));
+    QMetaObject::invokeMethod(
+        video_feed,
+        [video_feed, bytes]() { video_feed->ApplyJpeg(bytes); },
+        Qt::QueuedConnection);
+  };
+
+  const AhRosBridge RosBridge(app_settings.RosDomainId(), std::move(hooks));
 
   const QGuiApplication Application(argc, argv);
   system_status->setParent(QCoreApplication::instance());
+  video_feed->setParent(QCoreApplication::instance());
 
   QQmlApplicationEngine engine;
+  engine.addImageProvider(QStringLiteral("ahvideo"), new AhVideoImageProvider(video_feed));
 
-  // Load AeroHubTheme as a context property so it is available globally
-  // in all QML files (like the instrument types) without per-file imports.
   QQmlComponent theme_component(&engine, QUrl(QStringLiteral("qrc:/qml/AeroHubTheme.qml")));
   QObject* theme_object = theme_component.create();
   if (theme_object) {
@@ -77,6 +87,7 @@ int main(int argc, char* argv[]) {
   engine.rootContext()->setContextProperty("flight_telemetry", flight_telemetry);
   engine.rootContext()->setContextProperty("jsbSettingsModel", jsb_settings_model);
   engine.rootContext()->setContextProperty("systemStatus", system_status);
+  engine.rootContext()->setContextProperty("videoFeed", video_feed);
   engine.load(RootUrl);
 
   animation->init();

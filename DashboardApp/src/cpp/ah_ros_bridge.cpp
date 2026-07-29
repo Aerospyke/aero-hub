@@ -5,11 +5,8 @@
 
 #include <rclcpp/init_options.hpp>
 
-AhRosBridge::AhRosBridge(std::uint8_t ros_domain_id, ExecutorStoppedCallback on_executor_stopped,
-                         StatusJsonCallback on_status_json)
-    : ros_domain_id_(SanitizeDomainId(ros_domain_id)),
-      on_executor_stopped_(std::move(on_executor_stopped)),
-      on_status_json_(std::move(on_status_json)) {
+AhRosBridge::AhRosBridge(std::uint8_t ros_domain_id, Hooks hooks)
+    : ros_domain_id_(SanitizeDomainId(ros_domain_id)), hooks_(std::move(hooks)) {
   if (!rclcpp::ok()) {
     rclcpp::InitOptions init_options;
     init_options.set_domain_id(static_cast<size_t>(ros_domain_id_));
@@ -19,7 +16,7 @@ AhRosBridge::AhRosBridge(std::uint8_t ros_domain_id, ExecutorStoppedCallback on_
   // Graph name matches interface map §2 (ah_dashboard).
   node_ = std::make_shared<rclcpp::Node>("ah_dashboard");
 
-  SetupStatusSubscription();
+  SetupSubscriptions();
 
   executor_ = std::make_shared<rclcpp::executors::SingleThreadedExecutor>();
   executor_->add_node(node_);
@@ -30,25 +27,39 @@ AhRosBridge::AhRosBridge(std::uint8_t ros_domain_id, ExecutorStoppedCallback on_
     executor_->spin();
     RCLCPP_INFO(node_->get_logger(), "ah_dashboard executor stopped");
 
-    if (on_executor_stopped_) {
-      on_executor_stopped_();
+    if (hooks_.on_executor_stopped) {
+      hooks_.on_executor_stopped();
     }
   });
 }
 
-void AhRosBridge::SetupStatusSubscription() {
-  // Match ah_core: reliable, keep last 1 (interface map §3.1).
+void AhRosBridge::SetupSubscriptions() {
+  // Status: reliable, keep last 1 (interface map §3.1).
   rclcpp::QoS status_qos(rclcpp::KeepLast(1));
   status_qos.reliable();
 
   status_sub_ = node_->create_subscription<std_msgs::msg::String>(
       "/ah/system/status", status_qos, [this](const std_msgs::msg::String::SharedPtr msg) {
-        if (on_status_json_ && msg) {
-          on_status_json_(msg->data);
+        if (hooks_.on_status_json && msg) {
+          hooks_.on_status_json(msg->data);
         }
       });
 
-  RCLCPP_INFO(node_->get_logger(), "subscribed to /ah/system/status (std_msgs/String JSON)");
+  // Video: best effort, latest frame only (interface map §5).
+  rclcpp::QoS video_qos(rclcpp::KeepLast(1));
+  video_qos.best_effort();
+
+  video_sub_ = node_->create_subscription<sensor_msgs::msg::CompressedImage>(
+      "/ah/video/compressed", video_qos,
+      [this](const sensor_msgs::msg::CompressedImage::SharedPtr msg) {
+        if (!hooks_.on_video_jpeg || !msg || msg->data.empty()) {
+          return;
+        }
+        hooks_.on_video_jpeg(msg->data);
+      });
+
+  RCLCPP_INFO(node_->get_logger(),
+              "subscribed to /ah/system/status + /ah/video/compressed (JPEG)");
 }
 
 AhRosBridge::~AhRosBridge() {
@@ -62,6 +73,7 @@ AhRosBridge::~AhRosBridge() {
     executor_->remove_node(node_);
   }
   status_sub_.reset();
+  video_sub_.reset();
   node_.reset();
   executor_.reset();
 
@@ -72,7 +84,6 @@ AhRosBridge::~AhRosBridge() {
 
 std::uint8_t AhRosBridge::SanitizeDomainId(std::uint8_t ros_domain_id) {
   if (ros_domain_id > MaxRosDomainId) {
-    // Before rclcpp::init — log without the ROS logging system.
     std::cerr << "AhRosBridge: invalid ROS domain id " << static_cast<int>(ros_domain_id)
               << " (valid range 0–" << static_cast<int>(MaxRosDomainId) << "); using default "
               << static_cast<int>(DefaultRosDomainId) << '\n';
