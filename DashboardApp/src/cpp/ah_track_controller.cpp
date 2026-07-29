@@ -1,0 +1,174 @@
+#include "ah_track_controller.h"
+
+#include <QMetaObject>
+#include <QtGlobal>
+
+#include <chrono>
+#include <utility>
+
+using namespace std::chrono_literals;
+
+namespace {
+
+bool IsNormalizedBbox(float x, float y, float width, float height) {
+  return x >= 0.0f && y >= 0.0f && width > 0.0f && height > 0.0f && x <= 1.0f && y <= 1.0f &&
+         width <= 1.0f && height <= 1.0f && (x + width) <= 1.0001f && (y + height) <= 1.0001f;
+}
+
+}  // namespace
+
+AhTrackController::AhTrackController(rclcpp::Node::SharedPtr node, QObject* parent)
+    : QObject(parent), node_(std::move(node)) {
+  start_client_ = node_->create_client<ah_msgs::srv::StartTracking>("/ah/tracking/start");
+  stop_client_ = node_->create_client<std_srvs::srv::Trigger>("/ah/tracking/stop");
+  cancel_client_ = node_->create_client<std_srvs::srv::Trigger>("/ah/tracking/cancel");
+}
+
+void AhTrackController::SetBboxX(float value) {
+  if (qFuzzyCompare(bbox_x_ + 1.0f, value + 1.0f)) {
+    return;
+  }
+  bbox_x_ = value;
+  emit BboxChanged();
+}
+
+void AhTrackController::SetBboxY(float value) {
+  if (qFuzzyCompare(bbox_y_ + 1.0f, value + 1.0f)) {
+    return;
+  }
+  bbox_y_ = value;
+  emit BboxChanged();
+}
+
+void AhTrackController::SetBboxWidth(float value) {
+  if (qFuzzyCompare(bbox_width_ + 1.0f, value + 1.0f)) {
+    return;
+  }
+  bbox_width_ = value;
+  emit BboxChanged();
+}
+
+void AhTrackController::SetBboxHeight(float value) {
+  if (qFuzzyCompare(bbox_height_ + 1.0f, value + 1.0f)) {
+    return;
+  }
+  bbox_height_ = value;
+  emit BboxChanged();
+}
+
+void AhTrackController::ResetBbox() {
+  bbox_x_ = 0.35f;
+  bbox_y_ = 0.35f;
+  bbox_width_ = 0.30f;
+  bbox_height_ = 0.30f;
+  emit BboxChanged();
+}
+
+void AhTrackController::SetBusy(bool busy) {
+  if (busy_ == busy) {
+    return;
+  }
+  busy_ = busy;
+  emit BusyChanged();
+}
+
+void AhTrackController::SetResult(bool success, const QString& message) {
+  if (last_success_ != success) {
+    last_success_ = success;
+    emit LastSuccessChanged();
+  }
+  if (last_message_ != message) {
+    last_message_ = message;
+    emit LastMessageChanged();
+  }
+}
+
+void AhTrackController::FinishOnUiThread(bool success, const QString& message) {
+  QMetaObject::invokeMethod(
+      this,
+      [this, success, message]() {
+        SetBusy(false);
+        SetResult(success, message);
+        emit CommandFinished(success, message);
+      },
+      Qt::QueuedConnection);
+}
+
+void AhTrackController::StartTracking() {
+  if (busy_) {
+    return;
+  }
+  if (!IsNormalizedBbox(bbox_x_, bbox_y_, bbox_width_, bbox_height_)) {
+    SetResult(false, QStringLiteral("BBox must be normalized in [0,1] with positive size"));
+    emit CommandFinished(false, last_message_);
+    return;
+  }
+  if (!start_client_->service_is_ready()) {
+    SetResult(false, QStringLiteral("Service /ah/tracking/start not available (is ah_core running?)"));
+    emit CommandFinished(false, last_message_);
+    return;
+  }
+
+  SetBusy(true);
+  auto request = std::make_shared<ah_msgs::srv::StartTracking::Request>();
+  request->x = bbox_x_;
+  request->y = bbox_y_;
+  request->width = bbox_width_;
+  request->height = bbox_height_;
+
+  start_client_->async_send_request(
+      request, [this](rclcpp::Client<ah_msgs::srv::StartTracking>::SharedFuture future) {
+        try {
+          const auto response = future.get();
+          FinishOnUiThread(response->success, QString::fromStdString(response->message));
+        } catch (const std::exception& ex) {
+          FinishOnUiThread(false, QStringLiteral("Start failed: %1").arg(ex.what()));
+        }
+      });
+}
+
+void AhTrackController::StopTracking() {
+  if (busy_) {
+    return;
+  }
+  if (!stop_client_->service_is_ready()) {
+    SetResult(false, QStringLiteral("Service /ah/tracking/stop not available (is ah_core running?)"));
+    emit CommandFinished(false, last_message_);
+    return;
+  }
+
+  SetBusy(true);
+  auto request = std::make_shared<std_srvs::srv::Trigger::Request>();
+  stop_client_->async_send_request(
+      request, [this](rclcpp::Client<std_srvs::srv::Trigger>::SharedFuture future) {
+        try {
+          const auto response = future.get();
+          FinishOnUiThread(response->success, QString::fromStdString(response->message));
+        } catch (const std::exception& ex) {
+          FinishOnUiThread(false, QStringLiteral("Stop failed: %1").arg(ex.what()));
+        }
+      });
+}
+
+void AhTrackController::CancelTracking() {
+  if (busy_) {
+    return;
+  }
+  if (!cancel_client_->service_is_ready()) {
+    SetResult(false, QStringLiteral("Service /ah/tracking/cancel not available (is ah_core running?)"));
+    emit CommandFinished(false, last_message_);
+    return;
+  }
+
+  SetBusy(true);
+  auto request = std::make_shared<std_srvs::srv::Trigger::Request>();
+  cancel_client_->async_send_request(
+      request, [this](rclcpp::Client<std_srvs::srv::Trigger>::SharedFuture future) {
+        try {
+          const auto response = future.get();
+          FinishOnUiThread(response->success, QString::fromStdString(response->message));
+        } catch (const std::exception& ex) {
+          FinishOnUiThread(false, QStringLiteral("Cancel failed: %1").arg(ex.what()));
+        }
+      });
+}

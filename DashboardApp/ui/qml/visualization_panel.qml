@@ -1,7 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Layouts 1.15
 
-// Live ROS camera: /ah/video/compressed (Task_18)
+// Live ROS camera + drag bbox for start tracking (Task_18 / Task_19)
 Rectangle {
   id: root
   color: "#0d1620"
@@ -35,9 +35,17 @@ Rectangle {
         Layout.fillWidth: true
         elide: Text.ElideRight
       }
+
+      Text {
+        text: "drag to set bbox"
+        color: "#5a6572"
+        font.pixelSize: 11
+        visible: videoFeed.hasFrame
+      }
     }
 
     Rectangle {
+      id: stage
       Layout.fillWidth: true
       Layout.fillHeight: true
       color: "#000000"
@@ -51,14 +59,67 @@ Rectangle {
         fillMode: Image.PreserveAspectFit
         asynchronous: false
         cache: false
-        // Bust cache each frame via frameId
         source: videoFeed.hasFrame ? ("image://ahvideo/frame/" + videoFeed.frameId) : ""
+      }
+
+      // Painted area of the image (letterboxed inside stage)
+      Item {
+        id: imageArea
+        readonly property real imgAspect: videoFeed.hasFrame && videoFeed.frameHeight > 0
+                                          ? videoFeed.frameWidth / videoFeed.frameHeight
+                                          : 16 / 9
+        readonly property real areaAspect: stage.width / Math.max(stage.height, 1)
+        width: areaAspect > imgAspect ? stage.height * imgAspect : stage.width
+        height: areaAspect > imgAspect ? stage.height : stage.width / imgAspect
+        anchors.centerIn: parent
+
+        // Selection rectangle (normalized bbox → pixels in imageArea)
+        Rectangle {
+          id: bboxRect
+          x: trackController.bboxX * imageArea.width
+          y: trackController.bboxY * imageArea.height
+          width: trackController.bboxWidth * imageArea.width
+          height: trackController.bboxHeight * imageArea.height
+          color: systemStatus.trackingStarted ? "#336bcf7f" : "#33e6c35c"
+          border.color: systemStatus.trackingStarted ? "#6bcf7f" : "#e6c35c"
+          border.width: 2
+          visible: videoFeed.hasFrame
+        }
+
+        MouseArea {
+          id: dragArea
+          anchors.fill: parent
+          enabled: videoFeed.hasFrame && !trackController.busy
+          property real startX: 0
+          property real startY: 0
+
+          onPressed: function (mouse) {
+            startX = mouse.x
+            startY = mouse.y
+            trackController.bboxX = mouse.x / width
+            trackController.bboxY = mouse.y / height
+            trackController.bboxWidth = 0.01
+            trackController.bboxHeight = 0.01
+          }
+          onPositionChanged: function (mouse) {
+            if (!pressed)
+              return
+            const x0 = Math.min(startX, mouse.x)
+            const y0 = Math.min(startY, mouse.y)
+            const x1 = Math.max(startX, mouse.x)
+            const y1 = Math.max(startY, mouse.y)
+            trackController.bboxX = Math.max(0, Math.min(1, x0 / width))
+            trackController.bboxY = Math.max(0, Math.min(1, y0 / height))
+            trackController.bboxWidth = Math.max(0.01, Math.min(1 - trackController.bboxX, (x1 - x0) / width))
+            trackController.bboxHeight = Math.max(0.01, Math.min(1 - trackController.bboxY, (y1 - y0) / height))
+          }
+        }
       }
 
       Text {
         anchors.centerIn: parent
         visible: !videoFeed.hasFrame
-        text: "No video frame yet\n(run ah_core or publish CompressedImage)"
+        text: "No video frame yet\n(run ah_core on domain 42)"
         color: "#5a6572"
         font.pixelSize: 13
         horizontalAlignment: Text.AlignHCenter

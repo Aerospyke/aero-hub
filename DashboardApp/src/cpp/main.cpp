@@ -14,6 +14,7 @@
 #include "ah_ros_bridge.h"
 #include "ah_settings.h"
 #include "ah_system_status.h"
+#include "ah_track_controller.h"
 #include "ah_video_feed.h"
 #include "animation.h"
 #include "jsb_settings_tree_model.h"
@@ -52,10 +53,12 @@ int main(int argc, char* argv[]) {
   };
 
   const AhRosBridge RosBridge(app_settings.RosDomainId(), std::move(hooks));
+  auto* track_controller = new AhTrackController(RosBridge.Node());
 
   const QGuiApplication Application(argc, argv);
   system_status->setParent(QCoreApplication::instance());
   video_feed->setParent(QCoreApplication::instance());
+  track_controller->setParent(QCoreApplication::instance());
 
   QQmlApplicationEngine engine;
   engine.addImageProvider(QStringLiteral("ahvideo"), new AhVideoImageProvider(video_feed));
@@ -88,6 +91,7 @@ int main(int argc, char* argv[]) {
   engine.rootContext()->setContextProperty("jsbSettingsModel", jsb_settings_model);
   engine.rootContext()->setContextProperty("systemStatus", system_status);
   engine.rootContext()->setContextProperty("videoFeed", video_feed);
+  engine.rootContext()->setContextProperty("trackController", track_controller);
   engine.load(RootUrl);
 
   animation->init();

@@ -1,6 +1,10 @@
 find_package(rclcpp REQUIRED) # Required to use ROS/ROS node functionality
 find_package(std_msgs REQUIRED) # /ah/system/status is std_msgs/String (JSON)
 find_package(sensor_msgs REQUIRED) # /ah/video/compressed is sensor_msgs/CompressedImage
+find_package(std_srvs REQUIRED) # /ah/tracking/stop|cancel
+# Local colcon install (ah_msgs StartTracking.srv) — build ros/ first if missing
+list(PREPEND CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}/ros/install")
+find_package(ah_msgs REQUIRED)
 # RoboStack's rclcpp deps pull in *_rosidl_generator_py dylibs that reference
 # CPython symbols but do not link libpython. A pure C++ app must link Python
 # or dyld fails at launch with: symbol not found … '_PyExc_RuntimeError'.
@@ -26,6 +30,7 @@ set(APPLICATION_SOURCE_FILES
         src/cpp/ah_settings.cpp
         src/cpp/ah_system_status.cpp
         src/cpp/ah_video_feed.cpp
+        src/cpp/ah_track_controller.cpp
 )
 
 set(APPLICATION_HEADER_FILES
@@ -35,6 +40,7 @@ set(APPLICATION_HEADER_FILES
         src/include/ah_settings.h
         src/include/ah_system_status.h
         src/include/ah_video_feed.h
+        src/include/ah_track_controller.h
 )
 
 set(APPLICATION_INCLUDE_DIRECTORIES
@@ -46,6 +52,8 @@ set(LINKED_LIBRARIES_NON_QT
         rclcpp::rclcpp
         ${std_msgs_TARGETS}
         ${sensor_msgs_TARGETS}
+        ${std_srvs_TARGETS}
+        ${ah_msgs_TARGETS}
         Python3::Python
 )
 
