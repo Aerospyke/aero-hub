@@ -1,0 +1,14 @@
+# Select video source / camera (Task_30). Prefer device_path when non-empty.
+# video_source: "synthetic" | "camera" | "" (infer: camera if id/path set, else synthetic)
+# device_id: -1 means unspecified (use path or keep current)
+string video_source
+int32 device_id
+string device_path
+string backend
+---
+bool success
+string message
+string video_source
+int32 device_id
+string device_path
+string backend

@@ -10,5 +10,7 @@ inline constexpr char VideoCompressedTopic[] = "ah/video/compressed";
 inline constexpr char TrackingStartService[] = "ah/tracking/start";
 inline constexpr char TrackingStopService[] = "ah/tracking/stop";
 inline constexpr char TrackingCancelService[] = "ah/tracking/cancel";
+inline constexpr char CameraListService[] = "ah/camera/list";
+inline constexpr char CameraSelectService[] = "ah/camera/select";
 
 }  // namespace ah_ros_names

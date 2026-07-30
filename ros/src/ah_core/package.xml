@@ -3,7 +3,7 @@
 <package format="3">
   <name>ah_core</name>
   <version>0.1.0</version>
-  <description>AeroHub core node (Milestone_1 stub: status, synthetic video, track services).</description>
+  <description>AeroHub core node (status, video, track services, camera list/select).</description>
   <maintainer email="dev@aerohub.local">AeroHub</maintainer>
   <license>Apache-2.0</license>
 

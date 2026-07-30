@@ -1,0 +1,16 @@
+# Enumerate camera inputs known to ah_core (Task_30).
+# No hard-coded single device ID — clients list, then SelectCamera.
+bool refresh
+---
+bool success
+string message
+# Parallel arrays (same length). Always includes a synthetic entry (id=-1, path=synthetic).
+int32[] ids
+string[] paths
+string[] names
+string[] backends
+# Current selection (params)
+string video_source
+int32 selected_id
+string selected_path
+string selected_backend
