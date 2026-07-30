@@ -17,6 +17,7 @@
     <file alias="EnvironmentModelPanel.qml">qml/environment_model_panel.qml</file>
     <file alias="HubPanel.qml">qml/hub_panel.qml</file>
     <file alias="VisualizationPanel.qml">qml/visualization_panel.qml</file>
+    <file alias="TrackingPanel.qml">qml/tracking_panel.qml</file>
     <file alias="AutopilotPanel.qml">qml/autopilot_panel.qml</file>
     <file alias="HighFidelityModelsPanel.qml">qml/high_fidelity_models_panel.qml</file>
   </qresource>

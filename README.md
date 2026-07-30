@@ -160,8 +160,8 @@ With both processes running (domain **42**, matching **namespace**):
 
 1. **Status** — Footer **ROS** green; Control page shows live fields (`video_status`, etc.). Banner hidden.  
 2. **Video** — Ops → Video panel: synthetic frames move.  
-3. **Start tracking** — Ops: drag a box on video (or edit fields on Control) → **Start**. Footer Tracking **ON**; Control `tracking_started` true.  
-4. **Stop** — Control **Stop** → Tracking **OFF**.  
+3. **Start tracking** — Ops: drag a box on Video (or edit fields in Tracking panel under Video) → **Start**. Footer Tracking **ON**.  
+4. **Stop** — Ops Tracking panel **Stop** → Tracking **OFF**.  
 5. **Cancel** — **Cancel** hard-resets stub tracking/segmentation flags.  
 6. **Disconnect** — Kill `ah_core`. Within ~2 s: amber/red banner, footer **ROS LOST**, video **stale**/dimmed; app does not crash.  
 7. **Reconnect** — Restart `ah_core` → status/video return without restarting the dashboard.

@@ -40,7 +40,7 @@ Rectangle {
       }
 
       Text {
-        text: "drag to set tracking box"
+        text: "drag box · controls below"
         color: "#5a6572"
         font.pixelSize: 11
         visible: videoFeed.hasFrame
