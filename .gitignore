@@ -100,3 +100,14 @@ fabric.properties
 ros/build/
 ros/install/
 ros/log/
+
+# Python (ah_yolo and any future ament_python packages)
+**/__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.Python
+*.so
