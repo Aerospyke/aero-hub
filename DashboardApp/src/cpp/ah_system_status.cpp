@@ -67,10 +67,10 @@ void AhSystemStatus::ApplyJson(const QString& json) {
     emit RawJsonChanged();
   }
 
-  const bool smart = obj.value(QStringLiteral("smart_mode_active")).toBool(smart_mode_active_);
-  if (smart != smart_mode_active_) {
-    smart_mode_active_ = smart;
-    emit SmartModeActiveChanged();
+  const bool ai_tracking = obj.value(QStringLiteral("ai_tracking_active")).toBool(ai_tracking_active_);
+  if (ai_tracking != ai_tracking_active_) {
+    ai_tracking_active_ = ai_tracking;
+    emit aiTrackingActiveChanged();
   }
 
   const bool tracking = obj.value(QStringLiteral("tracking_started")).toBool(tracking_started_);

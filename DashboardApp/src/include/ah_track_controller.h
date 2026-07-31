@@ -5,13 +5,13 @@
 #include <QObject>
 #include <QString>
 
-#include "ah_msgs/srv/smart_click.hpp"
+#include "ah_msgs/srv/ai_tracking_click.hpp"
 #include "ah_msgs/srv/start_tracking.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "std_srvs/srv/set_bool.hpp"
 #include "std_srvs/srv/trigger.hpp"
 
-/// QML client for tracking + smart mode (Task_19/20 + Task_35).
+/// QML client for tracking + ai tracking (Task_19/20 + Task_35).
 /// Service calls are async; responses are marshalled onto the Qt thread.
 class AhTrackController final : public QObject {
   Q_OBJECT
@@ -53,10 +53,10 @@ class AhTrackController final : public QObject {
   void CancelTracking();
   /// Reset tracking bounding box to a default center rectangle.
   void ResetTrackingBoundingBox();
-  /// Task_35: `ah/smart/toggle` with SetBool data.
-  void SetSmartMode(bool enabled);
-  /// Task_35: `ah/smart/click` with normalized point [0,1].
-  void SmartClick(float x, float y);
+  /// Task_35: `ah/ai_tracking/toggle` with SetBool data.
+  void SetAiTrackingMode(bool enabled);
+  /// Task_35: `ah/ai_tracking/click` with normalized point [0,1].
+  void AiTrackingClick(float x, float y);
 
  signals:
   void BusyChanged();
@@ -74,8 +74,8 @@ class AhTrackController final : public QObject {
   rclcpp::Client<ah_msgs::srv::StartTracking>::SharedPtr start_client_;
   rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr stop_client_;
   rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr cancel_client_;
-  rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr smart_toggle_client_;
-  rclcpp::Client<ah_msgs::srv::SmartClick>::SharedPtr smart_click_client_;
+  rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr ai_tracking_toggle_client_;
+  rclcpp::Client<ah_msgs::srv::AiTrackingClick>::SharedPtr ai_tracking_click_client_;
 
   bool busy_ = false;
   bool last_success_ = false;

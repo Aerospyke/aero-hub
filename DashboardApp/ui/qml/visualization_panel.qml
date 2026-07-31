@@ -47,10 +47,10 @@ Rectangle {
       }
 
       Text {
-        text: systemStatus.smartModeActive
-              ? "smart: click a detection to lock"
+        text: systemStatus.aiTrackingActive
+              ? "AI tracking: click a detection to lock"
               : "drag box · controls below"
-        color: systemStatus.smartModeActive ? "#9ecbff" : "#5a6572"
+        color: systemStatus.aiTrackingActive ? "#9ecbff" : "#5a6572"
         font.pixelSize: 11
         visible: videoFeed.hasFrame
       }
@@ -130,7 +130,7 @@ Rectangle {
         }
 
         // Selection / lock rectangle (normalized → imageArea pixels)
-        // Classic: always show while framing. Smart: only after a successful lock on a detection.
+        // Classic: always show while framing. AI tracking: only after a successful lock on a detection.
         Rectangle {
           id: trackingBoundingBoxRect
           x: trackController.trackingBoundingBoxX * imageArea.width
@@ -141,7 +141,7 @@ Rectangle {
           border.color: systemStatus.trackingStarted ? "#6bcf7f" : "#e6c35c"
           border.width: 2
           visible: videoFeed.hasFrame && (
-            systemStatus.smartModeActive
+            systemStatus.aiTrackingActive
               ? systemStatus.trackingStarted
               : true)
           z: 2
@@ -154,9 +154,9 @@ Rectangle {
           property real startX: 0
           property real startY: 0
 
-          // Smart mode: click only (no drag). Classic: drag to size a bbox.
+          // AI tracking: click only (no drag). Classic: drag to size a bbox.
           onPressed: function (mouse) {
-            if (systemStatus.smartModeActive)
+            if (systemStatus.aiTrackingActive)
               return
             startX = mouse.x
             startY = mouse.y
@@ -166,7 +166,7 @@ Rectangle {
             trackController.trackingBoundingBoxHeight = 0.01
           }
           onPositionChanged: function (mouse) {
-            if (!pressed || systemStatus.smartModeActive)
+            if (!pressed || systemStatus.aiTrackingActive)
               return
             const x0 = Math.min(startX, mouse.x)
             const y0 = Math.min(startY, mouse.y)
@@ -178,11 +178,11 @@ Rectangle {
             trackController.trackingBoundingBoxHeight = Math.max(0.01, Math.min(1 - trackController.trackingBoundingBoxY, (y1 - y0) / height))
           }
           onClicked: function (mouse) {
-            if (!systemStatus.smartModeActive)
+            if (!systemStatus.aiTrackingActive)
               return
             const nx = Math.max(0, Math.min(1, mouse.x / width))
             const ny = Math.max(0, Math.min(1, mouse.y / height))
-            trackController.SmartClick(nx, ny)
+            trackController.AiTrackingClick(nx, ny)
           }
         }
       }

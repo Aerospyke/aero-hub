@@ -91,8 +91,8 @@ Item {
           }
         }
 
-        StatusLabel { text: "smart_mode_active" }
-        StatusValue { text: systemStatus.smartModeActive ? "true" : "false" }
+        StatusLabel { text: "ai_tracking_active" }
+        StatusValue { text: systemStatus.aiTrackingActive ? "true" : "false" }
 
         StatusLabel { text: "following_active" }
         StatusValue { text: systemStatus.followingActive ? "true" : "false" }

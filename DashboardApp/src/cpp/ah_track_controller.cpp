@@ -26,10 +26,10 @@ AhTrackController::AhTrackController(rclcpp::Node::SharedPtr node, QObject* pare
       node_->create_client<ah_msgs::srv::StartTracking>(ah_ros_names::TrackingStartService);
   stop_client_ = node_->create_client<std_srvs::srv::Trigger>(ah_ros_names::TrackingStopService);
   cancel_client_ = node_->create_client<std_srvs::srv::Trigger>(ah_ros_names::TrackingCancelService);
-  smart_toggle_client_ =
-      node_->create_client<std_srvs::srv::SetBool>(ah_ros_names::SmartToggleService);
-  smart_click_client_ =
-      node_->create_client<ah_msgs::srv::SmartClick>(ah_ros_names::SmartClickService);
+  ai_tracking_toggle_client_ =
+      node_->create_client<std_srvs::srv::SetBool>(ah_ros_names::AiTrackingToggleService);
+  ai_tracking_click_client_ =
+      node_->create_client<ah_msgs::srv::AiTrackingClick>(ah_ros_names::AiTrackingClickService);
 }
 
 void AhTrackController::SetTrackingBoundingBoxX(float value) {
@@ -183,12 +183,12 @@ void AhTrackController::CancelTracking() {
       });
 }
 
-void AhTrackController::SetSmartMode(bool enabled) {
+void AhTrackController::SetAiTrackingMode(bool enabled) {
   if (busy_) {
     return;
   }
-  if (!smart_toggle_client_->service_is_ready()) {
-    SetResult(false, QStringLiteral("Service ah/smart/toggle not available (is ah_core running?)"));
+  if (!ai_tracking_toggle_client_->service_is_ready()) {
+    SetResult(false, QStringLiteral("Service ah/ai_tracking/toggle not available (is ah_core running?)"));
     emit CommandFinished(false, last_message_);
     return;
   }
@@ -196,7 +196,7 @@ void AhTrackController::SetSmartMode(bool enabled) {
   SetBusy(true);
   auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
   request->data = enabled;
-  smart_toggle_client_->async_send_request(
+  ai_tracking_toggle_client_->async_send_request(
       request, [this, enabled](rclcpp::Client<std_srvs::srv::SetBool>::SharedFuture future) {
         try {
           const auto response = future.get();
@@ -226,32 +226,32 @@ void AhTrackController::SetSmartMode(bool enabled) {
               },
               Qt::QueuedConnection);
         } catch (const std::exception& ex) {
-          FinishOnUiThread(false, QStringLiteral("Smart toggle failed: %1").arg(ex.what()));
+          FinishOnUiThread(false, QStringLiteral("AI tracking toggle failed: %1").arg(ex.what()));
         }
       });
 }
 
-void AhTrackController::SmartClick(float x, float y) {
+void AhTrackController::AiTrackingClick(float x, float y) {
   if (busy_) {
     return;
   }
   if (x < 0.f || x > 1.f || y < 0.f || y > 1.f) {
-    SetResult(false, QStringLiteral("Smart click must be normalized in [0,1]"));
+    SetResult(false, QStringLiteral("AI tracking click must be normalized in [0,1]"));
     emit CommandFinished(false, last_message_);
     return;
   }
-  if (!smart_click_client_->service_is_ready()) {
-    SetResult(false, QStringLiteral("Service ah/smart/click not available (is ah_core running?)"));
+  if (!ai_tracking_click_client_->service_is_ready()) {
+    SetResult(false, QStringLiteral("Service ah/ai_tracking/click not available (is ah_core running?)"));
     emit CommandFinished(false, last_message_);
     return;
   }
 
   SetBusy(true);
-  auto request = std::make_shared<ah_msgs::srv::SmartClick::Request>();
+  auto request = std::make_shared<ah_msgs::srv::AiTrackingClick::Request>();
   request->x = x;
   request->y = y;
-  smart_click_client_->async_send_request(
-      request, [this](rclcpp::Client<ah_msgs::srv::SmartClick>::SharedFuture future) {
+  ai_tracking_click_client_->async_send_request(
+      request, [this](rclcpp::Client<ah_msgs::srv::AiTrackingClick>::SharedFuture future) {
         try {
           const auto response = future.get();
           const bool ok = response->success;
@@ -269,7 +269,7 @@ void AhTrackController::SmartClick(float x, float y) {
                   tracking_bounding_box_width_ = lw;
                   tracking_bounding_box_height_ = lh;
                 } else {
-                  // Miss: clear local box so nothing is drawn in smart mode.
+                  // Miss: clear local box so nothing is drawn in ai tracking.
                   tracking_bounding_box_x_ = 0.f;
                   tracking_bounding_box_y_ = 0.f;
                   tracking_bounding_box_width_ = 0.f;
@@ -282,7 +282,7 @@ void AhTrackController::SmartClick(float x, float y) {
               },
               Qt::QueuedConnection);
         } catch (const std::exception& ex) {
-          FinishOnUiThread(false, QStringLiteral("Smart click failed: %1").arg(ex.what()));
+          FinishOnUiThread(false, QStringLiteral("AI tracking click failed: %1").arg(ex.what()));
         }
       });
 }

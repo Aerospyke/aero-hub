@@ -13,8 +13,8 @@ inline constexpr char TrackingCancelService[] = "ah/tracking/cancel";
 inline constexpr char CameraListService[] = "ah/camera/list";
 inline constexpr char CameraSelectService[] = "ah/camera/select";
 inline constexpr char DetectionsTopic[] = "ah/detections";
-inline constexpr char SmartToggleService[] = "ah/smart/toggle";
-inline constexpr char SmartClickService[] = "ah/smart/click";
+inline constexpr char AiTrackingToggleService[] = "ah/ai_tracking/toggle";
+inline constexpr char AiTrackingClickService[] = "ah/ai_tracking/click";
 
 }  // namespace ah_ros_names
 

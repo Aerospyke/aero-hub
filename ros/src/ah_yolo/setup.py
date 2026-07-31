@@ -15,7 +15,7 @@ setup(
     zip_safe=True,
     maintainer="AeroHub",
     maintainer_email="dev@aerohub.local",
-    description="AeroHub YOLO smart-detection node (Ultralytics)",
+    description="AeroHub YOLO YOLO detection node (Ultralytics)",
     license="Apache-2.0",
     entry_points={
         "console_scripts": [

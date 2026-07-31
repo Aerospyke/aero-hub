@@ -11,7 +11,7 @@
 
 #include "ah_msgs/srv/list_cameras.hpp"
 #include "ah_msgs/srv/select_camera.hpp"
-#include "ah_msgs/srv/smart_click.hpp"
+#include "ah_msgs/srv/ai_tracking_click.hpp"
 #include "ah_msgs/srv/start_tracking.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/compressed_image.hpp"
@@ -57,12 +57,12 @@ private:
     std::shared_ptr<ah_msgs::srv::SelectCamera::Response> response);
   void FillSelectResponse(
     std::shared_ptr<ah_msgs::srv::SelectCamera::Response> response) const;
-  void OnSmartToggle(
+  void OnAiTrackingToggle(
     const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
     std::shared_ptr<std_srvs::srv::SetBool::Response> response);
-  void OnSmartClick(
-    const std::shared_ptr<ah_msgs::srv::SmartClick::Request> request,
-    std::shared_ptr<ah_msgs::srv::SmartClick::Response> response);
+  void OnAiTrackingClick(
+    const std::shared_ptr<ah_msgs::srv::AiTrackingClick::Request> request,
+    std::shared_ptr<ah_msgs::srv::AiTrackingClick::Response> response);
   void OnDetections(const std_msgs::msg::String::SharedPtr msg);
 
   struct DetectionBox
@@ -76,7 +76,7 @@ private:
   };
 
   /// Pick lock bbox from click + last detections (Task_35).
-  bool ResolveSmartClickLock(
+  bool ResolveAiTrackingClickLock(
     float click_x, float click_y,
     float * out_x, float * out_y, float * out_w, float * out_h,
     std::string * out_label) const;
@@ -88,8 +88,8 @@ private:
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr cancel_tracking_srv_;
   rclcpp::Service<ah_msgs::srv::ListCameras>::SharedPtr list_cameras_srv_;
   rclcpp::Service<ah_msgs::srv::SelectCamera>::SharedPtr select_camera_srv_;
-  rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr smart_toggle_srv_;
-  rclcpp::Service<ah_msgs::srv::SmartClick>::SharedPtr smart_click_srv_;
+  rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr ai_tracking_toggle_srv_;
+  rclcpp::Service<ah_msgs::srv::AiTrackingClick>::SharedPtr ai_tracking_click_srv_;
   rclcpp::Subscription<std_msgs::msg::String>::SharedPtr detections_sub_;
   rclcpp::CallbackGroup::SharedPtr camera_cb_group_;
   rclcpp::TimerBase::SharedPtr timer_;
@@ -98,7 +98,7 @@ private:
 
   bool tracking_started_{false};
   bool segmentation_active_{false};
-  bool smart_mode_active_{false};
+  bool ai_tracking_active_{false};
   bool following_active_{false};
   float tracking_bounding_box_x_{0.0f};
   float tracking_bounding_box_y_{0.0f};

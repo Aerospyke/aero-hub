@@ -14,7 +14,7 @@ class AhSystemStatus final : public QObject {
   /// "waiting" (never seen core) | "live" | "lost" (had core, timed out)
   Q_PROPERTY(QString linkState READ LinkState NOTIFY LinkStateChanged)
   Q_PROPERTY(QString connectionMessage READ ConnectionMessage NOTIFY ConnectionMessageChanged)
-  Q_PROPERTY(bool smartModeActive READ SmartModeActive NOTIFY SmartModeActiveChanged)
+  Q_PROPERTY(bool aiTrackingActive READ AiTrackingActive NOTIFY aiTrackingActiveChanged)
   Q_PROPERTY(bool trackingStarted READ TrackingStarted NOTIFY TrackingStartedChanged)
   Q_PROPERTY(bool segmentationActive READ SegmentationActive NOTIFY SegmentationActiveChanged)
   Q_PROPERTY(bool followingActive READ FollowingActive NOTIFY FollowingActiveChanged)
@@ -33,7 +33,7 @@ class AhSystemStatus final : public QObject {
   [[nodiscard]] bool Connected() const { return connected_; }
   [[nodiscard]] QString LinkState() const { return link_state_; }
   [[nodiscard]] QString ConnectionMessage() const { return connection_message_; }
-  [[nodiscard]] bool SmartModeActive() const { return smart_mode_active_; }
+  [[nodiscard]] bool AiTrackingActive() const { return ai_tracking_active_; }
   [[nodiscard]] bool TrackingStarted() const { return tracking_started_; }
   [[nodiscard]] bool SegmentationActive() const { return segmentation_active_; }
   [[nodiscard]] bool FollowingActive() const { return following_active_; }
@@ -52,7 +52,7 @@ class AhSystemStatus final : public QObject {
   void ConnectedChanged();
   void LinkStateChanged();
   void ConnectionMessageChanged();
-  void SmartModeActiveChanged();
+  void aiTrackingActiveChanged();
   void TrackingStartedChanged();
   void SegmentationActiveChanged();
   void FollowingActiveChanged();
@@ -75,7 +75,7 @@ class AhSystemStatus final : public QObject {
   QString link_state_ = QStringLiteral("waiting");
   QString connection_message_ =
       QStringLiteral("Waiting for ah_core (/ah/system/status) on this ROS domain…");
-  bool smart_mode_active_ = false;
+  bool ai_tracking_active_ = false;
   bool tracking_started_ = false;
   bool segmentation_active_ = false;
   bool following_active_ = false;

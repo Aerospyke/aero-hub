@@ -1,5 +1,5 @@
-# Smart-mode click: normalized image point [0,1] (interface map §4, Task_35).
-# Core picks a detection under the point (or nearest), or a small box around the point.
+# AI-tracking click: normalized image point [0,1] (interface map §4, Task_35).
+# Core locks only if click is inside a detection box.
 float32 x
 float32 y
 ---

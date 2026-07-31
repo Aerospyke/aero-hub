@@ -235,16 +235,16 @@ Rectangle {
       Item { Layout.fillWidth: true }
 
       DarkButton {
-        text: systemStatus.smartModeActive ? "Smart ON" : "Smart OFF"
+        text: systemStatus.aiTrackingActive ? "AI ON" : "AI OFF"
         enabled: !trackController.busy
-        face: systemStatus.smartModeActive ? "#1a4a7a" : "#1a2430"
-        faceDown: systemStatus.smartModeActive ? "#2a7acc" : "#243140"
-        edge: systemStatus.smartModeActive ? root.chromeAccent : root.chromeBorder
-        onClicked: trackController.SetSmartMode(!systemStatus.smartModeActive)
+        face: systemStatus.aiTrackingActive ? "#1a4a7a" : "#1a2430"
+        faceDown: systemStatus.aiTrackingActive ? "#2a7acc" : "#243140"
+        edge: systemStatus.aiTrackingActive ? root.chromeAccent : root.chromeBorder
+        onClicked: trackController.SetAiTrackingMode(!systemStatus.aiTrackingActive)
       }
       DarkButton {
         text: "Start"
-        enabled: !trackController.busy && !systemStatus.smartModeActive
+        enabled: !trackController.busy && !systemStatus.aiTrackingActive
         face: "#1e5c32"
         faceDown: "#2a6b3a"
         edge: "#3d8f55"
@@ -283,10 +283,10 @@ Rectangle {
       Layout.fillWidth: true
       horizontalAlignment: Text.AlignHCenter
       wrapMode: Text.WordWrap
-      text: systemStatus.smartModeActive
-            ? "Smart mode: click a cyan detection to lock (drag disabled)"
+      text: systemStatus.aiTrackingActive
+            ? "AI tracking: click a cyan detection to lock (drag disabled)"
             : "Classic: drag box on video, then Start"
-      color: systemStatus.smartModeActive ? "#9ecbff" : root.chromeText
+      color: systemStatus.aiTrackingActive ? "#9ecbff" : root.chromeText
       font.pixelSize: 13
     }
 

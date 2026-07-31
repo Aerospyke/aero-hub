@@ -3,7 +3,7 @@
 <package format="3">
   <name>ah_yolo</name>
   <version>0.1.0</version>
-  <description>AeroHub YOLO smart-detection node (Ultralytics; tank + coco80 profiles).</description>
+  <description>AeroHub YOLO YOLO detection node (Ultralytics; tank + coco80 profiles).</description>
   <maintainer email="dev@aerohub.local">AeroHub</maintainer>
   <license>Apache-2.0</license>
 

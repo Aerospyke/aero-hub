@@ -2,7 +2,7 @@ import QtQuick 2.15
 import QtQuick.Layouts 1.15
 import QtQuick.Controls 2.15
 
-// Footer status chips (Task_17) — tracking / video / smart / following.
+// Footer status chips (Task_17) — tracking / video / ai tracking / following.
 Rectangle {
   id: root
   implicitHeight: 40
@@ -102,9 +102,9 @@ Rectangle {
     }
 
     StatusChip {
-      label: "Smart"
-      value: systemStatus.smartModeActive ? "ON" : "OFF"
-      accent: systemStatus.smartModeActive ? "#6bcf7f" : "#8a96a5"
+      label: "AI track"
+      value: systemStatus.aiTrackingActive ? "ON" : "OFF"
+      accent: systemStatus.aiTrackingActive ? "#6bcf7f" : "#8a96a5"
     }
 
     StatusChip {

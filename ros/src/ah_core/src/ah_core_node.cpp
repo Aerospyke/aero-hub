@@ -54,7 +54,7 @@ std::string CreateStatusJson(
   const char * video_status,
   bool tracking_started,
   bool segmentation_active,
-  bool smart_mode_active,
+  bool ai_tracking_active,
   bool following_active,
   const char * tracker_type,
   const CameraSelection & cam)
@@ -63,7 +63,7 @@ std::string CreateStatusJson(
   oss.setf(std::ios::fixed);
   oss.precision(3);
   oss << '{'
-      << "\"smart_mode_active\":" << (smart_mode_active ? "true" : "false") << ','
+      << "\"ai_tracking_active\":" << (ai_tracking_active ? "true" : "false") << ','
       << "\"tracking_started\":" << (tracking_started ? "true" : "false") << ','
       << "\"segmentation_active\":" << (segmentation_active ? "true" : "false") << ','
       << "\"following_active\":" << (following_active ? "true" : "false") << ','
@@ -224,13 +224,13 @@ AhCoreNode::AhCoreNode(
     rclcpp::ServicesQoS(),
     camera_cb_group_);
 
-  smart_toggle_srv_ = create_service<std_srvs::srv::SetBool>(
-    "ah/smart/toggle",
-    std::bind(&AhCoreNode::OnSmartToggle, this, std::placeholders::_1, std::placeholders::_2));
+  ai_tracking_toggle_srv_ = create_service<std_srvs::srv::SetBool>(
+    "ah/ai_tracking/toggle",
+    std::bind(&AhCoreNode::OnAiTrackingToggle, this, std::placeholders::_1, std::placeholders::_2));
 
-  smart_click_srv_ = create_service<ah_msgs::srv::SmartClick>(
-    "ah/smart/click",
-    std::bind(&AhCoreNode::OnSmartClick, this, std::placeholders::_1, std::placeholders::_2));
+  ai_tracking_click_srv_ = create_service<ah_msgs::srv::AiTrackingClick>(
+    "ah/ai_tracking/click",
+    std::bind(&AhCoreNode::OnAiTrackingClick, this, std::placeholders::_1, std::placeholders::_2));
 
   rclcpp::QoS det_qos(rclcpp::KeepLast(1));
   det_qos.best_effort();
@@ -299,7 +299,7 @@ AhCoreNode::AhCoreNode(
   RCLCPP_INFO(
     get_logger(),
     "ah_core ready: fqn=%s ROS_DOMAIN_ID=%s status+video @ %d Hz; "
-    "services tracking + camera + smart/toggle|click; "
+    "services tracking + camera + ai_tracking/toggle|click; "
     "video.source=%s camera.id=%d path=%s (hardware probe + capture deferred)",
     get_fully_qualified_name(),
     domain && domain[0] ? domain : "(default 0)",
@@ -422,7 +422,7 @@ void AhCoreNode::OnTimer()
     video_status,
     tracking_started_,
     segmentation_active_,
-    smart_mode_active_,
+    ai_tracking_active_,
     following_active_,
     tracker_type_.c_str(),
     camera_);
@@ -480,7 +480,7 @@ void AhCoreNode::OnStopTracking(
 {
   const bool was = tracking_started_;
   tracking_started_ = false;
-  if (!smart_mode_active_) {
+  if (!ai_tracking_active_) {
     tracker_type_ = "stub";
   }
   response->success = true;
@@ -494,10 +494,10 @@ void AhCoreNode::OnCancelTracking(
 {
   tracking_started_ = false;
   segmentation_active_ = false;
-  if (!smart_mode_active_) {
+  if (!ai_tracking_active_) {
     tracker_type_ = "stub";
   } else {
-    tracker_type_ = "smart";
+    tracker_type_ = "ai_tracking";
   }
   response->success = true;
   response->message = "tracking cancelled (hard reset)";
@@ -708,12 +708,12 @@ void AhCoreNode::OnDetections(const std_msgs::msg::String::SharedPtr msg)
   }
 }
 
-bool AhCoreNode::ResolveSmartClickLock(
+bool AhCoreNode::ResolveAiTrackingClickLock(
   float click_x, float click_y,
   float * out_x, float * out_y, float * out_w, float * out_h,
   std::string * out_label) const
 {
-  // Smart lock only on a detection that contains the click (no free-point box).
+  // AI tracking lock only on a detection that contains the click (no free-point box).
   std::vector<DetectionBox> dets;
   {
     std::lock_guard<std::mutex> lock(detections_mutex_);
@@ -756,23 +756,23 @@ bool AhCoreNode::ResolveSmartClickLock(
   return true;
 }
 
-void AhCoreNode::OnSmartToggle(
+void AhCoreNode::OnAiTrackingToggle(
   const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
   std::shared_ptr<std_srvs::srv::SetBool::Response> response)
 {
   const bool turning_on = request->data;
-  smart_mode_active_ = turning_on;
+  ai_tracking_active_ = turning_on;
 
   if (turning_on) {
-    // Enter smart: clear classic framing; lock only appears after click-on-detection.
+    // Enter ai tracking: clear classic framing; lock only appears after click-on-detection.
     tracking_started_ = false;
     tracking_bounding_box_x_ = 0.f;
     tracking_bounding_box_y_ = 0.f;
     tracking_bounding_box_width_ = 0.f;
     tracking_bounding_box_height_ = 0.f;
-    tracker_type_ = "smart";
+    tracker_type_ = "ai_tracking";
   } else {
-    // Leave smart: stop any smart lock; classic drag box returns on the UI.
+    // Leave ai tracking: stop any ai tracking lock; classic drag box returns on the UI.
     tracking_started_ = false;
     tracker_type_ = "stub";
     tracking_bounding_box_x_ = 0.35f;
@@ -782,18 +782,18 @@ void AhCoreNode::OnSmartToggle(
   }
 
   response->success = true;
-  response->message = smart_mode_active_ ? "smart mode ON (click detections only)"
-                                         : "smart mode OFF (classic drag)";
+  response->message = ai_tracking_active_ ? "ai tracking ON (click detections only)"
+                                         : "ai tracking OFF (classic drag)";
   RCLCPP_INFO(get_logger(), "%s", response->message.c_str());
 }
 
-void AhCoreNode::OnSmartClick(
-  const std::shared_ptr<ah_msgs::srv::SmartClick::Request> request,
-  std::shared_ptr<ah_msgs::srv::SmartClick::Response> response)
+void AhCoreNode::OnAiTrackingClick(
+  const std::shared_ptr<ah_msgs::srv::AiTrackingClick::Request> request,
+  std::shared_ptr<ah_msgs::srv::AiTrackingClick::Response> response)
 {
-  if (!smart_mode_active_) {
+  if (!ai_tracking_active_) {
     response->success = false;
-    response->message = "smart mode is OFF — enable ah/smart/toggle first";
+    response->message = "ai tracking is OFF — enable ah/ai_tracking/toggle first";
     return;
   }
   if (request->x < 0.f || request->x > 1.f || request->y < 0.f || request->y > 1.f) {
@@ -804,7 +804,7 @@ void AhCoreNode::OnSmartClick(
 
   float bx = 0.f, by = 0.f, bw = 0.f, bh = 0.f;
   std::string label;
-  if (!ResolveSmartClickLock(request->x, request->y, &bx, &by, &bw, &bh, &label)) {
+  if (!ResolveAiTrackingClickLock(request->x, request->y, &bx, &by, &bw, &bh, &label)) {
     // Miss: do not start tracking and do not invent a free-point box.
     tracking_started_ = false;
     tracking_bounding_box_x_ = 0.f;
@@ -818,13 +818,13 @@ void AhCoreNode::OnSmartClick(
     response->lock_width = 0.f;
     response->lock_height = 0.f;
     RCLCPP_INFO(
-      get_logger(), "smart click MISS at (%.3f,%.3f): %s",
+      get_logger(), "ai tracking click MISS at (%.3f,%.3f): %s",
       request->x, request->y, response->message.c_str());
     return;
   }
 
   tracking_started_ = true;
-  tracker_type_ = "smart";
+  tracker_type_ = "ai_tracking";
   tracking_bounding_box_x_ = bx;
   tracking_bounding_box_y_ = by;
   tracking_bounding_box_width_ = bw;
@@ -835,7 +835,7 @@ void AhCoreNode::OnSmartClick(
   response->lock_y = by;
   response->lock_width = bw;
   response->lock_height = bh;
-  response->message = "smart lock on detection [" + label + "]" +
+  response->message = "ai tracking lock on detection [" + label + "]" +
                       " bbox=[" + std::to_string(bx) + "," + std::to_string(by) + "," +
                       std::to_string(bw) + "," + std::to_string(bh) + "]";
   RCLCPP_INFO(get_logger(), "%s", response->message.c_str());
