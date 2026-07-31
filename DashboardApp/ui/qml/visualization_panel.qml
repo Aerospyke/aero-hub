@@ -47,7 +47,9 @@ Rectangle {
       }
 
       Text {
-        text: systemStatus.smartModeActive ? "smart: short-click lock" : "drag box · controls below"
+        text: systemStatus.smartModeActive
+              ? "smart: click a detection to lock"
+              : "drag box · controls below"
         color: systemStatus.smartModeActive ? "#9ecbff" : "#5a6572"
         font.pixelSize: 11
         visible: videoFeed.hasFrame
@@ -127,7 +129,8 @@ Rectangle {
           }
         }
 
-        // Selection rectangle (normalized tracking bounding box → pixels in imageArea)
+        // Selection / lock rectangle (normalized → imageArea pixels)
+        // Classic: always show while framing. Smart: only after a successful lock on a detection.
         Rectangle {
           id: trackingBoundingBoxRect
           x: trackController.trackingBoundingBoxX * imageArea.width
@@ -137,7 +140,10 @@ Rectangle {
           color: systemStatus.trackingStarted ? "#336bcf7f" : "#33e6c35c"
           border.color: systemStatus.trackingStarted ? "#6bcf7f" : "#e6c35c"
           border.width: 2
-          visible: videoFeed.hasFrame
+          visible: videoFeed.hasFrame && (
+            systemStatus.smartModeActive
+              ? systemStatus.trackingStarted
+              : true)
           z: 2
         }
 
@@ -147,28 +153,20 @@ Rectangle {
           enabled: videoFeed.hasFrame && !trackController.busy
           property real startX: 0
           property real startY: 0
-          property bool dragged: false
-          // Pixels of movement before we treat gesture as classic drag (not smart click).
-          readonly property real dragThreshold: 8
 
+          // Smart mode: click only (no drag). Classic: drag to size a bbox.
           onPressed: function (mouse) {
+            if (systemStatus.smartModeActive)
+              return
             startX = mouse.x
             startY = mouse.y
-            dragged = false
-            if (!systemStatus.smartModeActive) {
-              trackController.trackingBoundingBoxX = mouse.x / width
-              trackController.trackingBoundingBoxY = mouse.y / height
-              trackController.trackingBoundingBoxWidth = 0.01
-              trackController.trackingBoundingBoxHeight = 0.01
-            }
+            trackController.trackingBoundingBoxX = mouse.x / width
+            trackController.trackingBoundingBoxY = mouse.y / height
+            trackController.trackingBoundingBoxWidth = 0.01
+            trackController.trackingBoundingBoxHeight = 0.01
           }
           onPositionChanged: function (mouse) {
-            if (!pressed)
-              return
-            if (Math.abs(mouse.x - startX) > dragThreshold ||
-                Math.abs(mouse.y - startY) > dragThreshold)
-              dragged = true
-            if (systemStatus.smartModeActive && !dragged)
+            if (!pressed || systemStatus.smartModeActive)
               return
             const x0 = Math.min(startX, mouse.x)
             const y0 = Math.min(startY, mouse.y)
@@ -179,12 +177,12 @@ Rectangle {
             trackController.trackingBoundingBoxWidth = Math.max(0.01, Math.min(1 - trackController.trackingBoundingBoxX, (x1 - x0) / width))
             trackController.trackingBoundingBoxHeight = Math.max(0.01, Math.min(1 - trackController.trackingBoundingBoxY, (y1 - y0) / height))
           }
-          onReleased: function (mouse) {
-            if (systemStatus.smartModeActive && !dragged) {
-              const nx = Math.max(0, Math.min(1, mouse.x / width))
-              const ny = Math.max(0, Math.min(1, mouse.y / height))
-              trackController.SmartClick(nx, ny)
-            }
+          onClicked: function (mouse) {
+            if (!systemStatus.smartModeActive)
+              return
+            const nx = Math.max(0, Math.min(1, mouse.x / width))
+            const ny = Math.max(0, Math.min(1, mouse.y / height))
+            trackController.SmartClick(nx, ny)
           }
         }
       }

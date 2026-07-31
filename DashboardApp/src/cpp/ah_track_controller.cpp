@@ -197,10 +197,34 @@ void AhTrackController::SetSmartMode(bool enabled) {
   auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
   request->data = enabled;
   smart_toggle_client_->async_send_request(
-      request, [this](rclcpp::Client<std_srvs::srv::SetBool>::SharedFuture future) {
+      request, [this, enabled](rclcpp::Client<std_srvs::srv::SetBool>::SharedFuture future) {
         try {
           const auto response = future.get();
-          FinishOnUiThread(response->success, QString::fromStdString(response->message));
+          const bool ok = response->success;
+          const QString msg = QString::fromStdString(response->message);
+          QMetaObject::invokeMethod(
+              this,
+              [this, ok, msg, enabled]() {
+                if (ok) {
+                  if (enabled) {
+                    // Hide classic framing until a detection lock.
+                    tracking_bounding_box_x_ = 0.f;
+                    tracking_bounding_box_y_ = 0.f;
+                    tracking_bounding_box_width_ = 0.f;
+                    tracking_bounding_box_height_ = 0.f;
+                  } else {
+                    tracking_bounding_box_x_ = 0.35f;
+                    tracking_bounding_box_y_ = 0.35f;
+                    tracking_bounding_box_width_ = 0.30f;
+                    tracking_bounding_box_height_ = 0.30f;
+                  }
+                  emit trackingBoundingBoxChanged();
+                }
+                SetBusy(false);
+                SetResult(ok, msg);
+                emit CommandFinished(ok, msg);
+              },
+              Qt::QueuedConnection);
         } catch (const std::exception& ex) {
           FinishOnUiThread(false, QStringLiteral("Smart toggle failed: %1").arg(ex.what()));
         }
@@ -244,8 +268,14 @@ void AhTrackController::SmartClick(float x, float y) {
                   tracking_bounding_box_y_ = ly;
                   tracking_bounding_box_width_ = lw;
                   tracking_bounding_box_height_ = lh;
-                  emit trackingBoundingBoxChanged();
+                } else {
+                  // Miss: clear local box so nothing is drawn in smart mode.
+                  tracking_bounding_box_x_ = 0.f;
+                  tracking_bounding_box_y_ = 0.f;
+                  tracking_bounding_box_width_ = 0.f;
+                  tracking_bounding_box_height_ = 0.f;
                 }
+                emit trackingBoundingBoxChanged();
                 SetBusy(false);
                 SetResult(ok, msg);
                 emit CommandFinished(ok, msg);

@@ -713,17 +713,15 @@ bool AhCoreNode::ResolveSmartClickLock(
   float * out_x, float * out_y, float * out_w, float * out_h,
   std::string * out_label) const
 {
+  // Smart lock only on a detection that contains the click (no free-point box).
   std::vector<DetectionBox> dets;
   {
     std::lock_guard<std::mutex> lock(detections_mutex_);
     dets = last_detections_;
   }
 
-  constexpr float kDefaultBox = 0.12f;
   int best_contain = -1;
   float best_contain_area = 1e9f;
-  int best_near = -1;
-  float best_near_dist2 = 1e9f;
 
   for (size_t i = 0; i < dets.size(); ++i) {
     const auto & d = dets[i];
@@ -738,42 +736,22 @@ bool AhCoreNode::ResolveSmartClickLock(
         best_contain = static_cast<int>(i);
       }
     }
-    const float cx = d.x + 0.5f * d.w;
-    const float cy = d.y + 0.5f * d.h;
-    const float dx = click_x - cx;
-    const float dy = click_y - cy;
-    const float d2 = dx * dx + dy * dy;
-    if (d2 < best_near_dist2) {
-      best_near_dist2 = d2;
-      best_near = static_cast<int>(i);
-    }
   }
 
-  // Prefer detection containing the click; else nearest if within ~0.25 of center.
-  int pick = best_contain;
-  if (pick < 0 && best_near >= 0 && best_near_dist2 <= 0.25f * 0.25f) {
-    pick = best_near;
-  }
-
-  if (pick >= 0) {
-    const auto & d = dets[static_cast<size_t>(pick)];
-    *out_x = d.x;
-    *out_y = d.y;
-    *out_w = d.w;
-    *out_h = d.h;
+  if (best_contain < 0) {
     if (out_label) {
-      *out_label = d.class_name.empty() ? "detection" : d.class_name;
+      *out_label = dets.empty() ? "no detections" : "miss (click a detection)";
     }
-    return true;
+    return false;
   }
 
-  // No usable detection — small box centered on click.
-  *out_w = kDefaultBox;
-  *out_h = kDefaultBox;
-  *out_x = std::max(0.f, std::min(1.f - *out_w, click_x - 0.5f * *out_w));
-  *out_y = std::max(0.f, std::min(1.f - *out_h, click_y - 0.5f * *out_h));
+  const auto & d = dets[static_cast<size_t>(best_contain)];
+  *out_x = d.x;
+  *out_y = d.y;
+  *out_w = d.w;
+  *out_h = d.h;
   if (out_label) {
-    *out_label = "point";
+    *out_label = d.class_name.empty() ? "detection" : d.class_name;
   }
   return true;
 }
@@ -782,17 +760,30 @@ void AhCoreNode::OnSmartToggle(
   const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
   std::shared_ptr<std_srvs::srv::SetBool::Response> response)
 {
-  smart_mode_active_ = request->data;
-  if (smart_mode_active_) {
-    tracker_type_ = tracking_started_ ? tracker_type_ : "smart";
-    if (!tracking_started_) {
-      tracker_type_ = "smart";
-    }
-  } else if (!tracking_started_) {
+  const bool turning_on = request->data;
+  smart_mode_active_ = turning_on;
+
+  if (turning_on) {
+    // Enter smart: clear classic framing; lock only appears after click-on-detection.
+    tracking_started_ = false;
+    tracking_bounding_box_x_ = 0.f;
+    tracking_bounding_box_y_ = 0.f;
+    tracking_bounding_box_width_ = 0.f;
+    tracking_bounding_box_height_ = 0.f;
+    tracker_type_ = "smart";
+  } else {
+    // Leave smart: stop any smart lock; classic drag box returns on the UI.
+    tracking_started_ = false;
     tracker_type_ = "stub";
+    tracking_bounding_box_x_ = 0.35f;
+    tracking_bounding_box_y_ = 0.35f;
+    tracking_bounding_box_width_ = 0.30f;
+    tracking_bounding_box_height_ = 0.30f;
   }
+
   response->success = true;
-  response->message = smart_mode_active_ ? "smart mode ON" : "smart mode OFF";
+  response->message = smart_mode_active_ ? "smart mode ON (click detections only)"
+                                         : "smart mode OFF (classic drag)";
   RCLCPP_INFO(get_logger(), "%s", response->message.c_str());
 }
 
@@ -814,8 +805,21 @@ void AhCoreNode::OnSmartClick(
   float bx = 0.f, by = 0.f, bw = 0.f, bh = 0.f;
   std::string label;
   if (!ResolveSmartClickLock(request->x, request->y, &bx, &by, &bw, &bh, &label)) {
+    // Miss: do not start tracking and do not invent a free-point box.
+    tracking_started_ = false;
+    tracking_bounding_box_x_ = 0.f;
+    tracking_bounding_box_y_ = 0.f;
+    tracking_bounding_box_width_ = 0.f;
+    tracking_bounding_box_height_ = 0.f;
     response->success = false;
-    response->message = "could not resolve lock target";
+    response->message = "MISS: click must hit a detection (" + label + ")";
+    response->lock_x = 0.f;
+    response->lock_y = 0.f;
+    response->lock_width = 0.f;
+    response->lock_height = 0.f;
+    RCLCPP_INFO(
+      get_logger(), "smart click MISS at (%.3f,%.3f): %s",
+      request->x, request->y, response->message.c_str());
     return;
   }
 
@@ -831,7 +835,7 @@ void AhCoreNode::OnSmartClick(
   response->lock_y = by;
   response->lock_width = bw;
   response->lock_height = bh;
-  response->message = "smart lock on " + label +
+  response->message = "smart lock on detection [" + label + "]" +
                       " bbox=[" + std::to_string(bx) + "," + std::to_string(by) + "," +
                       std::to_string(bw) + "," + std::to_string(bh) + "]";
   RCLCPP_INFO(get_logger(), "%s", response->message.c_str());

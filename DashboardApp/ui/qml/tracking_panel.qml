@@ -244,7 +244,7 @@ Rectangle {
       }
       DarkButton {
         text: "Start"
-        enabled: !trackController.busy
+        enabled: !trackController.busy && !systemStatus.smartModeActive
         face: "#1e5c32"
         faceDown: "#2a6b3a"
         edge: "#3d8f55"
@@ -284,7 +284,7 @@ Rectangle {
       horizontalAlignment: Text.AlignHCenter
       wrapMode: Text.WordWrap
       text: systemStatus.smartModeActive
-            ? "Smart mode: click video (short click) to lock a detection"
+            ? "Smart mode: click a cyan detection to lock (drag disabled)"
             : "Classic: drag box on video, then Start"
       color: systemStatus.smartModeActive ? "#9ecbff" : root.chromeText
       font.pixelSize: 13
