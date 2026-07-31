@@ -31,6 +31,7 @@ set(APPLICATION_SOURCE_FILES
         src/cpp/ah_system_status.cpp
         src/cpp/ah_video_feed.cpp
         src/cpp/ah_track_controller.cpp
+        src/cpp/ah_camera_controller.cpp
 )
 
 set(APPLICATION_HEADER_FILES
@@ -41,6 +42,7 @@ set(APPLICATION_HEADER_FILES
         src/include/ah_system_status.h
         src/include/ah_video_feed.h
         src/include/ah_track_controller.h
+        src/include/ah_camera_controller.h
 )
 
 set(APPLICATION_INCLUDE_DIRECTORIES

@@ -12,6 +12,7 @@
 #include <utility>
 #include <vector>
 
+#include "ah_camera_controller.h"
 #include "ah_ros_bridge.h"
 #include "ah_settings.h"
 #include "ah_system_status.h"
@@ -64,6 +65,7 @@ int main(int argc, char* argv[]) {
   const AhRosBridge RosBridge(app_settings.RosDomainId(),
                               app_settings.RosNamespace().toStdString(), std::move(hooks));
   auto* track_controller = new AhTrackController(RosBridge.Node(), QCoreApplication::instance());
+  auto* camera_controller = new AhCameraController(RosBridge.Node(), QCoreApplication::instance());
 
   QQmlApplicationEngine engine;
   engine.addImageProvider(QStringLiteral("ahvideo"), new AhVideoImageProvider(video_feed));
@@ -97,6 +99,7 @@ int main(int argc, char* argv[]) {
   engine.rootContext()->setContextProperty("systemStatus", system_status);
   engine.rootContext()->setContextProperty("videoFeed", video_feed);
   engine.rootContext()->setContextProperty("trackController", track_controller);
+  engine.rootContext()->setContextProperty("cameraController", camera_controller);
   engine.load(RootUrl);
 
   animation->init();
