@@ -268,17 +268,20 @@ class AhYoloNode(Node):
         iou = float(self.get_parameter("iou_threshold").value)
         device = self._device()
 
+        # Use track() (ByteTrack/BoTSORT via Ultralytics) so detections carry a
+        # persistent track_id across frames. Plain predict() has no multi-frame IDs.
         t0 = time.perf_counter()
         try:
-            results = model.predict(
+            results = model.track(
                 source=bgr,
                 conf=conf,
                 iou=iou,
                 device=device,
+                persist=True,
                 verbose=False,
             )
         except Exception as ex:  # noqa: BLE001
-            self.get_logger().error(f"predict failed: {ex}")
+            self.get_logger().error(f"track failed: {ex}")
             return
         self._last_infer_s = time.perf_counter() - t0
 
@@ -291,6 +294,10 @@ class AhYoloNode(Node):
                 xyxy = boxes.xyxy.cpu().numpy()
                 confs = boxes.conf.cpu().numpy()
                 clss = boxes.cls.cpu().numpy().astype(int)
+                if boxes.id is not None:
+                    track_ids = boxes.id.int().cpu().numpy()
+                else:
+                    track_ids = None
                 for i in range(len(xyxy)):
                     x1, y1, x2, y2 = xyxy[i]
                     bw = max(0.0, float(x2 - x1))
@@ -306,8 +313,10 @@ class AhYoloNode(Node):
                     nh = min(1.0 - ny, max(0.0, nh))
                     cid = int(clss[i])
                     cname = names.get(cid, str(cid)) if isinstance(names, dict) else str(cid)
+                    tid = int(track_ids[i]) if track_ids is not None else -1
                     detections.append(
                         {
+                            "track_id": tid,
                             "class_id": cid,
                             "class_name": cname,
                             "confidence": float(confs[i]),

@@ -23,6 +23,7 @@ class AhDetectionsModel final : public QAbstractListModel {
     HRole,
     LabelRole,
     ConfidenceRole,
+    TrackIdRole,
   };
 
   /// No detection message for this long → clear boxes (ah_yolo may publish ~few Hz).
@@ -59,6 +60,7 @@ class AhDetectionsModel final : public QAbstractListModel {
     float h = 0.f;
     QString label;
     float confidence = 0.f;
+    int track_id = -1;
   };
 
   void SetLive(bool live);

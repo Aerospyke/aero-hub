@@ -230,7 +230,8 @@ ros2 topic echo /ah/detections --once
 
 **`.safetensors`:** path is accepted, but Ultralytics usually needs a **`.pt`** checkpoint (`best.pt`/`last.pt` from the same train run). See `aero-hub/models/README.md`.
 
-Detections: `std_msgs/String` JSON on `ah/detections` (bbox_normalized [0,1]). Overlay = Task_34.
+Detections: `std_msgs/String` JSON on `ah/detections` (bbox_normalized [0,1], **`track_id`** from Ultralytics `model.track(persist=True)`). Overlay = Task_34.  
+AI lock follows **`track_id`** across frames in `ah_core` after `ah/ai_tracking/click`.
 
 ---
 

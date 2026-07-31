@@ -130,13 +130,17 @@ Rectangle {
         }
 
         // Selection / lock rectangle (normalized → imageArea pixels)
-        // Classic: always show while framing. AI tracking: only after a successful lock on a detection.
+        // Classic: framing from trackController.
+        // AI lock: live bbox from ah_core status (follows Ultralytics track_id).
+        // Core publishes status immediately on lock change so the box switches
+        // without waiting for the video timer.
         Rectangle {
           id: trackingBoundingBoxRect
-          x: trackController.trackingBoundingBoxX * imageArea.width
-          y: trackController.trackingBoundingBoxY * imageArea.height
-          width: trackController.trackingBoundingBoxWidth * imageArea.width
-          height: trackController.trackingBoundingBoxHeight * imageArea.height
+          readonly property bool useCoreBbox: systemStatus.aiTrackingActive && systemStatus.trackingStarted
+          x: (useCoreBbox ? systemStatus.trackingBboxX : trackController.trackingBoundingBoxX) * imageArea.width
+          y: (useCoreBbox ? systemStatus.trackingBboxY : trackController.trackingBoundingBoxY) * imageArea.height
+          width: (useCoreBbox ? systemStatus.trackingBboxW : trackController.trackingBoundingBoxWidth) * imageArea.width
+          height: (useCoreBbox ? systemStatus.trackingBboxH : trackController.trackingBoundingBoxHeight) * imageArea.height
           color: systemStatus.trackingStarted ? "#336bcf7f" : "#33e6c35c"
           border.color: systemStatus.trackingStarted ? "#6bcf7f" : "#e6c35c"
           border.width: 2
@@ -145,6 +149,30 @@ Rectangle {
               ? systemStatus.trackingStarted
               : true)
           z: 2
+
+          Text {
+            anchors.left: parent.left
+            anchors.top: parent.bottom
+            anchors.topMargin: 2
+            visible: systemStatus.aiTrackingActive && systemStatus.lockedTrackId >= 0
+            text: "id " + systemStatus.lockedTrackId
+            color: "#6bcf7f"
+            font.pixelSize: 11
+            font.bold: true
+          }
+        }
+
+        // Keep trackController bbox in sync with live AI lock (click echo + follow).
+        Connections {
+          target: systemStatus
+          function onTrackingBboxChanged() {
+            if (!systemStatus.aiTrackingActive || !systemStatus.trackingStarted)
+              return
+            trackController.trackingBoundingBoxX = systemStatus.trackingBboxX
+            trackController.trackingBoundingBoxY = systemStatus.trackingBboxY
+            trackController.trackingBoundingBoxWidth = systemStatus.trackingBboxW
+            trackController.trackingBoundingBoxHeight = systemStatus.trackingBboxH
+          }
         }
 
         MouseArea {

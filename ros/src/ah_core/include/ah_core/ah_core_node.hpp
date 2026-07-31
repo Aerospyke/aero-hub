@@ -67,6 +67,7 @@ private:
 
   struct DetectionBox
   {
+    int track_id{-1};  // Ultralytics multi-object track id (-1 if unknown)
     float x{0.f};
     float y{0.f};
     float w{0.f};
@@ -75,11 +76,18 @@ private:
     std::string class_name;
   };
 
-  /// Pick lock bbox from click + last detections (Task_35).
+  /// Pick lock target from click + last detections (must hit a box).
   bool ResolveAiTrackingClickLock(
     float click_x, float click_y,
     float * out_x, float * out_y, float * out_w, float * out_h,
+    int * out_track_id,
     std::string * out_label) const;
+
+  /// If locked_track_id_ is set, refresh lock bbox from latest detections.
+  void UpdateLockFromTrackedId();
+
+  /// Publish /ah/system/status immediately (lock changes should not wait for the video timer).
+  void PublishStatusSnapshot(const char * video_status);
 
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr status_pub_;
   rclcpp::Publisher<sensor_msgs::msg::CompressedImage>::SharedPtr video_pub_;
@@ -118,6 +126,9 @@ private:
 
   mutable std::mutex detections_mutex_;
   std::vector<DetectionBox> last_detections_;
+  /// When tracking under AI mode: follow this Ultralytics track_id frame-to-frame.
+  int locked_track_id_{-1};
+  int locked_track_miss_frames_{0};
 };
 
 }  // namespace ah_core

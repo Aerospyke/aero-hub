@@ -23,6 +23,12 @@ class AhSystemStatus final : public QObject {
   Q_PROPERTY(QString followerMode READ FollowerMode NOTIFY FollowerModeChanged)
   Q_PROPERTY(double stamp READ Stamp NOTIFY StampChanged)
   Q_PROPERTY(QString rawJson READ RawJson NOTIFY RawJsonChanged)
+  /// Live lock box from ah_core (updated each frame when AI track follows track_id).
+  Q_PROPERTY(float trackingBboxX READ TrackingBboxX NOTIFY trackingBboxChanged)
+  Q_PROPERTY(float trackingBboxY READ TrackingBboxY NOTIFY trackingBboxChanged)
+  Q_PROPERTY(float trackingBboxW READ TrackingBboxW NOTIFY trackingBboxChanged)
+  Q_PROPERTY(float trackingBboxH READ TrackingBboxH NOTIFY trackingBboxChanged)
+  Q_PROPERTY(int lockedTrackId READ LockedTrackId NOTIFY trackingBboxChanged)
 
  public:
   /// No status message for this long → treat link as lost (ah_core publishes ~10 Hz).
@@ -42,6 +48,11 @@ class AhSystemStatus final : public QObject {
   [[nodiscard]] QString FollowerMode() const { return follower_mode_; }
   [[nodiscard]] double Stamp() const { return stamp_; }
   [[nodiscard]] QString RawJson() const { return raw_json_; }
+  [[nodiscard]] float TrackingBboxX() const { return tracking_bbox_x_; }
+  [[nodiscard]] float TrackingBboxY() const { return tracking_bbox_y_; }
+  [[nodiscard]] float TrackingBboxW() const { return tracking_bbox_w_; }
+  [[nodiscard]] float TrackingBboxH() const { return tracking_bbox_h_; }
+  [[nodiscard]] int LockedTrackId() const { return locked_track_id_; }
 
  public slots:
   /// Parse JSON status payload (std_msgs/String data). Safe to call via
@@ -61,6 +72,7 @@ class AhSystemStatus final : public QObject {
   void FollowerModeChanged();
   void StampChanged();
   void RawJsonChanged();
+  void trackingBboxChanged();
 
  private slots:
   void CheckLinkHealth();
@@ -84,4 +96,9 @@ class AhSystemStatus final : public QObject {
   QString follower_mode_ = QStringLiteral("—");
   double stamp_ = 0.0;
   QString raw_json_;
+  float tracking_bbox_x_ = 0.f;
+  float tracking_bbox_y_ = 0.f;
+  float tracking_bbox_w_ = 0.f;
+  float tracking_bbox_h_ = 0.f;
+  int locked_track_id_ = -1;
 };

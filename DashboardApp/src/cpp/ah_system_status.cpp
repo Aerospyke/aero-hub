@@ -114,4 +114,22 @@ void AhSystemStatus::ApplyJson(const QString& json) {
     stamp_ = stamp;
     emit StampChanged();
   }
+
+  const float bx = static_cast<float>(obj.value(QStringLiteral("tracking_bbox_x")).toDouble(tracking_bbox_x_));
+  const float by = static_cast<float>(obj.value(QStringLiteral("tracking_bbox_y")).toDouble(tracking_bbox_y_));
+  const float bw = static_cast<float>(obj.value(QStringLiteral("tracking_bbox_w")).toDouble(tracking_bbox_w_));
+  const float bh = static_cast<float>(obj.value(QStringLiteral("tracking_bbox_h")).toDouble(tracking_bbox_h_));
+  const int tid = obj.value(QStringLiteral("locked_track_id")).toInt(locked_track_id_);
+  if (!qFuzzyCompare(bx + 1.f, tracking_bbox_x_ + 1.f) ||
+      !qFuzzyCompare(by + 1.f, tracking_bbox_y_ + 1.f) ||
+      !qFuzzyCompare(bw + 1.f, tracking_bbox_w_ + 1.f) ||
+      !qFuzzyCompare(bh + 1.f, tracking_bbox_h_ + 1.f) ||
+      tid != locked_track_id_) {
+    tracking_bbox_x_ = bx;
+    tracking_bbox_y_ = by;
+    tracking_bbox_w_ = bw;
+    tracking_bbox_h_ = bh;
+    locked_track_id_ = tid;
+    emit trackingBboxChanged();
+  }
 }

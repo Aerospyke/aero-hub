@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <sstream>
@@ -57,7 +58,9 @@ std::string CreateStatusJson(
   bool ai_tracking_active,
   bool following_active,
   const char * tracker_type,
-  const CameraSelection & cam)
+  const CameraSelection & cam,
+  float track_x, float track_y, float track_w, float track_h,
+  int locked_track_id)
 {
   std::ostringstream oss;
   oss.setf(std::ios::fixed);
@@ -74,21 +77,28 @@ std::string CreateStatusJson(
       << "\"camera_device_id\":" << cam.device_id << ','
       << "\"camera_device_path\":\"" << JsonEscape(cam.device_path) << "\","
       << "\"camera_backend\":\"" << JsonEscape(cam.backend) << "\","
+      << "\"locked_track_id\":" << locked_track_id << ','
+      << "\"tracking_bbox_x\":" << track_x << ','
+      << "\"tracking_bbox_y\":" << track_y << ','
+      << "\"tracking_bbox_w\":" << track_w << ','
+      << "\"tracking_bbox_h\":" << track_h << ','
       << "\"stamp\":" << stamp_sec
       << '}';
   return oss.str();
 }
 
 // Minimal parse of ah_yolo JSON detections (no JSON library in ah_core).
-float ParseJsonFloatAfterKey(const std::string & s, size_t from, const char * key, bool * ok)
+float ParseJsonFloatAt(const std::string & s, size_t key_pos, size_t key_len, bool * ok)
 {
   *ok = false;
-  const std::string needle = std::string("\"") + key + "\":";
-  const size_t k = s.find(needle, from);
-  if (k == std::string::npos) {
-    return 0.f;
+  size_t i = key_pos + key_len;
+  while (i < s.size() && (s[i] == ' ' || s[i] == '\t' || s[i] == ':')) {
+    ++i;
   }
-  size_t i = k + needle.size();
+  // skip optional colon already handled; also skip leftover ':'
+  if (i < s.size() && s[i] == ':') {
+    ++i;
+  }
   while (i < s.size() && (s[i] == ' ' || s[i] == '\t')) {
     ++i;
   }
@@ -100,6 +110,40 @@ float ParseJsonFloatAfterKey(const std::string & s, size_t from, const char * ke
   } catch (...) {
     return 0.f;
   }
+}
+
+/// First occurrence of "key": after @p from (must be before @p until if until != npos).
+float ParseJsonFloatAfterKey(
+  const std::string & s, size_t from, size_t until, const char * key, bool * ok)
+{
+  *ok = false;
+  const std::string needle = std::string("\"") + key + "\"";
+  const size_t k = s.find(needle, from);
+  if (k == std::string::npos || (until != std::string::npos && k >= until)) {
+    return 0.f;
+  }
+  return ParseJsonFloatAt(s, k, needle.size(), ok);
+}
+
+/// Last occurrence of "key": in [from, until) — used for track_id before bbox_normalized.
+float ParseJsonFloatLastKeyBefore(
+  const std::string & s, size_t from, size_t until, const char * key, bool * ok)
+{
+  *ok = false;
+  const std::string needle = std::string("\"") + key + "\"";
+  size_t last = std::string::npos;
+  for (size_t p = from; p < until; ) {
+    const size_t found = s.find(needle, p);
+    if (found == std::string::npos || found >= until) {
+      break;
+    }
+    last = found;
+    p = found + 1;
+  }
+  if (last == std::string::npos) {
+    return 0.f;
+  }
+  return ParseJsonFloatAt(s, last, needle.size(), ok);
 }
 
 cv::Mat CreateSyntheticImage(const int frame_id, bool tracking_started)
@@ -425,7 +469,12 @@ void AhCoreNode::OnTimer()
     ai_tracking_active_,
     following_active_,
     tracker_type_.c_str(),
-    camera_);
+    camera_,
+    tracking_bounding_box_x_,
+    tracking_bounding_box_y_,
+    tracking_bounding_box_width_,
+    tracking_bounding_box_height_,
+    locked_track_id_);
   status_pub_->publish(status_msg);
 
   std::vector<int> params = {cv::IMWRITE_JPEG_QUALITY, kJpegQuality};
@@ -460,6 +509,9 @@ void AhCoreNode::OnStartTracking(
 
   tracking_started_ = true;
   tracker_type_ = "classic";
+  // Classic bbox must not keep following a previous AI track_id.
+  locked_track_id_ = -1;
+  locked_track_miss_frames_ = 0;
   tracking_bounding_box_x_ = request->x;
   tracking_bounding_box_y_ = request->y;
   tracking_bounding_box_width_ = request->width;
@@ -472,6 +524,7 @@ void AhCoreNode::OnStartTracking(
     "tracking started (classic) bbox norm x=%.3f y=%.3f w=%.3f h=%.3f",
     tracking_bounding_box_x_, tracking_bounding_box_y_, tracking_bounding_box_width_,
     tracking_bounding_box_height_);
+  PublishStatusSnapshot(last_video_status_.c_str());
 }
 
 void AhCoreNode::OnStopTracking(
@@ -480,6 +533,8 @@ void AhCoreNode::OnStopTracking(
 {
   const bool was = tracking_started_;
   tracking_started_ = false;
+  locked_track_id_ = -1;
+  locked_track_miss_frames_ = 0;
   if (!ai_tracking_active_) {
     tracker_type_ = "stub";
   }
@@ -494,6 +549,8 @@ void AhCoreNode::OnCancelTracking(
 {
   tracking_started_ = false;
   segmentation_active_ = false;
+  locked_track_id_ = -1;
+  locked_track_miss_frames_ = 0;
   if (!ai_tracking_active_) {
     tracker_type_ = "stub";
   } else {
@@ -675,53 +732,158 @@ void AhCoreNode::FillSelectResponse(
   response->backend = camera_.backend;
 }
 
+void AhCoreNode::PublishStatusSnapshot(const char * video_status)
+{
+  const auto now = get_clock()->now();
+  std_msgs::msg::String status_msg;
+  status_msg.data = CreateStatusJson(
+    now.seconds(),
+    video_status ? video_status : last_video_status_.c_str(),
+    tracking_started_,
+    segmentation_active_,
+    ai_tracking_active_,
+    following_active_,
+    tracker_type_.c_str(),
+    camera_,
+    tracking_bounding_box_x_,
+    tracking_bounding_box_y_,
+    tracking_bounding_box_width_,
+    tracking_bounding_box_height_,
+    locked_track_id_);
+  status_pub_->publish(status_msg);
+}
+
 void AhCoreNode::OnDetections(const std_msgs::msg::String::SharedPtr msg)
 {
   if (!msg) {
     return;
   }
+  const std::string & json = msg->data;
+
+  // Pair track_id[i] with bbox_normalized[i] by document order (ah_yolo always emits
+  // track_id before bbox in each detection object). This avoids sticky wrong IDs from
+  // windowed key search when multiple detections share one JSON payload.
+  std::vector<int> track_ids;
+  {
+    const std::string tid_key = "\"track_id\"";
+    size_t p = 0;
+    while (true) {
+      const size_t k = json.find(tid_key, p);
+      if (k == std::string::npos) {
+        break;
+      }
+      bool okt = false;
+      const float tid_f = ParseJsonFloatAt(json, k, tid_key.size(), &okt);
+      track_ids.push_back(okt ? static_cast<int>(tid_f) : -1);
+      p = k + tid_key.size();
+    }
+  }
+
   std::vector<DetectionBox> parsed;
   size_t pos = 0;
-  const std::string & json = msg->data;
+  size_t det_index = 0;
   while (true) {
     const size_t bb = json.find("\"bbox_normalized\"", pos);
     if (bb == std::string::npos) {
       break;
     }
+    // Scope x,y,w,h to this bbox object only (avoid leaking into later objects).
+    const size_t brace = json.find('{', bb);
+    size_t bb_end = std::string::npos;
+    if (brace != std::string::npos) {
+      bb_end = json.find('}', brace);
+      if (bb_end != std::string::npos) {
+        ++bb_end;
+      }
+    }
     bool okx = false, oky = false, okw = false, okh = false, okc = false;
     DetectionBox d;
-    d.x = ParseJsonFloatAfterKey(json, bb, "x", &okx);
-    d.y = ParseJsonFloatAfterKey(json, bb, "y", &oky);
-    d.w = ParseJsonFloatAfterKey(json, bb, "w", &okw);
-    d.h = ParseJsonFloatAfterKey(json, bb, "h", &okh);
-    const size_t window_start = bb > 200 ? bb - 200 : 0;
-    d.confidence = ParseJsonFloatAfterKey(json, window_start, "confidence", &okc);
+    d.x = ParseJsonFloatAfterKey(json, bb, bb_end, "x", &okx);
+    d.y = ParseJsonFloatAfterKey(json, bb, bb_end, "y", &oky);
+    d.w = ParseJsonFloatAfterKey(json, bb, bb_end, "w", &okw);
+    d.h = ParseJsonFloatAfterKey(json, bb, bb_end, "h", &okh);
+    // confidence lives in the same detection object, just before bbox_normalized.
+    const size_t conf_from = (det_index == 0) ? 0 : pos;
+    d.confidence = ParseJsonFloatLastKeyBefore(json, conf_from, bb, "confidence", &okc);
     (void)okc;
+    d.track_id = (det_index < track_ids.size()) ? track_ids[det_index] : -1;
     if (okx && oky && okw && okh && d.w > 0.f && d.h > 0.f) {
       parsed.push_back(d);
     }
-    pos = bb + 16;
+    ++det_index;
+    pos = bb + 17;  // length of "bbox_normalized" including quotes
   }
   {
     std::lock_guard<std::mutex> lock(detections_mutex_);
     last_detections_ = std::move(parsed);
   }
+  // Follow locked track across frames when AI tracking lock is active.
+  UpdateLockFromTrackedId();
 }
 
-bool AhCoreNode::ResolveAiTrackingClickLock(
-  float click_x, float click_y,
-  float * out_x, float * out_y, float * out_w, float * out_h,
-  std::string * out_label) const
+void AhCoreNode::UpdateLockFromTrackedId()
 {
-  // AI tracking lock only on a detection that contains the click (no free-point box).
+  if (!tracking_started_ || locked_track_id_ < 0) {
+    return;
+  }
+
+  const int want_id = locked_track_id_;
+
   std::vector<DetectionBox> dets;
   {
     std::lock_guard<std::mutex> lock(detections_mutex_);
     dets = last_detections_;
   }
 
-  int best_contain = -1;
-  float best_contain_area = 1e9f;
+  for (const auto & d : dets) {
+    if (d.track_id == want_id) {
+      tracking_bounding_box_x_ = d.x;
+      tracking_bounding_box_y_ = d.y;
+      tracking_bounding_box_width_ = d.w;
+      tracking_bounding_box_height_ = d.h;
+      locked_track_miss_frames_ = 0;
+      return;
+    }
+  }
+
+  // Track ID missing this frame — keep last box for a short grace period.
+  ++locked_track_miss_frames_;
+  constexpr int kMaxMiss = 15;  // ~detections rate; clear after sustained loss
+  if (locked_track_miss_frames_ >= kMaxMiss) {
+    RCLCPP_WARN(
+      get_logger(),
+      "lost track_id=%d for %d frames — clearing AI lock",
+      want_id, locked_track_miss_frames_);
+    tracking_started_ = false;
+    locked_track_id_ = -1;
+    locked_track_miss_frames_ = 0;
+    tracking_bounding_box_x_ = 0.f;
+    tracking_bounding_box_y_ = 0.f;
+    tracking_bounding_box_width_ = 0.f;
+    tracking_bounding_box_height_ = 0.f;
+    PublishStatusSnapshot(last_video_status_.c_str());
+  }
+}
+
+bool AhCoreNode::ResolveAiTrackingClickLock(
+  float click_x, float click_y,
+  float * out_x, float * out_y, float * out_w, float * out_h,
+  int * out_track_id,
+  std::string * out_label) const
+{
+  // AI tracking lock only on a detection that contains the click (no free-point box).
+  // When several boxes contain the point (overlap / nested), pick the one whose
+  // *center* is closest to the click — not merely the smallest area. That makes
+  // switching from a large locked object onto a nearby smaller one reliable.
+  std::vector<DetectionBox> dets;
+  {
+    std::lock_guard<std::mutex> lock(detections_mutex_);
+    dets = last_detections_;
+  }
+
+  int best = -1;
+  float best_dist2 = 1e30f;
+  float best_area = 1e30f;
 
   for (size_t i = 0; i < dets.size(); ++i) {
     const auto & d = dets[i];
@@ -729,29 +891,50 @@ bool AhCoreNode::ResolveAiTrackingClickLock(
     const float y1 = d.y;
     const float x2 = d.x + d.w;
     const float y2 = d.y + d.h;
-    if (click_x >= x1 && click_x <= x2 && click_y >= y1 && click_y <= y2) {
-      const float area = d.w * d.h;
-      if (area < best_contain_area) {
-        best_contain_area = area;
-        best_contain = static_cast<int>(i);
-      }
+    if (click_x < x1 || click_x > x2 || click_y < y1 || click_y > y2) {
+      continue;
+    }
+    const float cx = d.x + 0.5f * d.w;
+    const float cy = d.y + 0.5f * d.h;
+    const float dx = click_x - cx;
+    const float dy = click_y - cy;
+    const float dist2 = dx * dx + dy * dy;
+    const float area = d.w * d.h;
+    // Prefer closer center; break ties with smaller area.
+    if (dist2 < best_dist2 - 1e-12f ||
+        (std::fabs(dist2 - best_dist2) <= 1e-12f && area < best_area))
+    {
+      best_dist2 = dist2;
+      best_area = area;
+      best = static_cast<int>(i);
     }
   }
 
-  if (best_contain < 0) {
+  if (best < 0) {
     if (out_label) {
       *out_label = dets.empty() ? "no detections" : "miss (click a detection)";
+    }
+    if (out_track_id) {
+      *out_track_id = -1;
     }
     return false;
   }
 
-  const auto & d = dets[static_cast<size_t>(best_contain)];
+  const auto & d = dets[static_cast<size_t>(best)];
   *out_x = d.x;
   *out_y = d.y;
   *out_w = d.w;
   *out_h = d.h;
+  if (out_track_id) {
+    *out_track_id = d.track_id;
+  }
   if (out_label) {
-    *out_label = d.class_name.empty() ? "detection" : d.class_name;
+    if (d.track_id >= 0) {
+      *out_label = (d.class_name.empty() ? "obj" : d.class_name) +
+                   " id=" + std::to_string(d.track_id);
+    } else {
+      *out_label = d.class_name.empty() ? "detection (no track_id)" : d.class_name;
+    }
   }
   return true;
 }
@@ -766,6 +949,8 @@ void AhCoreNode::OnAiTrackingToggle(
   if (turning_on) {
     // Enter ai tracking: clear classic framing; lock only appears after click-on-detection.
     tracking_started_ = false;
+    locked_track_id_ = -1;
+    locked_track_miss_frames_ = 0;
     tracking_bounding_box_x_ = 0.f;
     tracking_bounding_box_y_ = 0.f;
     tracking_bounding_box_width_ = 0.f;
@@ -774,6 +959,8 @@ void AhCoreNode::OnAiTrackingToggle(
   } else {
     // Leave ai tracking: stop any ai tracking lock; classic drag box returns on the UI.
     tracking_started_ = false;
+    locked_track_id_ = -1;
+    locked_track_miss_frames_ = 0;
     tracker_type_ = "stub";
     tracking_bounding_box_x_ = 0.35f;
     tracking_bounding_box_y_ = 0.35f;
@@ -785,6 +972,7 @@ void AhCoreNode::OnAiTrackingToggle(
   response->message = ai_tracking_active_ ? "ai tracking ON (click detections only)"
                                          : "ai tracking OFF (classic drag)";
   RCLCPP_INFO(get_logger(), "%s", response->message.c_str());
+  PublishStatusSnapshot(last_video_status_.c_str());
 }
 
 void AhCoreNode::OnAiTrackingClick(
@@ -802,11 +990,18 @@ void AhCoreNode::OnAiTrackingClick(
     return;
   }
 
+  const int previous_lock = locked_track_id_;
+
   float bx = 0.f, by = 0.f, bw = 0.f, bh = 0.f;
+  int track_id = -1;
   std::string label;
-  if (!ResolveAiTrackingClickLock(request->x, request->y, &bx, &by, &bw, &bh, &label)) {
+  if (!ResolveAiTrackingClickLock(
+        request->x, request->y, &bx, &by, &bw, &bh, &track_id, &label))
+  {
     // Miss: do not start tracking and do not invent a free-point box.
     tracking_started_ = false;
+    locked_track_id_ = -1;
+    locked_track_miss_frames_ = 0;
     tracking_bounding_box_x_ = 0.f;
     tracking_bounding_box_y_ = 0.f;
     tracking_bounding_box_width_ = 0.f;
@@ -820,11 +1015,30 @@ void AhCoreNode::OnAiTrackingClick(
     RCLCPP_INFO(
       get_logger(), "ai tracking click MISS at (%.3f,%.3f): %s",
       request->x, request->y, response->message.c_str());
+    PublishStatusSnapshot(last_video_status_.c_str());
     return;
   }
 
+  if (track_id < 0) {
+    response->success = false;
+    response->message =
+      "detection has no track_id — is ah_yolo using model.track(persist=True)?";
+    response->lock_x = 0.f;
+    response->lock_y = 0.f;
+    response->lock_width = 0.f;
+    response->lock_height = 0.f;
+    RCLCPP_WARN(
+      get_logger(),
+      "ai tracking click hit box without track_id at (%.3f,%.3f) — lock unchanged (was %d)",
+      request->x, request->y, previous_lock);
+    return;
+  }
+
+  // Explicitly replace any previous lock (do not leave old track_id sticky).
   tracking_started_ = true;
   tracker_type_ = "ai_tracking";
+  locked_track_id_ = track_id;
+  locked_track_miss_frames_ = 0;
   tracking_bounding_box_x_ = bx;
   tracking_bounding_box_y_ = by;
   tracking_bounding_box_width_ = bw;
@@ -835,10 +1049,16 @@ void AhCoreNode::OnAiTrackingClick(
   response->lock_y = by;
   response->lock_width = bw;
   response->lock_height = bh;
-  response->message = "ai tracking lock on detection [" + label + "]" +
-                      " bbox=[" + std::to_string(bx) + "," + std::to_string(by) + "," +
-                      std::to_string(bw) + "," + std::to_string(bh) + "]";
-  RCLCPP_INFO(get_logger(), "%s", response->message.c_str());
+  response->message = "ai tracking lock on [" + label + "] track_id=" +
+                      std::to_string(track_id);
+  RCLCPP_INFO(
+    get_logger(),
+    "ai tracking NEW lock track_id=%d (was %d) click=(%.3f,%.3f) bbox=[%.3f,%.3f,%.3f,%.3f]",
+    track_id, previous_lock, request->x, request->y, bx, by, bw, bh);
+
+  // Push status immediately so the dashboard green box / lockedTrackId switch
+  // without waiting for the next video timer tick (which looked like "old re-selected").
+  PublishStatusSnapshot(last_video_status_.c_str());
 }
 
 }  // namespace ah_core

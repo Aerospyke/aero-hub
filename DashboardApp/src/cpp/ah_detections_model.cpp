@@ -38,6 +38,8 @@ QVariant AhDetectionsModel::data(const QModelIndex& index, int role) const {
       return d.label;
     case ConfidenceRole:
       return d.confidence;
+    case TrackIdRole:
+      return d.track_id;
     default:
       return {};
   }
@@ -51,6 +53,7 @@ QHash<int, QByteArray> AhDetectionsModel::roleNames() const {
       {HRole, "nh"},
       {LabelRole, "label"},
       {ConfidenceRole, "confidence"},
+      {TrackIdRole, "trackId"},
   };
 }
 
@@ -131,15 +134,21 @@ void AhDetectionsModel::ApplyJson(const QString& json) {
       continue;
     }
     d.confidence = static_cast<float>(o.value(QStringLiteral("confidence")).toDouble(0.0));
+    d.track_id = o.value(QStringLiteral("track_id")).toInt(-1);
     d.label = o.value(QStringLiteral("class_name")).toString();
     if (d.label.isEmpty()) {
       d.label = QString::number(o.value(QStringLiteral("class_id")).toInt());
     }
-    // Short label for HUD
+    // Short label for HUD (include track id when present)
+    QString conf_s;
     if (d.confidence > 0.f) {
-      d.label = QStringLiteral("%1 %2%")
-                    .arg(d.label)
-                    .arg(QString::number(static_cast<int>(d.confidence * 100.f + 0.5f)));
+      conf_s = QStringLiteral(" %1%").arg(
+          QString::number(static_cast<int>(d.confidence * 100.f + 0.5f)));
+    }
+    if (d.track_id >= 0) {
+      d.label = QStringLiteral("%1#%2%3").arg(d.label).arg(d.track_id).arg(conf_s);
+    } else if (!conf_s.isEmpty()) {
+      d.label = d.label + conf_s;
     }
     next.push_back(d);
   }
