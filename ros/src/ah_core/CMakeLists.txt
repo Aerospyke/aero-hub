@@ -16,9 +16,21 @@ find_package(std_srvs REQUIRED)
 find_package(ah_msgs REQUIRED)
 find_package(OpenCV REQUIRED COMPONENTS core imgproc imgcodecs videoio)
 
-add_executable(ah_core_node src/ah_core_node.cpp)
-target_include_directories(ah_core_node PRIVATE ${OpenCV_INCLUDE_DIRS})
+add_executable(ah_core_node
+  src/main.cpp
+  src/ah_core_node.cpp
+  src/camera_devices.cpp
+  src/ros_runtime_settings.cpp
+)
+
+target_include_directories(ah_core_node
+  PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${OpenCV_INCLUDE_DIRS}
+)
+
 target_link_libraries(ah_core_node ${OpenCV_LIBS})
+
 ament_target_dependencies(ah_core_node
   rclcpp
   std_msgs

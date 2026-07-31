@@ -12,6 +12,8 @@ ros/                    # host path: …/aero-hub/ros
   src/
     ah_msgs/            # StartTracking, ListCameras, SelectCamera, …
     ah_core/            # status + video + track + camera list/select
+                        #   include/ah_core/{ah_core_node,camera_devices,ros_runtime_settings}.hpp
+                        #   src/{main,ah_core_node,camera_devices,ros_runtime_settings}.cpp
   build/                # gitignored (created by colcon)
   install/              # gitignored
   log/                  # gitignored
@@ -112,7 +114,7 @@ ros2 run ah_core ah_core_node
 | Topic / service | Type | Notes |
 |-----------------|------|--------|
 | `ah/system/status` → `/[ns/]ah/system/status` | `std_msgs/String` (JSON) | ~10 Hz; relative name + node namespace |
-| `ah/video/compressed` | `sensor_msgs/CompressedImage` | Synthetic JPEG ~10 Hz (live cam = Task_31) |
+| `ah/video/compressed` | `sensor_msgs/CompressedImage` | JPEG ~10 Hz — **live** when `video.source=camera`, else synthetic |
 | `ah/tracking/start` | `ah_msgs/srv/StartTracking` | normalized tracking bounding box [0,1] |
 | `ah/tracking/stop` / `cancel` | `std_srvs/Trigger` | stop vs hard reset |
 | `ah/camera/list` | `ah_msgs/srv/ListCameras` | Enumerate devices (Task_30); no hard-coded IDs |
@@ -120,7 +122,13 @@ ros2 run ah_core ah_core_node
 
 **Namespace (multi-drone):** set `[ROS] namespace=` in `aerohub_settings.ini` (cwd) or `AERO_HUB_ROS_NAMESPACE`. Empty = root (`/ah/...`). Example `uav1` → `/uav1/ah/...`. Dashboard and core must match.
 
-**Camera (Task_30):** selection is owned by `ah_core`. Params: `video.source`, `camera.device_id`, `camera.device_path`, `camera.backend`. Prefer `device_path` (`index:N`, `/dev/videoN`, or `synthetic`) over bare indices so USB/OBS reordering does not require code changes. Live frames from the selected camera land in Task_31; until then video stays synthetic while selection is still valid in status/params.
+**Camera (Task_30 / Task_31):** selection is owned by `ah_core`. Params: `video.source`, `camera.device_id`, `camera.device_path`, `camera.backend`. Prefer `device_path` (`index:N`, `/dev/videoN`, or `synthetic`) over bare indices so USB/OBS reordering does not require code changes. After select (or INI load), `ah_core` opens a long-lived capture and publishes live JPEG on `ah/video/compressed` (`header.frame_id=ah_camera`). Synthetic fallback if grab fails (`video_status` = `degraded` / `unavailable`).
+
+**macOS camera permissions:** System Settings → Privacy & Security → Camera → enable the app that **owns the process** (e.g. **Ghostty**, Terminal, CLion, Cursor — not only “Terminal” if you launch from another terminal). Without TCC, OpenCV often still “opens” and returns **black frames** while the USB **LED stays off**. Photo Booth is a good sanity check (USB + OBS Virtual Camera).
+
+**Black “LIVE” image / no LED:** (1) grant Camera to the correct host app and restart the node, (2) confirm the cam works in Photo Booth / QuickTime, (3) re-`list` and try each `index:N`. `ah_core` rejects near-black open (mean luma too low) and falls back to synthetic with a clear warning.
+
+**OBS virtual cam:** OBS → Start Virtual Camera → `ros2 service call …/list` → select the new index.
 
 ### 4. Verify (second shell)
 
@@ -145,11 +153,15 @@ ros2 service list | grep camera
 ros2 service call /ah/camera/list ah_msgs/srv/ListCameras "{refresh: true}"
 ros2 service call /ah/camera/select ah_msgs/srv/SelectCamera \
   "{video_source: 'synthetic', device_id: -1, device_path: 'synthetic', backend: ''}"
-# After list shows Camera 0 path index:0:
+# After list shows e.g. Camera 2 path index:2 (USB / OBS):
 ros2 service call /ah/camera/select ah_msgs/srv/SelectCamera \
-  "{video_source: 'camera', device_id: 0, device_path: 'index:0', backend: ''}"
+  "{video_source: 'camera', device_id: 2, device_path: 'index:2', backend: ''}"
 ros2 param get /ah_core video.source
 ros2 param get /ah_core camera.device_path
+# Live frames (JPEG). frame_id ah_camera when live, ah_camera_stub when synthetic:
+ros2 topic echo /ah/video/compressed --once --no-arr
+# Optional GUI (X11 / local):
+# ros2 run rqt_image_view rqt_image_view   # select /ah/video/compressed
 ```
 
 ### Optional: view frames with `rqt_image_view` (XQuartz on Mac host)
@@ -176,7 +188,8 @@ In the UI, select **`/ah/video/compressed`** (not a `…/raw` name).
 **Task_12 verified:** JSON status echo.  
 **Task_13 verified:** compressed JPEG stream; viewable via `rqt_image_view` on `/ah/video/compressed`.  
 **Task_14:** track services on stub — rebuild `ah_msgs` + `ah_core`, then service call examples above.  
-**Task_30:** camera list/select services + params + optional `[Camera]` in settings INI.
+**Task_30:** camera list/select services + params + optional `[Camera]` in settings INI.  
+**Task_31:** live capture → `/ah/video/compressed` when `video.source=camera` (webcam / OBS virtual cam).
 
 ---
 
