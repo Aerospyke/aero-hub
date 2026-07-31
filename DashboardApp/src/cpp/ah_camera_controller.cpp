@@ -91,8 +91,8 @@ void AhCameraController::ApplyListResponse(const ah_msgs::srv::ListCameras::Resp
   current_backend_ = QString::fromStdString(response.selected_backend);
   UpdateSelectedListIndexFromCurrent();
 
-  emit DevicesChanged();
-  emit SelectionChanged();
+  emit devicesChanged();
+  emit selectionChanged();
 }
 
 void AhCameraController::ApplySelectResponse(const ah_msgs::srv::SelectCamera::Response& response) {
@@ -101,7 +101,7 @@ void AhCameraController::ApplySelectResponse(const ah_msgs::srv::SelectCamera::R
   current_device_path_ = QString::fromStdString(response.device_path);
   current_backend_ = QString::fromStdString(response.backend);
   UpdateSelectedListIndexFromCurrent();
-  emit SelectionChanged();
+  emit selectionChanged();
 }
 
 void AhCameraController::RefreshDevices(bool refresh) {

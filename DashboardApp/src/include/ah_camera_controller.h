@@ -18,13 +18,14 @@ class AhCameraController final : public QObject {
   Q_PROPERTY(QString lastMessage READ LastMessage NOTIFY LastMessageChanged)
   Q_PROPERTY(bool lastSuccess READ LastSuccess NOTIFY LastSuccessChanged)
   /// Display labels for ComboBox (name + path); parallel to device paths/ids.
-  Q_PROPERTY(QStringList deviceLabels READ DeviceLabels NOTIFY DevicesChanged)
-  Q_PROPERTY(int deviceCount READ DeviceCount NOTIFY DevicesChanged)
-  Q_PROPERTY(int selectedListIndex READ SelectedListIndex NOTIFY SelectionChanged)
-  Q_PROPERTY(QString currentVideoSource READ CurrentVideoSource NOTIFY SelectionChanged)
-  Q_PROPERTY(int currentDeviceId READ CurrentDeviceId NOTIFY SelectionChanged)
-  Q_PROPERTY(QString currentDevicePath READ CurrentDevicePath NOTIFY SelectionChanged)
-  Q_PROPERTY(QString currentBackend READ CurrentBackend NOTIFY SelectionChanged)
+  // NOTIFY names are camelCase so QML Connections (onDevicesChanged) resolve.
+  Q_PROPERTY(QStringList deviceLabels READ DeviceLabels NOTIFY devicesChanged)
+  Q_PROPERTY(int deviceCount READ DeviceCount NOTIFY devicesChanged)
+  Q_PROPERTY(int selectedListIndex READ SelectedListIndex NOTIFY selectionChanged)
+  Q_PROPERTY(QString currentVideoSource READ CurrentVideoSource NOTIFY selectionChanged)
+  Q_PROPERTY(int currentDeviceId READ CurrentDeviceId NOTIFY selectionChanged)
+  Q_PROPERTY(QString currentDevicePath READ CurrentDevicePath NOTIFY selectionChanged)
+  Q_PROPERTY(QString currentBackend READ CurrentBackend NOTIFY selectionChanged)
 
  public:
   explicit AhCameraController(rclcpp::Node::SharedPtr node, QObject* parent = nullptr);
@@ -50,8 +51,8 @@ class AhCameraController final : public QObject {
   void BusyChanged();
   void LastMessageChanged();
   void LastSuccessChanged();
-  void DevicesChanged();
-  void SelectionChanged();
+  void devicesChanged();
+  void selectionChanged();
   void CommandFinished(bool success, const QString& message);
 
  private:

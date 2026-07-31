@@ -18,11 +18,13 @@ class AhRosBridge {
   using ExecutorStoppedCallback = std::function<void()>;
   using StatusJsonCallback = std::function<void(const std::string& json)>;
   using VideoJpegCallback = std::function<void(std::vector<uint8_t> jpeg)>;
+  using DetectionsJsonCallback = std::function<void(const std::string& json)>;
 
   struct Hooks {
     ExecutorStoppedCallback on_executor_stopped;
     StatusJsonCallback on_status_json;
     VideoJpegCallback on_video_jpeg;
+    DetectionsJsonCallback on_detections_json;
   };
 
   static constexpr std::uint8_t DefaultRosDomainId = 42;
@@ -54,6 +56,7 @@ class AhRosBridge {
   rclcpp::Node::SharedPtr node_;
   rclcpp::Subscription<std_msgs::msg::String>::SharedPtr status_sub_;
   rclcpp::Subscription<sensor_msgs::msg::CompressedImage>::SharedPtr video_sub_;
+  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr detections_sub_;
   std::shared_ptr<rclcpp::executors::SingleThreadedExecutor> executor_;
   std::thread spin_thread_;
 };

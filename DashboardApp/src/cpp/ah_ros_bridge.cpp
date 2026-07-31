@@ -63,8 +63,19 @@ void AhRosBridge::SetupSubscriptions() {
         hooks_.on_video_jpeg(msg->data);
       });
 
-  RCLCPP_INFO(node_->get_logger(), "subscribed to %s + %s (relative; under node namespace)",
-              ah_ros_names::StatusTopic, ah_ros_names::VideoCompressedTopic);
+  // YOLO detections (Task_34): best-effort latest JSON from ah_yolo.
+  detections_sub_ = node_->create_subscription<std_msgs::msg::String>(
+      ah_ros_names::DetectionsTopic, video_qos,
+      [this](const std_msgs::msg::String::SharedPtr msg) {
+        if (hooks_.on_detections_json && msg) {
+          hooks_.on_detections_json(msg->data);
+        }
+      });
+
+  RCLCPP_INFO(node_->get_logger(),
+              "subscribed to %s + %s + %s (relative; under node namespace)",
+              ah_ros_names::StatusTopic, ah_ros_names::VideoCompressedTopic,
+              ah_ros_names::DetectionsTopic);
 }
 
 AhRosBridge::~AhRosBridge() {
@@ -79,6 +90,7 @@ AhRosBridge::~AhRosBridge() {
   }
   status_sub_.reset();
   video_sub_.reset();
+  detections_sub_.reset();
   node_.reset();
   executor_.reset();
 

@@ -1,7 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Layouts 1.15
 
-// Live ROS camera + drag tracking bounding box for start tracking (Task_18 / Task_19)
+// Live ROS camera + YOLO boxes (Task_34) + drag tracking box (Task_18 / Task_19)
 Rectangle {
   id: root
   color: "#0d1620"
@@ -37,6 +37,13 @@ Rectangle {
         font.pixelSize: 12
         Layout.fillWidth: true
         elide: Text.ElideRight
+      }
+
+      Text {
+        text: detectionsModel ? detectionsModel.summary : ""
+        color: detectionsModel && detectionsModel.live ? "#6bcf7f" : "#5a6572"
+        font.pixelSize: 11
+        visible: detectionsModel !== null
       }
 
       Text {
@@ -77,6 +84,49 @@ Rectangle {
         height: areaAspect > imgAspect ? stage.height : stage.width / imgAspect
         anchors.centerIn: parent
 
+        // YOLO detections (normalized [0,1] → imageArea pixels) — Task_34
+        Repeater {
+          model: detectionsModel
+          delegate: Rectangle {
+            required property real nx
+            required property real ny
+            required property real nw
+            required property real nh
+            required property string label
+            required property real confidence
+
+            x: nx * imageArea.width
+            y: ny * imageArea.height
+            width: Math.max(2, nw * imageArea.width)
+            height: Math.max(2, nh * imageArea.height)
+            color: "transparent"
+            border.color: "#3d9eff"
+            border.width: 2
+            visible: videoFeed.hasFrame && detectionsModel.live
+            z: 1
+
+            Rectangle {
+              anchors.left: parent.left
+              anchors.bottom: parent.top
+              anchors.bottomMargin: 1
+              height: lab.implicitHeight + 2
+              width: Math.min(imageArea.width - parent.x, lab.implicitWidth + 8)
+              color: "#cc0a1520"
+              visible: lab.text.length > 0
+              Text {
+                id: lab
+                anchors.centerIn: parent
+                text: label
+                color: "#9ecbff"
+                font.pixelSize: 11
+                font.bold: true
+                elide: Text.ElideRight
+                width: parent.width - 6
+              }
+            }
+          }
+        }
+
         // Selection rectangle (normalized tracking bounding box → pixels in imageArea)
         Rectangle {
           id: trackingBoundingBoxRect
@@ -88,6 +138,7 @@ Rectangle {
           border.color: systemStatus.trackingStarted ? "#6bcf7f" : "#e6c35c"
           border.width: 2
           visible: videoFeed.hasFrame
+          z: 2
         }
 
         MouseArea {

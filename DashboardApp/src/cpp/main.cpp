@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "ah_camera_controller.h"
+#include "ah_detections_model.h"
 #include "ah_ros_bridge.h"
 #include "ah_settings.h"
 #include "ah_system_status.h"
@@ -37,6 +38,7 @@ int main(int argc, char* argv[]) {
 
   auto* system_status = new AhSystemStatus(QCoreApplication::instance());
   auto* video_feed = new AhVideoFeed(QCoreApplication::instance());
+  auto* detections_model = new AhDetectionsModel(QCoreApplication::instance());
 
   AhRosBridge::Hooks hooks;
   hooks.on_executor_stopped = []() {
@@ -59,6 +61,13 @@ int main(int argc, char* argv[]) {
     QMetaObject::invokeMethod(
         video_feed,
         [video_feed, bytes]() { video_feed->ApplyJpeg(bytes); },
+        Qt::QueuedConnection);
+  };
+  hooks.on_detections_json = [detections_model](const std::string& json) {
+    const QString payload = QString::fromStdString(json);
+    QMetaObject::invokeMethod(
+        detections_model,
+        [detections_model, payload]() { detections_model->ApplyJson(payload); },
         Qt::QueuedConnection);
   };
 
@@ -100,6 +109,7 @@ int main(int argc, char* argv[]) {
   engine.rootContext()->setContextProperty("videoFeed", video_feed);
   engine.rootContext()->setContextProperty("trackController", track_controller);
   engine.rootContext()->setContextProperty("cameraController", camera_controller);
+  engine.rootContext()->setContextProperty("detectionsModel", detections_model);
   engine.load(RootUrl);
 
   animation->init();
