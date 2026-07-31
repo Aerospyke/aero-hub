@@ -9,6 +9,7 @@
 #include "ah_core/camera_devices.hpp"
 #include "ah_core/ros_runtime_settings.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <cstdint>
 #include <cstdlib>
@@ -55,6 +56,7 @@ std::string CreateStatusJson(
   bool segmentation_active,
   bool smart_mode_active,
   bool following_active,
+  const char * tracker_type,
   const CameraSelection & cam)
 {
   std::ostringstream oss;
@@ -66,7 +68,7 @@ std::string CreateStatusJson(
       << "\"segmentation_active\":" << (segmentation_active ? "true" : "false") << ','
       << "\"following_active\":" << (following_active ? "true" : "false") << ','
       << "\"video_status\":\"" << video_status << "\","
-      << "\"tracker_type\":\"stub\","
+      << "\"tracker_type\":\"" << JsonEscape(tracker_type ? tracker_type : "stub") << "\","
       << "\"follower_mode\":\"none\","
       << "\"video_source\":\"" << JsonEscape(cam.video_source) << "\","
       << "\"camera_device_id\":" << cam.device_id << ','
@@ -75,6 +77,29 @@ std::string CreateStatusJson(
       << "\"stamp\":" << stamp_sec
       << '}';
   return oss.str();
+}
+
+// Minimal parse of ah_yolo JSON detections (no JSON library in ah_core).
+float ParseJsonFloatAfterKey(const std::string & s, size_t from, const char * key, bool * ok)
+{
+  *ok = false;
+  const std::string needle = std::string("\"") + key + "\":";
+  const size_t k = s.find(needle, from);
+  if (k == std::string::npos) {
+    return 0.f;
+  }
+  size_t i = k + needle.size();
+  while (i < s.size() && (s[i] == ' ' || s[i] == '\t')) {
+    ++i;
+  }
+  try {
+    size_t consumed = 0;
+    const float v = std::stof(s.substr(i), &consumed);
+    *ok = consumed > 0;
+    return v;
+  } catch (...) {
+    return 0.f;
+  }
 }
 
 cv::Mat CreateSyntheticImage(const int frame_id, bool tracking_started)
@@ -199,6 +224,20 @@ AhCoreNode::AhCoreNode(
     rclcpp::ServicesQoS(),
     camera_cb_group_);
 
+  smart_toggle_srv_ = create_service<std_srvs::srv::SetBool>(
+    "ah/smart/toggle",
+    std::bind(&AhCoreNode::OnSmartToggle, this, std::placeholders::_1, std::placeholders::_2));
+
+  smart_click_srv_ = create_service<ah_msgs::srv::SmartClick>(
+    "ah/smart/click",
+    std::bind(&AhCoreNode::OnSmartClick, this, std::placeholders::_1, std::placeholders::_2));
+
+  rclcpp::QoS det_qos(rclcpp::KeepLast(1));
+  det_qos.best_effort();
+  detections_sub_ = create_subscription<std_msgs::msg::String>(
+    "ah/detections", det_qos,
+    std::bind(&AhCoreNode::OnDetections, this, std::placeholders::_1));
+
   const auto period = std::chrono::milliseconds(1000 / kPublishHz);
   timer_ = create_wall_timer(period, std::bind(&AhCoreNode::OnTimer, this));
 
@@ -260,7 +299,7 @@ AhCoreNode::AhCoreNode(
   RCLCPP_INFO(
     get_logger(),
     "ah_core ready: fqn=%s ROS_DOMAIN_ID=%s status+video @ %d Hz; "
-    "services ah/tracking/* + ah/camera/list|select; "
+    "services tracking + camera + smart/toggle|click; "
     "video.source=%s camera.id=%d path=%s (hardware probe + capture deferred)",
     get_fully_qualified_name(),
     domain && domain[0] ? domain : "(default 0)",
@@ -385,6 +424,7 @@ void AhCoreNode::OnTimer()
     segmentation_active_,
     smart_mode_active_,
     following_active_,
+    tracker_type_.c_str(),
     camera_);
   status_pub_->publish(status_msg);
 
@@ -419,16 +459,17 @@ void AhCoreNode::OnStartTracking(
   }
 
   tracking_started_ = true;
+  tracker_type_ = "classic";
   tracking_bounding_box_x_ = request->x;
   tracking_bounding_box_y_ = request->y;
   tracking_bounding_box_width_ = request->width;
   tracking_bounding_box_height_ = request->height;
 
   response->success = true;
-  response->message = "tracking started (stub)";
+  response->message = "tracking started (classic bbox)";
   RCLCPP_INFO(
     get_logger(),
-    "tracking started (stub) tracking bounding box norm x=%.3f y=%.3f w=%.3f h=%.3f",
+    "tracking started (classic) bbox norm x=%.3f y=%.3f w=%.3f h=%.3f",
     tracking_bounding_box_x_, tracking_bounding_box_y_, tracking_bounding_box_width_,
     tracking_bounding_box_height_);
 }
@@ -439,6 +480,9 @@ void AhCoreNode::OnStopTracking(
 {
   const bool was = tracking_started_;
   tracking_started_ = false;
+  if (!smart_mode_active_) {
+    tracker_type_ = "stub";
+  }
   response->success = true;
   response->message = was ? "tracking stopped" : "tracking already idle";
   RCLCPP_INFO(get_logger(), "%s", response->message.c_str());
@@ -450,8 +494,13 @@ void AhCoreNode::OnCancelTracking(
 {
   tracking_started_ = false;
   segmentation_active_ = false;
+  if (!smart_mode_active_) {
+    tracker_type_ = "stub";
+  } else {
+    tracker_type_ = "smart";
+  }
   response->success = true;
-  response->message = "tracking cancelled (stub hard reset)";
+  response->message = "tracking cancelled (hard reset)";
   RCLCPP_INFO(get_logger(), "%s", response->message.c_str());
 }
 
@@ -624,6 +673,168 @@ void AhCoreNode::FillSelectResponse(
   response->device_id = camera_.device_id;
   response->device_path = camera_.device_path;
   response->backend = camera_.backend;
+}
+
+void AhCoreNode::OnDetections(const std_msgs::msg::String::SharedPtr msg)
+{
+  if (!msg) {
+    return;
+  }
+  std::vector<DetectionBox> parsed;
+  size_t pos = 0;
+  const std::string & json = msg->data;
+  while (true) {
+    const size_t bb = json.find("\"bbox_normalized\"", pos);
+    if (bb == std::string::npos) {
+      break;
+    }
+    bool okx = false, oky = false, okw = false, okh = false, okc = false;
+    DetectionBox d;
+    d.x = ParseJsonFloatAfterKey(json, bb, "x", &okx);
+    d.y = ParseJsonFloatAfterKey(json, bb, "y", &oky);
+    d.w = ParseJsonFloatAfterKey(json, bb, "w", &okw);
+    d.h = ParseJsonFloatAfterKey(json, bb, "h", &okh);
+    const size_t window_start = bb > 200 ? bb - 200 : 0;
+    d.confidence = ParseJsonFloatAfterKey(json, window_start, "confidence", &okc);
+    (void)okc;
+    if (okx && oky && okw && okh && d.w > 0.f && d.h > 0.f) {
+      parsed.push_back(d);
+    }
+    pos = bb + 16;
+  }
+  {
+    std::lock_guard<std::mutex> lock(detections_mutex_);
+    last_detections_ = std::move(parsed);
+  }
+}
+
+bool AhCoreNode::ResolveSmartClickLock(
+  float click_x, float click_y,
+  float * out_x, float * out_y, float * out_w, float * out_h,
+  std::string * out_label) const
+{
+  std::vector<DetectionBox> dets;
+  {
+    std::lock_guard<std::mutex> lock(detections_mutex_);
+    dets = last_detections_;
+  }
+
+  constexpr float kDefaultBox = 0.12f;
+  int best_contain = -1;
+  float best_contain_area = 1e9f;
+  int best_near = -1;
+  float best_near_dist2 = 1e9f;
+
+  for (size_t i = 0; i < dets.size(); ++i) {
+    const auto & d = dets[i];
+    const float x1 = d.x;
+    const float y1 = d.y;
+    const float x2 = d.x + d.w;
+    const float y2 = d.y + d.h;
+    if (click_x >= x1 && click_x <= x2 && click_y >= y1 && click_y <= y2) {
+      const float area = d.w * d.h;
+      if (area < best_contain_area) {
+        best_contain_area = area;
+        best_contain = static_cast<int>(i);
+      }
+    }
+    const float cx = d.x + 0.5f * d.w;
+    const float cy = d.y + 0.5f * d.h;
+    const float dx = click_x - cx;
+    const float dy = click_y - cy;
+    const float d2 = dx * dx + dy * dy;
+    if (d2 < best_near_dist2) {
+      best_near_dist2 = d2;
+      best_near = static_cast<int>(i);
+    }
+  }
+
+  // Prefer detection containing the click; else nearest if within ~0.25 of center.
+  int pick = best_contain;
+  if (pick < 0 && best_near >= 0 && best_near_dist2 <= 0.25f * 0.25f) {
+    pick = best_near;
+  }
+
+  if (pick >= 0) {
+    const auto & d = dets[static_cast<size_t>(pick)];
+    *out_x = d.x;
+    *out_y = d.y;
+    *out_w = d.w;
+    *out_h = d.h;
+    if (out_label) {
+      *out_label = d.class_name.empty() ? "detection" : d.class_name;
+    }
+    return true;
+  }
+
+  // No usable detection — small box centered on click.
+  *out_w = kDefaultBox;
+  *out_h = kDefaultBox;
+  *out_x = std::max(0.f, std::min(1.f - *out_w, click_x - 0.5f * *out_w));
+  *out_y = std::max(0.f, std::min(1.f - *out_h, click_y - 0.5f * *out_h));
+  if (out_label) {
+    *out_label = "point";
+  }
+  return true;
+}
+
+void AhCoreNode::OnSmartToggle(
+  const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
+  std::shared_ptr<std_srvs::srv::SetBool::Response> response)
+{
+  smart_mode_active_ = request->data;
+  if (smart_mode_active_) {
+    tracker_type_ = tracking_started_ ? tracker_type_ : "smart";
+    if (!tracking_started_) {
+      tracker_type_ = "smart";
+    }
+  } else if (!tracking_started_) {
+    tracker_type_ = "stub";
+  }
+  response->success = true;
+  response->message = smart_mode_active_ ? "smart mode ON" : "smart mode OFF";
+  RCLCPP_INFO(get_logger(), "%s", response->message.c_str());
+}
+
+void AhCoreNode::OnSmartClick(
+  const std::shared_ptr<ah_msgs::srv::SmartClick::Request> request,
+  std::shared_ptr<ah_msgs::srv::SmartClick::Response> response)
+{
+  if (!smart_mode_active_) {
+    response->success = false;
+    response->message = "smart mode is OFF — enable ah/smart/toggle first";
+    return;
+  }
+  if (request->x < 0.f || request->x > 1.f || request->y < 0.f || request->y > 1.f) {
+    response->success = false;
+    response->message = "click must be normalized in [0,1]";
+    return;
+  }
+
+  float bx = 0.f, by = 0.f, bw = 0.f, bh = 0.f;
+  std::string label;
+  if (!ResolveSmartClickLock(request->x, request->y, &bx, &by, &bw, &bh, &label)) {
+    response->success = false;
+    response->message = "could not resolve lock target";
+    return;
+  }
+
+  tracking_started_ = true;
+  tracker_type_ = "smart";
+  tracking_bounding_box_x_ = bx;
+  tracking_bounding_box_y_ = by;
+  tracking_bounding_box_width_ = bw;
+  tracking_bounding_box_height_ = bh;
+
+  response->success = true;
+  response->lock_x = bx;
+  response->lock_y = by;
+  response->lock_width = bw;
+  response->lock_height = bh;
+  response->message = "smart lock on " + label +
+                      " bbox=[" + std::to_string(bx) + "," + std::to_string(by) + "," +
+                      std::to_string(bw) + "," + std::to_string(bh) + "]";
+  RCLCPP_INFO(get_logger(), "%s", response->message.c_str());
 }
 
 }  // namespace ah_core

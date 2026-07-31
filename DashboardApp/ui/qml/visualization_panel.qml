@@ -47,8 +47,8 @@ Rectangle {
       }
 
       Text {
-        text: "drag box · controls below"
-        color: "#5a6572"
+        text: systemStatus.smartModeActive ? "smart: short-click lock" : "drag box · controls below"
+        color: systemStatus.smartModeActive ? "#9ecbff" : "#5a6572"
         font.pixelSize: 11
         visible: videoFeed.hasFrame
       }
@@ -147,17 +147,28 @@ Rectangle {
           enabled: videoFeed.hasFrame && !trackController.busy
           property real startX: 0
           property real startY: 0
+          property bool dragged: false
+          // Pixels of movement before we treat gesture as classic drag (not smart click).
+          readonly property real dragThreshold: 8
 
           onPressed: function (mouse) {
             startX = mouse.x
             startY = mouse.y
-            trackController.trackingBoundingBoxX = mouse.x / width
-            trackController.trackingBoundingBoxY = mouse.y / height
-            trackController.trackingBoundingBoxWidth = 0.01
-            trackController.trackingBoundingBoxHeight = 0.01
+            dragged = false
+            if (!systemStatus.smartModeActive) {
+              trackController.trackingBoundingBoxX = mouse.x / width
+              trackController.trackingBoundingBoxY = mouse.y / height
+              trackController.trackingBoundingBoxWidth = 0.01
+              trackController.trackingBoundingBoxHeight = 0.01
+            }
           }
           onPositionChanged: function (mouse) {
             if (!pressed)
+              return
+            if (Math.abs(mouse.x - startX) > dragThreshold ||
+                Math.abs(mouse.y - startY) > dragThreshold)
+              dragged = true
+            if (systemStatus.smartModeActive && !dragged)
               return
             const x0 = Math.min(startX, mouse.x)
             const y0 = Math.min(startY, mouse.y)
@@ -167,6 +178,13 @@ Rectangle {
             trackController.trackingBoundingBoxY = Math.max(0, Math.min(1, y0 / height))
             trackController.trackingBoundingBoxWidth = Math.max(0.01, Math.min(1 - trackController.trackingBoundingBoxX, (x1 - x0) / width))
             trackController.trackingBoundingBoxHeight = Math.max(0.01, Math.min(1 - trackController.trackingBoundingBoxY, (y1 - y0) / height))
+          }
+          onReleased: function (mouse) {
+            if (systemStatus.smartModeActive && !dragged) {
+              const nx = Math.max(0, Math.min(1, mouse.x / width))
+              const ny = Math.max(0, Math.min(1, mouse.y / height))
+              trackController.SmartClick(nx, ny)
+            }
           }
         }
       }

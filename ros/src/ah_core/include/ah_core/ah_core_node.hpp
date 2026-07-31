@@ -11,10 +11,12 @@
 
 #include "ah_msgs/srv/list_cameras.hpp"
 #include "ah_msgs/srv/select_camera.hpp"
+#include "ah_msgs/srv/smart_click.hpp"
 #include "ah_msgs/srv/start_tracking.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/compressed_image.hpp"
 #include "std_msgs/msg/string.hpp"
+#include "std_srvs/srv/set_bool.hpp"
 #include "std_srvs/srv/trigger.hpp"
 
 namespace ah_core
@@ -55,6 +57,29 @@ private:
     std::shared_ptr<ah_msgs::srv::SelectCamera::Response> response);
   void FillSelectResponse(
     std::shared_ptr<ah_msgs::srv::SelectCamera::Response> response) const;
+  void OnSmartToggle(
+    const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
+    std::shared_ptr<std_srvs::srv::SetBool::Response> response);
+  void OnSmartClick(
+    const std::shared_ptr<ah_msgs::srv::SmartClick::Request> request,
+    std::shared_ptr<ah_msgs::srv::SmartClick::Response> response);
+  void OnDetections(const std_msgs::msg::String::SharedPtr msg);
+
+  struct DetectionBox
+  {
+    float x{0.f};
+    float y{0.f};
+    float w{0.f};
+    float h{0.f};
+    float confidence{0.f};
+    std::string class_name;
+  };
+
+  /// Pick lock bbox from click + last detections (Task_35).
+  bool ResolveSmartClickLock(
+    float click_x, float click_y,
+    float * out_x, float * out_y, float * out_w, float * out_h,
+    std::string * out_label) const;
 
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr status_pub_;
   rclcpp::Publisher<sensor_msgs::msg::CompressedImage>::SharedPtr video_pub_;
@@ -63,6 +88,9 @@ private:
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr cancel_tracking_srv_;
   rclcpp::Service<ah_msgs::srv::ListCameras>::SharedPtr list_cameras_srv_;
   rclcpp::Service<ah_msgs::srv::SelectCamera>::SharedPtr select_camera_srv_;
+  rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr smart_toggle_srv_;
+  rclcpp::Service<ah_msgs::srv::SmartClick>::SharedPtr smart_click_srv_;
+  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr detections_sub_;
   rclcpp::CallbackGroup::SharedPtr camera_cb_group_;
   rclcpp::TimerBase::SharedPtr timer_;
   rclcpp::TimerBase::SharedPtr probe_timer_;
@@ -76,6 +104,7 @@ private:
   float tracking_bounding_box_y_{0.0f};
   float tracking_bounding_box_width_{0.0f};
   float tracking_bounding_box_height_{0.0f};
+  std::string tracker_type_{"stub"};
 
   CameraSelection camera_;
   std::string settings_path_;
@@ -86,6 +115,9 @@ private:
   /// Last video_status string for status JSON (connected / degraded / unavailable).
   std::string last_video_status_{"connected"};
   int capture_open_fail_log_count_{0};
+
+  mutable std::mutex detections_mutex_;
+  std::vector<DetectionBox> last_detections_;
 };
 
 }  // namespace ah_core

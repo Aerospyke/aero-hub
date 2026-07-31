@@ -1,0 +1,12 @@
+# Smart-mode click: normalized image point [0,1] (interface map §4, Task_35).
+# Core picks a detection under the point (or nearest), or a small box around the point.
+float32 x
+float32 y
+---
+bool success
+string message
+# Echo of locked normalized bbox (for UI sync)
+float32 lock_x
+float32 lock_y
+float32 lock_width
+float32 lock_height
