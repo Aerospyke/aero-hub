@@ -1,0 +1,15 @@
+# Defaults for ah_yolo_node (override via CLI or aerohub_settings / launch).
+ah_yolo:
+  ros__parameters:
+    # tank | coco80
+    profile: coco80
+    # Empty = resolve from profile (see node + models/README.md)
+    weights_path: ""
+    conf_threshold: 0.25
+    iou_threshold: 0.45
+    # Process every Nth compressed frame (1 = all; raise if CPU-bound)
+    frame_stride: 2
+    image_topic: ah/video/compressed
+    detections_topic: ah/detections
+    # Device: cpu | mps | 0 (CUDA). Empty = auto (mps on Apple if available else cpu)
+    device: ""

@@ -33,5 +33,10 @@ if [ -z "${AERO_HUB_SETTINGS:-}" ] && [ -f "${_AH_ROS_DIR}/../aerohub_settings.i
   export AERO_HUB_SETTINGS="${_AH_ROS_DIR}/../aerohub_settings.ini"
 fi
 
-echo "[ah_ros] overlay=${_AH_ROS_DIR}/install  ROS_DOMAIN_ID=${ROS_DOMAIN_ID}  RMW=${RMW_IMPLEMENTATION}"
+# YOLO weights directory (ah_yolo profiles: coco80 → yolo11n.pt, tank → tank.pt)
+if [ -z "${AERO_HUB_MODELS:-}" ] && [ -d "${_AH_ROS_DIR}/../models" ]; then
+  export AERO_HUB_MODELS="$(cd "${_AH_ROS_DIR}/../models" && pwd)"
+fi
+
+echo "[ah_ros] overlay=${_AH_ROS_DIR}/install  ROS_DOMAIN_ID=${ROS_DOMAIN_ID}  RMW=${RMW_IMPLEMENTATION}  MODELS=${AERO_HUB_MODELS:-}"
 unset _AH_ROS_DIR

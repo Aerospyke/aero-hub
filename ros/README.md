@@ -14,6 +14,7 @@ ros/                    # host path: …/aero-hub/ros
     ah_core/            # status + video + track + camera list/select
                         #   include/ah_core/{ah_core_node,camera_devices,ros_runtime_settings}.hpp
                         #   src/{main,ah_core_node,camera_devices,ros_runtime_settings}.cpp
+    ah_yolo/            # Task_33+ Ultralytics YOLO → ah/detections (JSON)
   build/                # gitignored (created by colcon)
   install/              # gitignored
   log/                  # gitignored
@@ -59,7 +60,7 @@ source /opt/ros/jazzy/setup.bash
 # export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 # export ROS_DOMAIN_ID=42
 
-colcon build --packages-select ah_msgs ah_core
+colcon build --packages-select ah_msgs ah_core ah_yolo
 source install/setup.bash
 ```
 
@@ -70,7 +71,10 @@ conda activate ros_env
 cd ~/Documents/projects/pix-eagle-stack/aero-hub/ros
 export ROS_DOMAIN_ID=42
 export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
-colcon build --packages-select ah_msgs ah_core
+colcon build --packages-select ah_msgs ah_core ah_yolo
+
+# YOLO deps (once per env):
+pip install "ultralytics>=8.3.0"
 
 # IMPORTANT — every terminal (node *and* service-call CLI):
 source ./init_ah_ros_in_terminal.sh
@@ -189,7 +193,44 @@ In the UI, select **`/ah/video/compressed`** (not a `…/raw` name).
 **Task_13 verified:** compressed JPEG stream; viewable via `rqt_image_view` on `/ah/video/compressed`.  
 **Task_14:** track services on stub — rebuild `ah_msgs` + `ah_core`, then service call examples above.  
 **Task_30:** camera list/select services + params + optional `[Camera]` in settings INI.  
-**Task_31:** live capture → `/ah/video/compressed` when `video.source=camera` (webcam / OBS virtual cam).
+**Task_31:** live capture → `/ah/video/compressed` when `video.source=camera` (webcam / OBS virtual cam).  
+**Task_33:** `ah_yolo` Ultralytics node — see [YOLO (Task_33)](#yolo-task_33) below.
+
+### YOLO (Task_33)
+
+Runtime: **Python + Ultralytics** (loads custom `.pt` tank weights without ONNX conversion).
+
+```bash
+# deps once
+pip install "ultralytics>=8.3.0"
+
+# offline smoke (no ROS)
+cd …/aero-hub
+export AERO_HUB_MODELS="$PWD/models"
+python ros/src/ah_yolo/scripts/smoke_infer.py --profile coco80 \
+  --image /path/to/any.jpg
+# tank (after you copy weights → models/tank.pt):
+python ros/src/ah_yolo/scripts/smoke_infer.py --profile tank \
+  --image /path/to/tank.jpg
+
+# live with ah_core (two terminals, both sourced):
+ros2 run ah_core ah_core_node
+ros2 run ah_yolo ah_yolo_node --ros-args -p profile:=coco80
+# or tank:
+# ros2 run ah_yolo ah_yolo_node --ros-args -p profile:=tank
+# reload after changing params / weights:
+# ros2 service call /ah/yolo/reload std_srvs/srv/Trigger {}
+ros2 topic echo /ah/detections --once
+```
+
+| Profile | Weights | Purpose |
+|---------|---------|---------|
+| `coco80` | `models/yolo11n.pt` or Ultralytics download | COCO-80 / virtual world |
+| `tank` | `models/tank.pt` **or** `tank.safetensors` / `AERO_HUB_YOLO_TANK_WEIGHTS` | cyberbrick mini tank |
+
+**`.safetensors`:** path is accepted, but Ultralytics usually needs a **`.pt`** checkpoint (`best.pt`/`last.pt` from the same train run). See `aero-hub/models/README.md`.
+
+Detections: `std_msgs/String` JSON on `ah/detections` (bbox_normalized [0,1]). Overlay = Task_34.
 
 ---
 
