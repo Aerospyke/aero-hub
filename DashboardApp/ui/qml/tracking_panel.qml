@@ -16,6 +16,7 @@ Rectangle {
   readonly property color chromeText: "#8a96a5"
   readonly property color chromeTextBright: "#e8eef5"
   readonly property color chromeInput: "#0a1018"
+  readonly property color chromeAccent: "#3d9eff"
 
   component DarkSpinBox: SpinBox {
     id: control
@@ -227,13 +228,6 @@ Rectangle {
       }
     }
 
-    Component.onCompleted: {
-      spinBoxX.value = Math.round(trackController.trackingBoundingBoxX * 100)
-      spinBoxY.value = Math.round(trackController.trackingBoundingBoxY * 100)
-      spinBoxWidth.value = Math.round(trackController.trackingBoundingBoxWidth * 100)
-      spinBoxHeight.value = Math.round(trackController.trackingBoundingBoxHeight * 100)
-    }
-
     RowLayout {
       Layout.fillWidth: true
       spacing: 8
@@ -286,6 +280,173 @@ Rectangle {
       font.pixelSize: 19
     }
 
+    // --- Camera / video source (Task_32; list/select via ah_core) ---
+    Rectangle {
+      Layout.fillWidth: true
+      Layout.preferredHeight: cameraColumn.implicitHeight + 20
+      radius: 4
+      color: root.chromePanel
+      border.color: root.chromeBorder
+      border.width: 1
+
+      ColumnLayout {
+        id: cameraColumn
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.margins: 10
+        spacing: 8
+
+        Text {
+          text: "Camera / video source"
+          color: root.chromeTextBright
+          font.pixelSize: 16
+          font.bold: true
+        }
+
+        Text {
+          Layout.fillWidth: true
+          wrapMode: Text.WordWrap
+          text: cameraController
+                ? ("Current: " + cameraController.currentVideoSource
+                   + (cameraController.currentDevicePath.length
+                      ? " · " + cameraController.currentDevicePath : "")
+                   + (cameraController.currentBackend.length
+                      ? " · " + cameraController.currentBackend : ""))
+                : "Current: —"
+          color: root.chromeText
+          font.pixelSize: 13
+        }
+
+        ComboBox {
+          id: deviceCombo
+          Layout.fillWidth: true
+          Layout.preferredHeight: 32
+          enabled: cameraController && !cameraController.busy
+                   && cameraController.deviceCount > 0
+          model: cameraController ? cameraController.deviceLabels : []
+          currentIndex: cameraController ? cameraController.selectedListIndex : -1
+
+          Connections {
+            target: cameraController
+            function onDevicesChanged() {
+              deviceCombo.model = cameraController.deviceLabels
+              deviceCombo.currentIndex = cameraController.selectedListIndex
+            }
+            function onSelectionChanged() {
+              deviceCombo.currentIndex = cameraController.selectedListIndex
+            }
+          }
+
+          contentItem: Text {
+            leftPadding: 8
+            rightPadding: deviceCombo.indicator.width + 6
+            text: deviceCombo.displayText
+            font.pixelSize: 13
+            color: root.chromeTextBright
+            verticalAlignment: Text.AlignVCenter
+            elide: Text.ElideRight
+          }
+          background: Rectangle {
+            radius: 4
+            color: root.chromeInput
+            border.color: root.chromeBorder
+            border.width: 1
+          }
+          popup: Popup {
+            y: deviceCombo.height
+            width: deviceCombo.width
+            implicitHeight: Math.min(contentItem.implicitHeight, 220)
+            padding: 1
+            contentItem: ListView {
+              clip: true
+              implicitHeight: contentHeight
+              model: deviceCombo.popup.visible ? deviceCombo.delegateModel : null
+              currentIndex: deviceCombo.highlightedIndex
+              ScrollIndicator.vertical: ScrollIndicator {}
+            }
+            background: Rectangle {
+              color: root.chromePanel
+              border.color: root.chromeBorder
+              radius: 4
+            }
+          }
+          delegate: ItemDelegate {
+            width: deviceCombo.width
+            height: 30
+            contentItem: Text {
+              text: modelData
+              color: root.chromeTextBright
+              font.pixelSize: 12
+              elide: Text.ElideRight
+              verticalAlignment: Text.AlignVCenter
+              leftPadding: 8
+            }
+            background: Rectangle {
+              color: parent.highlighted ? "#243140" : "transparent"
+            }
+          }
+        }
+
+        RowLayout {
+          Layout.fillWidth: true
+          spacing: 8
+
+          DarkButton {
+            text: "Refresh"
+            enabled: cameraController && !cameraController.busy
+            face: "#1a2430"
+            faceDown: "#243140"
+            edge: root.chromeBorder
+            font.bold: false
+            onClicked: {
+              if (cameraController)
+                cameraController.RefreshDevices(true)
+            }
+          }
+          DarkButton {
+            text: "Apply"
+            enabled: cameraController && !cameraController.busy
+                     && deviceCombo.currentIndex >= 0
+            face: "#1a4a7a"
+            faceDown: "#2a7acc"
+            edge: root.chromeAccent
+            onClicked: {
+              if (cameraController && deviceCombo.currentIndex >= 0)
+                cameraController.SelectDeviceAt(deviceCombo.currentIndex)
+            }
+          }
+
+          Item { Layout.fillWidth: true }
+
+          Text {
+            visible: cameraController && cameraController.busy
+            text: "Working…"
+            color: root.chromeAccent
+            font.pixelSize: 12
+          }
+        }
+
+        Text {
+          Layout.fillWidth: true
+          wrapMode: Text.WordWrap
+          text: cameraController ? cameraController.lastMessage : ""
+          color: cameraController && cameraController.lastSuccess
+                 ? "#7dcea0" : "#c9a06a"
+          font.pixelSize: 12
+        }
+      }
+    }
+
     Item { Layout.fillHeight: true }
+  }
+
+  Component.onCompleted: {
+    spinBoxX.value = Math.round(trackController.trackingBoundingBoxX * 100)
+    spinBoxY.value = Math.round(trackController.trackingBoundingBoxY * 100)
+    spinBoxWidth.value = Math.round(trackController.trackingBoundingBoxWidth * 100)
+    spinBoxHeight.value = Math.round(trackController.trackingBoundingBoxHeight * 100)
+    if (cameraController)
+      cameraController.RefreshDevices(false)
   }
 }
