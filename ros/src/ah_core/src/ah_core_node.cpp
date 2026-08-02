@@ -244,46 +244,69 @@ AhCoreNode::AhCoreNode(
 
   start_tracking_srv_ = create_service<ah_msgs::srv::StartTracking>(
     "ah/tracking/start",
-    std::bind(&AhCoreNode::OnStartTracking, this, std::placeholders::_1, std::placeholders::_2));
+    [this](const std::shared_ptr<ah_msgs::srv::StartTracking::Request> request,
+           std::shared_ptr<ah_msgs::srv::StartTracking::Response> response) {
+      OnStartTracking(request, response);
+    });
 
   stop_tracking_srv_ = create_service<std_srvs::srv::Trigger>(
     "ah/tracking/stop",
-    std::bind(&AhCoreNode::OnStopTracking, this, std::placeholders::_1, std::placeholders::_2));
+    [this](const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
+           std::shared_ptr<std_srvs::srv::Trigger::Response> response) {
+      OnStopTracking(request, response);
+    });
 
   cancel_tracking_srv_ = create_service<std_srvs::srv::Trigger>(
     "ah/tracking/cancel",
-    std::bind(&AhCoreNode::OnCancelTracking, this, std::placeholders::_1, std::placeholders::_2));
+    [this](const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
+           std::shared_ptr<std_srvs::srv::Trigger::Response> response) {
+      OnCancelTracking(request, response);
+    });
 
   camera_cb_group_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
 
   list_cameras_srv_ = create_service<ah_msgs::srv::ListCameras>(
     "ah/camera/list",
-    std::bind(&AhCoreNode::OnListCameras, this, std::placeholders::_1, std::placeholders::_2),
+    [this](const std::shared_ptr<ah_msgs::srv::ListCameras::Request> request,
+           std::shared_ptr<ah_msgs::srv::ListCameras::Response> response) {
+      OnListCameras(request, response);
+    },
     rclcpp::ServicesQoS(),
     camera_cb_group_);
 
   select_camera_srv_ = create_service<ah_msgs::srv::SelectCamera>(
     "ah/camera/select",
-    std::bind(&AhCoreNode::OnSelectCamera, this, std::placeholders::_1, std::placeholders::_2),
+    [this](const std::shared_ptr<ah_msgs::srv::SelectCamera::Request> request,
+           std::shared_ptr<ah_msgs::srv::SelectCamera::Response> response) {
+      OnSelectCamera(request, response);
+    },
     rclcpp::ServicesQoS(),
     camera_cb_group_);
 
   ai_tracking_toggle_srv_ = create_service<std_srvs::srv::SetBool>(
     "ah/ai_tracking/toggle",
-    std::bind(&AhCoreNode::OnAiTrackingToggle, this, std::placeholders::_1, std::placeholders::_2));
+    [this](const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
+           std::shared_ptr<std_srvs::srv::SetBool::Response> response) {
+      OnAiTrackingToggle(request, response);
+    });
 
   ai_tracking_click_srv_ = create_service<ah_msgs::srv::AiTrackingClick>(
     "ah/ai_tracking/click",
-    std::bind(&AhCoreNode::OnAiTrackingClick, this, std::placeholders::_1, std::placeholders::_2));
+    [this](const std::shared_ptr<ah_msgs::srv::AiTrackingClick::Request> request,
+           std::shared_ptr<ah_msgs::srv::AiTrackingClick::Response> response) {
+      OnAiTrackingClick(request, response);
+    });
 
   rclcpp::QoS det_qos(rclcpp::KeepLast(1));
   det_qos.best_effort();
   detections_sub_ = create_subscription<std_msgs::msg::String>(
     "ah/detections", det_qos,
-    std::bind(&AhCoreNode::OnDetections, this, std::placeholders::_1));
+    [this](const std_msgs::msg::String::SharedPtr msg) {
+      OnDetections(msg);
+    });
 
   const auto period = std::chrono::milliseconds(1000 / kPublishHz);
-  timer_ = create_wall_timer(period, std::bind(&AhCoreNode::OnTimer, this));
+  timer_ = create_wall_timer(period, [this]() { OnTimer(); });
 
   // Do not probe cameras in the constructor — spin must start first.
   camera_cache_.clear();
