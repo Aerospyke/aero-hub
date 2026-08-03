@@ -75,8 +75,8 @@ void AhDetectionsModel::SetLive(bool live) {
     return;
   }
   live_ = live;
-  emit LiveChanged();
-  emit CountChanged();
+  emit liveChanged();
+  emit countChanged();
 }
 
 void AhDetectionsModel::Clear() {
@@ -88,8 +88,8 @@ void AhDetectionsModel::Clear() {
   items_.clear();
   endResetModel();
   profile_.clear();
-  emit MetaChanged();
-  emit CountChanged();
+  emit metaChanged();
+  emit countChanged();
   SetLive(false);
 }
 
@@ -159,9 +159,9 @@ void AhDetectionsModel::ApplyJson(const QString& json) {
 
   if (profile_ != profile) {
     profile_ = profile;
-    emit MetaChanged();
+    emit metaChanged();
   }
   last_msg_ms_ = QDateTime::currentMSecsSinceEpoch();
   SetLive(true);
-  emit CountChanged();
+  emit countChanged();
 }

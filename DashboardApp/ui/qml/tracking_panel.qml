@@ -299,6 +299,166 @@ Rectangle {
       font.pixelSize: 19
     }
 
+    // --- YOLO detector profile (runtime switch via ah_yolo) ---
+    Rectangle {
+      Layout.fillWidth: true
+      Layout.preferredHeight: yoloColumn.implicitHeight + 20
+      radius: 4
+      color: root.chromePanel
+      border.color: root.chromeBorder
+      border.width: 1
+
+      ColumnLayout {
+        id: yoloColumn
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.margins: 10
+        spacing: 8
+
+        Text {
+          text: "YOLO model"
+          color: root.chromeTextBright
+          font.pixelSize: 16
+          font.bold: true
+        }
+
+        Text {
+          Layout.fillWidth: true
+          wrapMode: Text.WordWrap
+          text: {
+            if (!yoloController)
+              return "Active: —"
+            const p = yoloController.activeProfile.length
+                      ? yoloController.activeProfile
+                      : (detectionsModel ? detectionsModel.profile : "—")
+            const w = yoloController.activeWeights.length
+                      ? yoloController.activeWeights.split("/").pop()
+                      : ""
+            return w.length ? ("Active: " + p + " · " + w) : ("Active: " + p)
+          }
+          color: root.chromeText
+          font.pixelSize: 13
+        }
+
+        ComboBox {
+          id: yoloProfileCombo
+          Layout.fillWidth: true
+          Layout.preferredHeight: 32
+          enabled: yoloController && !yoloController.busy
+          model: yoloController ? yoloController.profileLabels : []
+          currentIndex: yoloController ? yoloController.selectedListIndex : 0
+
+          Connections {
+            target: yoloController
+            function onProfileChanged() {
+              yoloProfileCombo.currentIndex = yoloController.selectedListIndex
+            }
+          }
+          Connections {
+            target: detectionsModel
+            function onMetaChanged() {
+              if (yoloController && detectionsModel && detectionsModel.profile.length)
+                yoloController.SyncFromProfileName(detectionsModel.profile)
+            }
+          }
+
+          contentItem: Text {
+            leftPadding: 8
+            rightPadding: yoloProfileCombo.indicator.width + 6
+            text: yoloProfileCombo.displayText
+            font.pixelSize: 13
+            color: root.chromeTextBright
+            verticalAlignment: Text.AlignVCenter
+            elide: Text.ElideRight
+          }
+          background: Rectangle {
+            radius: 4
+            color: root.chromeInput
+            border.color: root.chromeBorder
+            border.width: 1
+          }
+          popup: Popup {
+            y: yoloProfileCombo.height
+            width: yoloProfileCombo.width
+            implicitHeight: Math.min(contentItem.implicitHeight, 160)
+            padding: 1
+            contentItem: ListView {
+              clip: true
+              implicitHeight: contentHeight
+              model: yoloProfileCombo.popup.visible ? yoloProfileCombo.delegateModel : null
+              currentIndex: yoloProfileCombo.highlightedIndex
+              ScrollIndicator.vertical: ScrollIndicator {}
+            }
+            background: Rectangle {
+              color: root.chromePanel
+              border.color: root.chromeBorder
+              radius: 4
+            }
+          }
+          delegate: ItemDelegate {
+            width: yoloProfileCombo.width
+            height: 30
+            contentItem: Text {
+              text: modelData
+              color: root.chromeTextBright
+              font.pixelSize: 12
+              elide: Text.ElideRight
+              verticalAlignment: Text.AlignVCenter
+              leftPadding: 8
+            }
+            background: Rectangle {
+              color: parent.highlighted ? "#243140" : "transparent"
+            }
+          }
+        }
+
+        RowLayout {
+          Layout.fillWidth: true
+          spacing: 8
+
+          DarkButton {
+            text: "Apply model"
+            enabled: yoloController && !yoloController.busy
+                     && yoloProfileCombo.currentIndex >= 0
+            face: "#1a4a7a"
+            faceDown: "#2a7acc"
+            edge: root.chromeAccent
+            onClicked: {
+              if (yoloController && yoloProfileCombo.currentIndex >= 0)
+                yoloController.SetProfileAt(yoloProfileCombo.currentIndex)
+            }
+          }
+
+          Item { Layout.fillWidth: true }
+
+          Text {
+            visible: yoloController && yoloController.busy
+            text: "Loading…"
+            color: root.chromeAccent
+            font.pixelSize: 12
+          }
+        }
+
+        Text {
+          Layout.fillWidth: true
+          wrapMode: Text.WordWrap
+          text: yoloController ? yoloController.lastMessage : ""
+          color: yoloController && yoloController.lastSuccess
+                 ? "#7dcea0" : "#c9a06a"
+          font.pixelSize: 12
+        }
+
+        Text {
+          Layout.fillWidth: true
+          wrapMode: Text.WordWrap
+          text: "Requires ah_yolo running. Switch clears ByteTrack IDs (re-lock after change)."
+          color: "#5a6572"
+          font.pixelSize: 11
+        }
+      }
+    }
+
     // --- Camera / video source (Task_32; list/select via ah_core) ---
     Rectangle {
       Layout.fillWidth: true

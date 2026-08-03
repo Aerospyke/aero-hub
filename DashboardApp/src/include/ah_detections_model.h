@@ -10,10 +10,11 @@
 /// ApplyJson is safe via QueuedConnection from the ROS thread.
 class AhDetectionsModel final : public QAbstractListModel {
   Q_OBJECT
-  Q_PROPERTY(int count READ rowCount NOTIFY CountChanged)
-  Q_PROPERTY(QString profile READ Profile NOTIFY MetaChanged)
-  Q_PROPERTY(bool live READ Live NOTIFY LiveChanged)
-  Q_PROPERTY(QString summary READ Summary NOTIFY CountChanged)
+  // NOTIFY names are camelCase so QML Connections (onMetaChanged) resolve.
+  Q_PROPERTY(int count READ rowCount NOTIFY countChanged)
+  Q_PROPERTY(QString profile READ Profile NOTIFY metaChanged)
+  Q_PROPERTY(bool live READ Live NOTIFY liveChanged)
+  Q_PROPERTY(QString summary READ Summary NOTIFY countChanged)
 
  public:
   enum Roles {
@@ -45,9 +46,9 @@ class AhDetectionsModel final : public QAbstractListModel {
   void Clear();
 
  signals:
-  void CountChanged();
-  void MetaChanged();
-  void LiveChanged();
+  void countChanged();
+  void metaChanged();
+  void liveChanged();
 
  private slots:
   void CheckStale();

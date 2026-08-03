@@ -1,7 +1,7 @@
 # Defaults for ah_yolo_node (override via CLI or aerohub_settings / launch).
 ah_yolo:
   ros__parameters:
-    # tank | coco80
+    # tank | coco80  (tank → models/mini_tank_0308.pt when present)
     profile: coco80
     # Empty = resolve from profile (see node + models/README.md)
     weights_path: ""

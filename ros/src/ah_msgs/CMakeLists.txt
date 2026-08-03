@@ -13,6 +13,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/ListCameras.srv"
   "srv/SelectCamera.srv"
   "srv/AiTrackingClick.srv"
+  "srv/SetYoloProfile.srv"
 )
 
 ament_export_dependencies(rosidl_default_runtime)

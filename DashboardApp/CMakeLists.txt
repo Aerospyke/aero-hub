@@ -33,6 +33,7 @@ set(APPLICATION_SOURCE_FILES
         src/cpp/ah_track_controller.cpp
         src/cpp/ah_camera_controller.cpp
         src/cpp/ah_detections_model.cpp
+        src/cpp/ah_yolo_controller.cpp
 )
 
 set(APPLICATION_HEADER_FILES
@@ -45,6 +46,7 @@ set(APPLICATION_HEADER_FILES
         src/include/ah_track_controller.h
         src/include/ah_camera_controller.h
         src/include/ah_detections_model.h
+        src/include/ah_yolo_controller.h
 )
 
 set(APPLICATION_INCLUDE_DIRECTORIES

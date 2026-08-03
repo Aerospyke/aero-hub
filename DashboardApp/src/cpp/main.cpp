@@ -19,6 +19,7 @@
 #include "ah_system_status.h"
 #include "ah_track_controller.h"
 #include "ah_video_feed.h"
+#include "ah_yolo_controller.h"
 #include "animation.h"
 #include "jsb_settings_tree_model.h"
 #include "primary_flight_data.h"
@@ -75,6 +76,7 @@ int main(int argc, char* argv[]) {
                               app_settings.RosNamespace().toStdString(), std::move(hooks));
   auto* track_controller = new AhTrackController(RosBridge.Node(), QCoreApplication::instance());
   auto* camera_controller = new AhCameraController(RosBridge.Node(), QCoreApplication::instance());
+  auto* yolo_controller = new AhYoloController(RosBridge.Node(), QCoreApplication::instance());
 
   QQmlApplicationEngine engine;
   engine.addImageProvider(QStringLiteral("ahvideo"), new AhVideoImageProvider(video_feed));
@@ -109,6 +111,7 @@ int main(int argc, char* argv[]) {
   engine.rootContext()->setContextProperty("videoFeed", video_feed);
   engine.rootContext()->setContextProperty("trackController", track_controller);
   engine.rootContext()->setContextProperty("cameraController", camera_controller);
+  engine.rootContext()->setContextProperty("yoloController", yolo_controller);
   engine.rootContext()->setContextProperty("detectionsModel", detections_model);
   engine.load(RootUrl);
 

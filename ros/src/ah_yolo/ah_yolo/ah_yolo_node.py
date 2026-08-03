@@ -2,7 +2,7 @@
 """ah_yolo_node — Ultralytics YOLO on /ah/video/compressed → /ah/detections (JSON).
 
 Profiles:
-  tank   — user-trained cyberbrick mini tank weights (models/tank.pt or param)
+  tank   — mini-tank detector (models/mini_tank_*.pt, tank.pt, or param)
   coco80 — COCO-style 80-class baseline (yolo11n.pt by default)
 
 Runtime: Python + Ultralytics (simplest path that loads custom .pt weights).
@@ -21,10 +21,16 @@ import cv2
 import numpy as np
 import rclpy
 from rclpy.node import Node
+from rclpy.parameter import Parameter
 from rclpy.qos import HistoryPolicy, QoSProfile, ReliabilityPolicy
 from sensor_msgs.msg import CompressedImage
 from std_msgs.msg import String
 from std_srvs.srv import Trigger
+
+try:
+    from ah_msgs.srv import SetYoloProfile
+except ImportError:  # pragma: no cover — package layout during early bootstrap
+    SetYoloProfile = None  # type: ignore
 
 # Lazy import ultralytics so --help / package install works without torch.
 YOLO = None  # type: ignore
@@ -90,25 +96,35 @@ def resolve_weights(profile: str, weights_path: str) -> Path:
                 return p
             raise FileNotFoundError(f"AERO_HUB_YOLO_TANK_WEIGHTS not found: {p}")
 
-        basenames = ("tank", "cyberbrick_tank", "cyberbrick", "best", "last")
+        # Prefer dated mini_tank checkpoints, then stable aliases. Never fall back
+        # to COCO nanos (yolo11n / yolov8n) via a blind *.pt glob.
+        basenames = (
+            "mini_tank_0308",
+            "mini_tank",
+            "tank",
+            "cyberbrick_tank",
+            "cyberbrick",
+            "best",
+            "last",
+        )
         candidates: list[Path] = []
         for base in basenames:
             for suf in _WEIGHT_SUFFIXES:
                 candidates.append(models / f"{base}{suf}")
-        # Any single *.safetensors / *.pt in models/ if named uniquely for tank runs
         if models.is_dir():
-            candidates.extend(sorted(models.glob("*.safetensors")))
-            candidates.extend(sorted(models.glob("*.pt")))
+            # Newer dated exports first (mini_tank_0308.pt before mini_tank_0101.pt).
+            for pattern in ("mini_tank*.pt", "mini_tank*.safetensors", "tank*.pt", "tank*.safetensors"):
+                candidates.extend(sorted(models.glob(pattern), reverse=True))
 
         found = _first_existing(candidates)
         if found is not None:
             return found
 
         raise FileNotFoundError(
-            "tank profile: place weights under models/ as tank.pt or tank.safetensors "
+            "tank profile: place Ultralytics weights under models/ as "
+            "mini_tank_0308.pt (or tank.pt), "
             f"(looked under {models}), or set AERO_HUB_YOLO_TANK_WEIGHTS / weights_path. "
-            "Ultralytics prefers .pt — if you only have .safetensors from training, "
-            "also check the run folder for best.pt, or see models/README.md."
+            "See models/README.md."
         )
 
     if profile in ("coco80", "coco", "coco-80"):
@@ -182,6 +198,16 @@ class AhYoloNode(Node):
         self._reload_srv = self.create_service(
             Trigger, "ah/yolo/reload", self._on_reload
         )
+        if SetYoloProfile is not None:
+            self._set_profile_srv = self.create_service(
+                SetYoloProfile, "ah/yolo/set_profile", self._on_set_profile
+            )
+        else:
+            self._set_profile_srv = None
+            self.get_logger().warn(
+                "ah_msgs SetYoloProfile unavailable — rebuild ah_msgs / ah_yolo; "
+                "runtime profile switch disabled"
+            )
 
         self._load_model()
         domain = os.environ.get("ROS_DOMAIN_ID", "(default 0)")
@@ -244,6 +270,51 @@ class AhYoloNode(Node):
             response.success = False
             response.message = str(ex)
             self.get_logger().error(f"reload failed: {ex}")
+        return response
+
+    def _on_set_profile(
+        self, request: "SetYoloProfile.Request", response: "SetYoloProfile.Response"
+    ) -> "SetYoloProfile.Response":
+        """Switch tank | coco80 (and optional weights_path) then reload weights."""
+        raw = (request.profile or "").strip().lower()
+        aliases = {
+            "tank": "tank",
+            "mini_tank": "tank",
+            "minitank": "tank",
+            "coco80": "coco80",
+            "coco": "coco80",
+            "coco-80": "coco80",
+        }
+        profile = aliases.get(raw, raw)
+        if profile not in ("tank", "coco80"):
+            response.success = False
+            response.message = f"unknown profile '{request.profile}' (use tank | coco80)"
+            response.active_profile = self._profile()
+            response.weights_path = str(self._model_path) if self._model_path else ""
+            return response
+
+        weights_override = (request.weights_path or "").strip()
+        try:
+            self.set_parameters(
+                [
+                    Parameter("profile", Parameter.Type.STRING, profile),
+                    Parameter("weights_path", Parameter.Type.STRING, weights_override),
+                ]
+            )
+            self._load_model()
+            response.success = True
+            response.active_profile = self._profile()
+            response.weights_path = str(self._model_path) if self._model_path else ""
+            response.message = (
+                f"profile={response.active_profile} weights={response.weights_path}"
+            )
+            self.get_logger().info(f"set_profile OK: {response.message}")
+        except Exception as ex:  # noqa: BLE001
+            response.success = False
+            response.message = str(ex)
+            response.active_profile = self._profile()
+            response.weights_path = str(self._model_path) if self._model_path else ""
+            self.get_logger().error(f"set_profile failed: {ex}")
         return response
 
     def _on_image(self, msg: CompressedImage) -> None:

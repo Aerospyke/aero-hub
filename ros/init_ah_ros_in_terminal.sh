@@ -33,7 +33,7 @@ if [ -z "${AERO_HUB_SETTINGS:-}" ] && [ -f "${_AH_ROS_DIR}/../aerohub_settings.i
   export AERO_HUB_SETTINGS="${_AH_ROS_DIR}/../aerohub_settings.ini"
 fi
 
-# YOLO weights directory (ah_yolo profiles: coco80 → yolo11n.pt, tank → tank.pt)
+# YOLO weights directory (ah_yolo: coco80 → yolo11n.pt, tank → mini_tank_*.pt / tank.pt)
 if [ -z "${AERO_HUB_MODELS:-}" ] && [ -d "${_AH_ROS_DIR}/../models" ]; then
   export AERO_HUB_MODELS="$(cd "${_AH_ROS_DIR}/../models" && pwd)"
 fi
