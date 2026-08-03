@@ -300,7 +300,9 @@ Rectangle {
     }
 
     // --- YOLO detector profile (runtime switch via ah_yolo) ---
+    // Panel chrome like camera block; content centered like tracking controls above.
     Rectangle {
+      id: yoloPanel
       Layout.fillWidth: true
       Layout.preferredHeight: yoloColumn.implicitHeight + 20
       radius: 4
@@ -317,14 +319,17 @@ Rectangle {
         spacing: 8
 
         Text {
+          Layout.fillWidth: true
+          horizontalAlignment: Text.AlignHCenter
           text: "YOLO model"
           color: root.chromeTextBright
-          font.pixelSize: 16
+          font.pixelSize: 19
           font.bold: true
         }
 
         Text {
           Layout.fillWidth: true
+          horizontalAlignment: Text.AlignHCenter
           wrapMode: Text.WordWrap
           text: {
             if (!yoloController)
@@ -338,21 +343,66 @@ Rectangle {
             return w.length ? ("Active: " + p + " · " + w) : ("Active: " + p)
           }
           color: root.chromeText
-          font.pixelSize: 13
+          font.pixelSize: 15
         }
 
         ComboBox {
           id: yoloProfileCombo
-          Layout.fillWidth: true
+          Layout.alignment: Qt.AlignHCenter
+          Layout.fillWidth: false
+          // Fitted to longest option (see recomputeFittedWidth); never exceed panel.
+          Layout.preferredWidth: Math.min(yoloColumn.width, fittedWidth)
           Layout.preferredHeight: 32
           enabled: yoloController && !yoloController.busy
           model: yoloController ? yoloController.profileLabels : []
           currentIndex: yoloController ? yoloController.selectedListIndex : 0
+          font.pixelSize: 16
+          leftPadding: 10
+          rightPadding: 8
+
+          // Qt Quick text measurement: TextMetrics with the *same* font as this control.
+          // (Assigning metrics.text inside a property binding is unreliable; recompute explicitly.)
+          TextMetrics {
+            id: yoloLabelMetrics
+            font: yoloProfileCombo.font
+          }
+
+          // Width that fits the longest option + chrome (indicator / padding).
+          property real fittedWidth: 160
+
+          function recomputeFittedWidth() {
+            const labels = yoloController ? yoloController.profileLabels : []
+            let maxText = 0
+            for (let i = 0; i < labels.length; ++i) {
+              yoloLabelMetrics.font = yoloProfileCombo.font
+              yoloLabelMetrics.text = String(labels[i])
+              // Prefer advance width; fall back to bounding rect (covers overhanging glyphs).
+              const advance = yoloLabelMetrics.advanceWidth
+                              ? yoloLabelMetrics.advanceWidth
+                              : yoloLabelMetrics.width
+              const bound = yoloLabelMetrics.boundingRect
+                            ? yoloLabelMetrics.boundingRect.width
+                            : advance
+              maxText = Math.max(maxText, advance, bound)
+            }
+            const indicatorW = indicator && indicator.width > 0 ? indicator.width : 24
+            // leftPadding + text + gap + indicator + rightPadding + border
+            const need = Math.ceil(
+                leftPadding + maxText + 8 + indicatorW + rightPadding + 2)
+            fittedWidth = Math.max(120, need)
+          }
+
+          Component.onCompleted: Qt.callLater(recomputeFittedWidth)
+          onModelChanged: recomputeFittedWidth()
+          onFontChanged: recomputeFittedWidth()
+          // Indicator width often settles after first layout pass.
+          onImplicitIndicatorWidthChanged: recomputeFittedWidth()
 
           Connections {
             target: yoloController
             function onProfileChanged() {
               yoloProfileCombo.currentIndex = yoloController.selectedListIndex
+              yoloProfileCombo.recomputeFittedWidth()
             }
           }
           Connections {
@@ -364,13 +414,15 @@ Rectangle {
           }
 
           contentItem: Text {
-            leftPadding: 8
-            rightPadding: yoloProfileCombo.indicator.width + 6
+            leftPadding: yoloProfileCombo.leftPadding
+            rightPadding: yoloProfileCombo.indicator.width + yoloProfileCombo.rightPadding
             text: yoloProfileCombo.displayText
-            font.pixelSize: 13
+            font: yoloProfileCombo.font
             color: root.chromeTextBright
             verticalAlignment: Text.AlignVCenter
-            elide: Text.ElideRight
+            // Only elide if panel forces us narrower than the fitted width.
+            elide: yoloProfileCombo.width + 0.5 < yoloProfileCombo.fittedWidth
+                   ? Text.ElideRight : Text.ElideNone
           }
           background: Rectangle {
             radius: 4
@@ -380,7 +432,7 @@ Rectangle {
           }
           popup: Popup {
             y: yoloProfileCombo.height
-            width: yoloProfileCombo.width
+            width: Math.max(yoloProfileCombo.width, yoloProfileCombo.fittedWidth)
             implicitHeight: Math.min(contentItem.implicitHeight, 160)
             padding: 1
             contentItem: ListView {
@@ -397,15 +449,15 @@ Rectangle {
             }
           }
           delegate: ItemDelegate {
-            width: yoloProfileCombo.width
-            height: 30
+            width: Math.max(yoloProfileCombo.width, yoloProfileCombo.fittedWidth)
+            height: 32
             contentItem: Text {
               text: modelData
               color: root.chromeTextBright
-              font.pixelSize: 12
-              elide: Text.ElideRight
+              font: yoloProfileCombo.font
+              elide: Text.ElideNone
               verticalAlignment: Text.AlignVCenter
-              leftPadding: 8
+              leftPadding: yoloProfileCombo.leftPadding
             }
             background: Rectangle {
               color: parent.highlighted ? "#243140" : "transparent"
@@ -417,44 +469,58 @@ Rectangle {
           Layout.fillWidth: true
           spacing: 8
 
+          Item { Layout.fillWidth: true }
+
           DarkButton {
-            text: "Apply model"
+            id: applyYoloButton
+            text: "Apply Model"
             enabled: yoloController && !yoloController.busy
                      && yoloProfileCombo.currentIndex >= 0
             face: "#1a4a7a"
             faceDown: "#2a7acc"
             edge: root.chromeAccent
+            // Default DarkButton width (80) is too narrow for this label.
+            implicitWidth: Math.max(120, Math.ceil(applyYoloLabelMetrics.width) + 28)
             onClicked: {
               if (yoloController && yoloProfileCombo.currentIndex >= 0)
                 yoloController.SetProfileAt(yoloProfileCombo.currentIndex)
             }
+            TextMetrics {
+              id: applyYoloLabelMetrics
+              font: applyYoloButton.font
+              text: applyYoloButton.text
+            }
           }
-
-          Item { Layout.fillWidth: true }
 
           Text {
             visible: yoloController && yoloController.busy
             text: "Loading…"
             color: root.chromeAccent
-            font.pixelSize: 12
+            font.pixelSize: 15
+            Layout.alignment: Qt.AlignVCenter
           }
+
+          Item { Layout.fillWidth: true }
         }
 
         Text {
           Layout.fillWidth: true
+          horizontalAlignment: Text.AlignHCenter
           wrapMode: Text.WordWrap
-          text: yoloController ? yoloController.lastMessage : ""
-          color: yoloController && yoloController.lastSuccess
-                 ? "#7dcea0" : "#c9a06a"
-          font.pixelSize: 12
+          text: yoloController
+                ? ((yoloController.busy ? "Working… " : "") + yoloController.lastMessage)
+                : ""
+          color: yoloController && yoloController.lastSuccess ? "#6bcf7f" : "#e6c35c"
+          font.pixelSize: 15
         }
 
         Text {
           Layout.fillWidth: true
+          horizontalAlignment: Text.AlignHCenter
           wrapMode: Text.WordWrap
-          text: "Requires ah_yolo running. Switch clears ByteTrack IDs (re-lock after change)."
-          color: "#5a6572"
-          font.pixelSize: 11
+          text: "Requires ah_yolo running. Switch resets track IDs — re-lock after change."
+          color: root.chromeText
+          font.pixelSize: 13
         }
       }
     }
