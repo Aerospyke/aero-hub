@@ -235,6 +235,19 @@ aero-hub/
 
 ---
 
+## License
+
+AeroHub source code in this directory is licensed under the
+**Apache License, Version 2.0**. See [`LICENSE`](LICENSE) and
+[`NOTICE`](NOTICE).
+
+ROS packages declare the same SPDX id in `package.xml` (`Apache-2.0`).
+
+Third-party runtimes (ROS 2, Qt, OpenCV, Ultralytics, etc.) and model
+weights under `models/` keep their own terms — see `NOTICE`.
+
+---
+
 ## Documentation map
 
 | Topic | Where |
