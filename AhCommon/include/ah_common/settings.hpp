@@ -81,8 +81,8 @@ class Settings {
   bool Save(std::string& error_out) const;
   bool Save() const;
 
-  bool PersistCamera(const CameraSelection& camera, std::string& error_out);
-  bool PersistCamera(const CameraSelection& camera);
+  bool PersistCamera(const CameraSelection& camera, std::string& error_out) const;
+  bool PersistCamera(const CameraSelection& camera) const;
 
   class RosSection {
    public:
@@ -90,8 +90,8 @@ class Settings {
 
     [[nodiscard]] std::uint8_t DomainId() const;
     [[nodiscard]] std::string NamespaceName() const;
-    void SetDomainId(std::uint8_t id);
-    void SetNamespaceName(std::string ns);
+    void SetDomainId(std::uint8_t value) const;
+    void SetNamespaceName(const std::string& value) const;
 
    private:
     const Settings* owner_;
@@ -122,7 +122,7 @@ class Settings {
 
     /// Relative path under JSBSim (e.g. "ports/input" or "ports\\input").
     [[nodiscard]] std::string Get(std::string_view relative_key) const;
-    void Set(std::string_view relative_key, std::string value);
+    void Set(std::string_view relative_key, std::string value) const;
     [[nodiscard]] const Node* Tree() const;
 
    private:

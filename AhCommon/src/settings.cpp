@@ -96,9 +96,9 @@ void Settings::FlattenNode(const Node& node, const std::string& prefix,
     const std::string key = prefix.empty() ? kv.first : prefix + "/" + kv.first;
     out.emplace_back(key, kv.second);
   }
-  for (const auto& ch : node.children) {
-    const std::string next = prefix.empty() ? ch.first : prefix + "/" + ch.first;
-    FlattenNode(ch.second, next, out);
+  for (const auto& [fst, snd] : node.children) {
+    const std::string next = prefix.empty() ? fst : prefix + "/" + fst;
+    FlattenNode(snd, next, out);
   }
 }
 
@@ -135,20 +135,20 @@ std::string Settings::Get(std::vector<std::string_view> path, std::string_view f
     return std::string(fallback);
   }
   std::vector<std::string> group;
-  group.reserve(path.size() > 0 ? path.size() - 1 : 0);
+  group.reserve(!path.empty() ? path.size() - 1 : 0);
   for (size_t i = 0; i + 1 < path.size(); ++i) {
     group.emplace_back(path[i]);
   }
-  const std::string leaf(path.back());
+  const std::string Leaf(path.back());
   const Node* node = FindNode(group);
   if (!node) {
     return std::string(fallback);
   }
-  const auto it = node->values.find(leaf);
-  if (it == node->values.end()) {
+  const auto It = node->values.find(Leaf);
+  if (It == node->values.end()) {
     return std::string(fallback);
   }
-  return it->second;
+  return It->second;
 }
 
 void Settings::Set(std::vector<std::string_view> path, std::string value) {
@@ -177,13 +177,13 @@ std::string Settings::GetPath(std::string_view path, std::string_view fallback) 
 }
 
 void Settings::SetPath(std::string_view path, std::string value) {
-  const auto parts = SplitPath(path);
-  if (parts.empty()) {
+  const auto Parts = SplitPath(path);
+  if (Parts.empty()) {
     return;
   }
   std::vector<std::string_view> views;
-  views.reserve(parts.size());
-  for (const auto& p : parts) {
+  views.reserve(Parts.size());
+  for (const auto& p : Parts) {
     views.push_back(p);
   }
   Set(views, std::move(value));
@@ -266,49 +266,49 @@ void Settings::OverlayFromFile(const std::string& path) {
     if (!line.empty() && line.back() == '\r') {
       line.pop_back();
     }
-    const std::string trimmed_line = Trim(line, TrimIniChars);
-    if (trimmed_line.empty() || trimmed_line[0] == ';' || trimmed_line[0] == '#') {
+    const std::string TrimmedLine = Trim(line, TrimIniChars);
+    if (TrimmedLine.empty() || TrimmedLine[0] == ';' || TrimmedLine[0] == '#') {
       continue;
     }
-    if (trimmed_line.front() == '[') {
-      const auto close = trimmed_line.find(']');
-      if (close != std::string::npos && close > 1) {
-        section = trimmed_line.substr(1, close - 1);
+    if (TrimmedLine.front() == '[') {
+      const auto Close = TrimmedLine.find(']');
+      if (Close != std::string::npos && Close > 1) {
+        section = TrimmedLine.substr(1, Close - 1);
       }
       continue;
     }
-    const auto eq = trimmed_line.find('=');
-    if (eq == std::string::npos || section.empty()) {
+    const auto EqualSignPosition = TrimmedLine.find('=');
+    if (EqualSignPosition == std::string::npos || section.empty()) {
       continue;
     }
-    std::string key = Trim(trimmed_line.substr(0, eq), TrimIniChars);
-    const std::string val = Trim(trimmed_line.substr(eq + 1), TrimIniChars);
-    if (key.empty()) {
+    const std::string Key = Trim(TrimmedLine.substr(0, EqualSignPosition), TrimIniChars);
+    const std::string Value = Trim(TrimmedLine.substr(EqualSignPosition + 1), TrimIniChars);
+    if (Key.empty()) {
       continue;
     }
     // Path = section + nested key; accept '/' or '\' in both.
     std::string full = section;
     full.push_back('/');
-    full += key;
-    SetPath(full, val);
+    full += Key;
+    SetPath(full, Value);
   }
 }
 
 void Settings::ApplyProcessEnvOverrides() {
-  const char* ns_env = std::getenv("AERO_HUB_ROS_NAMESPACE");
-  if (ns_env != nullptr) {
-    Set({"ROS", "namespace"}, SanitizeNamespace(ns_env));
+  const char* namespace_environment_definition = std::getenv("AERO_HUB_ROS_NAMESPACE");
+  if (namespace_environment_definition != nullptr) {
+    Set({"ROS", "namespace"}, SanitizeNamespace(namespace_environment_definition));
   }
 }
 
 void Settings::ExportDomainIdToEnvIfUnset() const {
-  const char* domain_env = std::getenv("ROS_DOMAIN_ID");
-  if (domain_env != nullptr && domain_env[0] != '\0') {
+  const char* ros_domain_id_environment_definition = std::getenv("ROS_DOMAIN_ID");
+  if (ros_domain_id_environment_definition != nullptr && ros_domain_id_environment_definition[0] != '\0') {
     return;
   }
-  const std::string id = Get({"ROS", "domain_id"}, "42");
-  if (!id.empty()) {
-    setenv("ROS_DOMAIN_ID", id.c_str(), 0);
+  const std::string RosDomainId = Get({"ROS", "domain_id"}, "42");
+  if (!RosDomainId.empty()) {
+    setenv("ROS_DOMAIN_ID", RosDomainId.c_str(), 0);
   }
 }
 
@@ -327,17 +327,17 @@ bool Settings::Save(std::string& error_out) const {
   // QSettings IniFormat: each root child is [Section]; deeper path uses '\'.
   std::vector<std::string> section_order;
   auto push_if = [&](const std::string& name) {
-    if (root_.children.count(name)) {
+    if (root_.children.contains(name)) {
       section_order.push_back(name);
     }
   };
   push_if("ROS");
   push_if("Camera");
-  for (const auto& ch : root_.children) {
-    if (ch.first == "ROS" || ch.first == "Camera") {
+  for (const auto& child : root_.children) {
+    if (child.first == "ROS" || child.first == "Camera") {
       continue;
     }
-    section_order.push_back(ch.first);
+    section_order.push_back(child.first);
   }
 
   std::ofstream out(path_);
@@ -380,12 +380,12 @@ bool Settings::Save(std::string& error_out) const {
   return true;
 }
 
-bool Settings::PersistCamera(const CameraSelection& cam) {
+bool Settings::PersistCamera(const CameraSelection& cam) const {
   std::string ignored;
   return PersistCamera(cam, ignored);
 }
 
-bool Settings::PersistCamera(const CameraSelection& cam, std::string& error_out) {
+bool Settings::PersistCamera(const CameraSelection& cam, std::string& error_out) const {
   CameraSelection sel = cam;
   if (sel.video_source == "synthetic" || sel.device_path == "synthetic") {
     sel.video_source = "synthetic";
@@ -401,15 +401,15 @@ bool Settings::PersistCamera(const CameraSelection& cam, std::string& error_out)
 // --- RosSection ---
 
 std::uint8_t Settings::RosSection::DomainId() const {
-  const std::string raw = owner_->Get({"ROS", "domain_id"}, "42");
+  const std::string DomainIdString = owner_->Get({"ROS", "domain_id"}, "42");
   try {
-    const int v = std::stoi(raw);
+    const int v = std::stoi(DomainIdString);
     if (v < 0 || v > 255) {
-      return Settings::DefaultRosDomainId;
+      return DefaultRosDomainId;
     }
     return static_cast<std::uint8_t>(v);
   } catch (...) {
-    return Settings::DefaultRosDomainId;
+    return DefaultRosDomainId;
   }
 }
 
@@ -417,12 +417,12 @@ std::string Settings::RosSection::NamespaceName() const {
   return SanitizeNamespace(owner_->Get({"ROS", "namespace"}, ""));
 }
 
-void Settings::RosSection::SetDomainId(std::uint8_t id) {
-  MutableOwner()->Set({"ROS", "domain_id"}, std::to_string(static_cast<int>(id)));
+void Settings::RosSection::SetDomainId(const std::uint8_t value) const {
+  MutableOwner()->Set({"ROS", "domain_id"}, std::to_string(static_cast<int>(value)));
 }
 
-void Settings::RosSection::SetNamespaceName(std::string ns) {
-  MutableOwner()->Set({"ROS", "namespace"}, SanitizeNamespace(ns));
+void Settings::RosSection::SetNamespaceName(const std::string& value) const {
+  MutableOwner()->Set({"ROS", "namespace"}, SanitizeNamespace(value));
 }
 
 // --- CameraSection ---
@@ -472,20 +472,20 @@ void Settings::CameraSection::SetSelection(const CameraSelection& sel) {
 
 // --- JsbSimSection ---
 
-std::string Settings::JsbSimSection::Get(std::string_view relative_key) const {
-  auto parts = Settings::SplitPath(relative_key);
+std::string Settings::JsbSimSection::Get(const std::string_view relative_key) const {
+  const auto Parts = Settings::SplitPath(relative_key);
   std::vector<std::string_view> path;
-  path.push_back("JSBSim");
-  for (const auto& p : parts) {
+  path.emplace_back("JSBSim");
+  for (const auto& p : Parts) {
     path.push_back(p);
   }
   return owner_->Get(path, "");
 }
 
-void Settings::JsbSimSection::Set(std::string_view relative_key, std::string value) {
+void Settings::JsbSimSection::Set(std::string_view relative_key, std::string value) const {
   auto parts = Settings::SplitPath(relative_key);
   std::vector<std::string_view> path;
-  path.push_back("JSBSim");
+  path.emplace_back("JSBSim");
   for (const auto& p : parts) {
     path.push_back(p);
   }
