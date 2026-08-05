@@ -5,6 +5,7 @@
 #include "ah_core/camera_devices.hpp"
 
 #include <string>
+#include <string_view>
 
 namespace ah_core
 {
@@ -16,11 +17,14 @@ struct RosRuntimeSettings
   CameraSelection camera;
 };
 
-/// Trim whitespace and optional surrounding quotes (INI values).
-std::string Trim(std::string s);
+/// Characters stripped from both ends of INI keys/values (space, tab, quotes).
+inline constexpr std::string_view TrimIniChars{" \t\""};
 
-/// Sanitize ROS namespace (no leading/trailing slashes; reject "//").
-std::string SanitizeNamespace(std::string ns);
+/// Remove any of @p chars_to_trim from both ends of @p s.
+std::string Trim(const std::string& full_string, std::string_view chars_to_trim);
+
+/// Sanitize ROS namespace (trim INI noise + slashes; reject "//" empty segments).
+std::string SanitizeNamespace(const std::string& raw_namespace_setting);
 
 /// Same Qt-style INI as aero-hub/aerohub_settings.ini:
 /// [ROS] domain_id, namespace

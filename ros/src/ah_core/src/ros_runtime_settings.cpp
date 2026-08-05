@@ -1,49 +1,39 @@
 #include "ah_core/ros_runtime_settings.hpp"
 
-#include <cstdlib>
 #include <fstream>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace ah_core
 {
 
-std::string Trim(std::string s)
+std::string Trim(const std::string& full_string, const std::string_view chars_to_trim)
 {
-  while (!s.empty() && (s.front() == ' ' || s.front() == '\t' || s.front() == '"')) {
-    s.erase(s.begin());
-  }
-  while (!s.empty() && (s.back() == ' ' || s.back() == '\t' || s.back() == '"')) {
-    s.pop_back();
-  }
-  return s;
-}
-
-std::string SanitizeNamespace(std::string ns)
-{
-  while (!ns.empty() && (ns.front() == '/' || ns.front() == ' ' || ns.front() == '\t')) {
-    ns.erase(ns.begin());
-  }
-  while (!ns.empty() && (ns.back() == '/' || ns.back() == ' ' || ns.back() == '\t')) {
-    ns.pop_back();
-  }
-  if (ns.find("//") != std::string::npos) {
+  const auto Start = full_string.find_first_not_of(chars_to_trim);
+  if (Start == std::string::npos) {
     return {};
   }
-  return ns;
+  const auto End = full_string.find_last_not_of(chars_to_trim);
+  return full_string.substr(Start, End - Start + 1);
+}
+
+std::string SanitizeNamespace(const std::string& raw_namespace_setting)
+{
+  std::string processed_namespace = Trim(raw_namespace_setting, TrimIniChars);
+  processed_namespace = Trim(processed_namespace, "/");
+  // In ROS, '//' is an empty path segment — treat as bad config → root (empty) namespace.
+  if (processed_namespace.find("//") != std::string::npos) {
+    return {};
+  }
+  return processed_namespace;
 }
 
 RosRuntimeSettings LoadRosRuntimeSettings()
 {
   RosRuntimeSettings out;
 
-  if (const char * ns_env = std::getenv("AERO_HUB_ROS_NAMESPACE");
-    ns_env != nullptr)
-  {
-    out.ros_namespace = SanitizeNamespace(ns_env);
-  }
-
-  const char * candidates[] = {
+  const char * settings_file_path_candidates[] = {
     std::getenv("AERO_HUB_SETTINGS"),
     "aerohub_settings.ini",
     "../aerohub_settings.ini",
@@ -51,11 +41,16 @@ RosRuntimeSettings LoadRosRuntimeSettings()
     "/aero-hub/aerohub_settings.ini",
   };
 
-  const bool domain_from_env = (std::getenv("ROS_DOMAIN_ID") != nullptr &&
+  const bool IsDomainDefinedInEnvironment = (std::getenv("ROS_DOMAIN_ID") != nullptr &&
     std::getenv("ROS_DOMAIN_ID")[0] != '\0');
-  const bool namespace_from_env = (std::getenv("AERO_HUB_ROS_NAMESPACE") != nullptr);
+  const bool IsNamespaceDefinedInEnv = (std::getenv("AERO_HUB_ROS_NAMESPACE") != nullptr);
 
-  for (const char * path : candidates) {
+  if (IsNamespaceDefinedInEnv) {
+    const char * ns_env = std::getenv("AERO_HUB_ROS_NAMESPACE");
+    out.ros_namespace = SanitizeNamespace(ns_env);
+  }
+
+  for (const char * path : settings_file_path_candidates) {
     if (path == nullptr || path[0] == '\0') {
       continue;
     }
@@ -83,13 +78,13 @@ RosRuntimeSettings LoadRosRuntimeSettings()
       if (eq == std::string::npos) {
         continue;
       }
-      const std::string key = Trim(line.substr(0, eq));
-      std::string val = Trim(line.substr(eq + 1));
+      const std::string key = Trim(line.substr(0, eq), TrimIniChars);
+      std::string val = Trim(line.substr(eq + 1), TrimIniChars);
       if (in_ros) {
-        if (key == "domain_id" && !val.empty() && !domain_from_env) {
+        if (key == "domain_id" && !val.empty() && !IsDomainDefinedInEnvironment) {
           setenv("ROS_DOMAIN_ID", val.c_str(), 1);
         }
-        if (key == "namespace" && !namespace_from_env) {
+        if (key == "namespace" && !IsNamespaceDefinedInEnv) {
           out.ros_namespace = SanitizeNamespace(val);
         }
       }

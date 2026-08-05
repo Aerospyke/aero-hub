@@ -636,10 +636,10 @@ void AhCoreNode::OnSelectCamera(
   const std::shared_ptr<ah_msgs::srv::SelectCamera::Request> request,
   std::shared_ptr<ah_msgs::srv::SelectCamera::Response> response)
 {
-  std::string source = Trim(request->video_source);
+  std::string source = Trim(request->video_source, TrimIniChars);
   int device_id = request->device_id;
-  std::string path = Trim(request->device_path);
-  std::string backend = Trim(request->backend);
+  std::string path = Trim(request->device_path, TrimIniChars);
+  std::string backend = Trim(request->backend, TrimIniChars);
 
   if (source.empty()) {
     if ((!path.empty() && path != "synthetic") || device_id >= 0) {

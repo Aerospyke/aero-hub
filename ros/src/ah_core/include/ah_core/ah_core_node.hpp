@@ -41,29 +41,29 @@ private:
   bool SyncCaptureToSelection(std::string * error_out = nullptr);
   void OnTimer();
   void OnStartTracking(
-    const std::shared_ptr<ah_msgs::srv::StartTracking::Request> request,
+    std::shared_ptr<ah_msgs::srv::StartTracking::Request> request,
     std::shared_ptr<ah_msgs::srv::StartTracking::Response> response);
   void OnStopTracking(
-    const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
+    std::shared_ptr<std_srvs::srv::Trigger::Request> request,
     std::shared_ptr<std_srvs::srv::Trigger::Response> response);
   void OnCancelTracking(
-    const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
+    std::shared_ptr<std_srvs::srv::Trigger::Request> request,
     std::shared_ptr<std_srvs::srv::Trigger::Response> response);
   void OnListCameras(
-    const std::shared_ptr<ah_msgs::srv::ListCameras::Request> request,
+    std::shared_ptr<ah_msgs::srv::ListCameras::Request> request,
     std::shared_ptr<ah_msgs::srv::ListCameras::Response> response);
   void OnSelectCamera(
-    const std::shared_ptr<ah_msgs::srv::SelectCamera::Request> request,
+    std::shared_ptr<ah_msgs::srv::SelectCamera::Request> request,
     std::shared_ptr<ah_msgs::srv::SelectCamera::Response> response);
   void FillSelectResponse(
     std::shared_ptr<ah_msgs::srv::SelectCamera::Response> response) const;
   void OnAiTrackingToggle(
-    const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
+    std::shared_ptr<std_srvs::srv::SetBool::Request> request,
     std::shared_ptr<std_srvs::srv::SetBool::Response> response);
   void OnAiTrackingClick(
-    const std::shared_ptr<ah_msgs::srv::AiTrackingClick::Request> request,
+    std::shared_ptr<ah_msgs::srv::AiTrackingClick::Request> request,
     std::shared_ptr<ah_msgs::srv::AiTrackingClick::Response> response);
-  void OnDetections(const std_msgs::msg::String::SharedPtr msg);
+  void OnDetections(std_msgs::msg::String::SharedPtr msg);
 
   struct DetectionBox
   {
