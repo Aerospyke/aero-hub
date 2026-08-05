@@ -4,7 +4,6 @@
 // In-memory: real tree (groups + leaf values). On disk: QSettings IniFormat.
 // Access: settings.Ros().DomainId(), settings.Camera().VideoSource(), settings.JsbSim()...
 
-#include <cstdint>
 #include <map>
 #include <string>
 #include <string_view>
@@ -108,7 +107,7 @@ class Settings {
     [[nodiscard]] std::string DevicePath() const;
     [[nodiscard]] std::string Backend() const;
     [[nodiscard]] CameraSelection Selection() const;
-    void SetSelection(const CameraSelection& sel);
+    void SetSelection(const CameraSelection& sel) const;
 
    private:
     const Settings* owner_;

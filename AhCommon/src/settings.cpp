@@ -2,7 +2,6 @@
 
 #include "ah_common/string_util.hpp"
 
-#include <cstdlib>
 #include <fstream>
 #include <iostream>
 
@@ -15,7 +14,7 @@ struct DefaultEntry {
 };
 
 // Keep in sync with aerohub_settings_template.ini
-constexpr DefaultEntry kDefaults[] = {
+constexpr DefaultEntry DefaultSettings[] = {
     {.path = "ROS/domain_id", .value = "42"},
     {.path = "ROS/namespace", .value = ""},
 
@@ -74,14 +73,14 @@ constexpr DefaultEntry kDefaults[] = {
 std::vector<std::string> Settings::SplitPath(std::string_view path) {
   std::vector<std::string> parts;
   std::string cur;
-  for (char c : path) {
-    if (c == '/' || c == '\\') {
+  for (const char CharacterInPath : path) {
+    if (CharacterInPath == '/' || CharacterInPath == '\\') {
       if (!cur.empty()) {
         parts.push_back(std::move(cur));
         cur.clear();
       }
     } else {
-      cur.push_back(c);
+      cur.push_back(CharacterInPath);
     }
   }
   if (!cur.empty()) {
@@ -92,13 +91,13 @@ std::vector<std::string> Settings::SplitPath(std::string_view path) {
 
 void Settings::FlattenNode(const Node& node, const std::string& prefix,
                            std::vector<std::pair<std::string, std::string>>& out) {
-  for (const auto& kv : node.values) {
-    const std::string key = prefix.empty() ? kv.first : prefix + "/" + kv.first;
-    out.emplace_back(key, kv.second);
+  for (const auto& [first, second] : node.values) {
+    const std::string Key = prefix.empty() ? first : prefix + "/" + first;
+    out.emplace_back(Key, second);
   }
   for (const auto& [fst, snd] : node.children) {
-    const std::string next = prefix.empty() ? fst : prefix + "/" + fst;
-    FlattenNode(snd, next, out);
+    const std::string Next = prefix.empty() ? fst : prefix + "/" + fst;
+    FlattenNode(snd, Next, out);
   }
 }
 
@@ -111,15 +110,15 @@ Settings::Node* Settings::EnsurePath(const std::vector<std::string>& path_to_gro
 }
 
 const Settings::Node* Settings::FindNode(const std::vector<std::string>& path_to_group) const {
-  const Node* cur = &root_;
+  const Node* current_node = &root_;
   for (const auto& seg : path_to_group) {
-    const auto it = cur->children.find(seg);
-    if (it == cur->children.end()) {
+    const auto ChildIterator = current_node->children.find(seg);
+    if (ChildIterator == current_node->children.end()) {
       return nullptr;
     }
-    cur = &it->second;
+    current_node = &ChildIterator->second;
   }
-  return cur;
+  return current_node;
 }
 
 const Settings::Node* Settings::Section(std::string_view name) const {
@@ -159,18 +158,18 @@ void Settings::Set(std::vector<std::string_view> path, std::string value) {
   for (size_t i = 0; i + 1 < path.size(); ++i) {
     group.emplace_back(path[i]);
   }
-  const std::string leaf(path.back());
-  EnsurePath(group)->values[leaf] = std::move(value);
+  const std::string Leaf(path.back());
+  EnsurePath(group)->values[Leaf] = std::move(value);
 }
 
 std::string Settings::GetPath(std::string_view path, std::string_view fallback) const {
-  const auto parts = SplitPath(path);
-  if (parts.empty()) {
+  const auto Parts = SplitPath(path);
+  if (Parts.empty()) {
     return std::string(fallback);
   }
   std::vector<std::string_view> views;
-  views.reserve(parts.size());
-  for (const auto& p : parts) {
+  views.reserve(Parts.size());
+  for (const auto& p : Parts) {
     views.push_back(p);
   }
   return Get(views, fallback);
@@ -250,7 +249,7 @@ std::string Settings::ResolvePath() {
 
 void Settings::PopulateDefaults() {
   root_ = Node{};
-  for (const auto& d : kDefaults) {
+  for (const auto& d : DefaultSettings) {
     SetPath(d.path, d.value);
   }
 }
@@ -380,13 +379,13 @@ bool Settings::Save(std::string& error_out) const {
   return true;
 }
 
-bool Settings::PersistCamera(const CameraSelection& cam) const {
+bool Settings::PersistCamera(const CameraSelection& camera) const {
   std::string ignored;
-  return PersistCamera(cam, ignored);
+  return PersistCamera(camera, ignored);
 }
 
-bool Settings::PersistCamera(const CameraSelection& cam, std::string& error_out) const {
-  CameraSelection sel = cam;
+bool Settings::PersistCamera(const CameraSelection& camera, std::string& error_out) const {
+  CameraSelection sel = camera;
   if (sel.video_source == "synthetic" || sel.device_path == "synthetic") {
     sel.video_source = "synthetic";
     sel.device_id = -1;
@@ -403,11 +402,11 @@ bool Settings::PersistCamera(const CameraSelection& cam, std::string& error_out)
 std::uint8_t Settings::RosSection::DomainId() const {
   const std::string DomainIdString = owner_->Get({"ROS", "domain_id"}, "42");
   try {
-    const int v = std::stoi(DomainIdString);
-    if (v < 0 || v > 255) {
+    const int IntValue = std::stoi(DomainIdString);
+    if (IntValue < 0 || IntValue > 255) {
       return DefaultRosDomainId;
     }
-    return static_cast<std::uint8_t>(v);
+    return static_cast<std::uint8_t>(IntValue);
   } catch (...) {
     return DefaultRosDomainId;
   }
@@ -463,7 +462,7 @@ CameraSelection Settings::CameraSection::Selection() const {
   return s;
 }
 
-void Settings::CameraSection::SetSelection(const CameraSelection& sel) {
+void Settings::CameraSection::SetSelection(const CameraSelection& sel) const {
   MutableOwner()->Set({"Camera", "video_source"}, sel.video_source);
   MutableOwner()->Set({"Camera", "device_id"}, std::to_string(sel.device_id));
   MutableOwner()->Set({"Camera", "device_path"}, sel.device_path);
@@ -482,7 +481,7 @@ std::string Settings::JsbSimSection::Get(const std::string_view relative_key) co
   return owner_->Get(path, "");
 }
 
-void Settings::JsbSimSection::Set(std::string_view relative_key, std::string value) const {
+void Settings::JsbSimSection::Set(const std::string_view relative_key, std::string value) const {
   auto parts = Settings::SplitPath(relative_key);
   std::vector<std::string_view> path;
   path.emplace_back("JSBSim");
