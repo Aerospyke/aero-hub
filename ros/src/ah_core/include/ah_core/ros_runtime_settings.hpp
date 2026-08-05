@@ -9,16 +9,14 @@
 #include <string>
 #include <string_view>
 
-namespace ah_core
-{
+namespace ah_core {
 
 // Re-export shared helpers under ah_core for existing call sites.
-using ah::Trim;
 using ah::SanitizeNamespace;
-inline constexpr std::string_view TrimIniChars = ah::kTrimIniChars;
+using ah::Trim;
+inline constexpr std::string_view TrimIniChars = ah::TrimIniChars;
 
-struct RosRuntimeSettings
-{
+struct RosRuntimeSettings {
   std::string ros_namespace;  // empty = root
   std::string settings_path;
   CameraSelection camera;
@@ -28,9 +26,7 @@ struct RosRuntimeSettings
 RosRuntimeSettings LoadRosRuntimeSettings();
 
 /// Persist camera selection through AhCommon Settings.
-bool PersistCameraSelectionToSettingsFile(
-  const std::string & settings_path,
-  const CameraSelection & camera,
-  std::string * error_out);
+bool PersistCameraSelectionToSettingsFile(const std::string& settings_path, const CameraSelection& camera,
+                                          std::string& error_out);
 
 }  // namespace ah_core

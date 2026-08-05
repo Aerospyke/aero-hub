@@ -1,7 +1,8 @@
 #pragma once
 
 // Std-only aerohub_settings.ini load / defaults / write (no Qt).
-// Access: settings.ros().domainId(), settings.camera().videoSource(), settings.jsbSim()...
+// In-memory: real tree (groups + leaf values). On disk: QSettings IniFormat.
+// Access: settings.Ros().DomainId(), settings.Camera().VideoSource(), settings.JsbSim()...
 
 #include <cstdint>
 #include <map>
@@ -10,12 +11,10 @@
 #include <utility>
 #include <vector>
 
-namespace ah
-{
+namespace ah {
 
 /// Camera selection fields ([Camera] section) — shared by core + dashboard.
-struct CameraSelection
-{
+struct CameraSelection {
   std::string video_source{"synthetic"};  // synthetic | camera
   int device_id{-1};
   std::string device_path{"synthetic"};
@@ -24,109 +23,138 @@ struct CameraSelection
 
 /// Full AeroHub settings file (ROS + Camera + JSBSim).
 ///
-/// Always starts from built-in defaults, then overlays keys present in the INI
-/// (a partial file still yields a complete set). If the file is missing, defaults
-/// are written to a new aerohub_settings.ini in the working directory (or the
-/// path from AERO_HUB_SETTINGS).
-class Settings
-{
+/// **Memory:** tree of groups; each node has leaf values and child groups.
+/// **Disk:** Qt QSettings IniFormat — top-level [Section], nested keys with '\\'
+/// (e.g. [JSBSim] airport\\magvar=...). Load also accepts legacy [JSBSim/airport]
+/// section headers.
+///
+/// Always starts from built-in defaults, then overlays keys present in the INI.
+/// If the file is missing, defaults are written to aerohub_settings.ini.
+class Settings {
  public:
-  static constexpr std::uint8_t kDefaultRosDomainId = 42;
-  static constexpr char kSettingsFileName[] = "aerohub_settings.ini";
+  static constexpr std::uint8_t DefaultRosDomainId = 42;
+  static constexpr char SettingsFileName[] = "aerohub_settings.ini";
 
-  /// Resolve path (env + candidates), load, apply defaults overlay, write if missing.
-  /// Also applies ROS_DOMAIN_ID from file into the process env when unset (rclcpp).
-  static Settings load();
+  /// One group in the settings tree (mirrors a QSettings group).
+  struct Node {
+    /// Leaf key → value at this group level.
+    std::map<std::string, std::string> values;
+    /// Subgroup name → child node.
+    std::map<std::string, Node> children;
 
-  /// Load a specific path (no candidate search). Writes defaults if file missing.
-  static Settings loadFromPath(std::string path);
-
-  Settings(const Settings &) = default;
-  Settings & operator=(const Settings &) = default;
-  Settings(Settings &&) noexcept = default;
-  Settings & operator=(Settings &&) noexcept = default;
-
-  [[nodiscard]] const std::string & path() const { return path_; }
-  [[nodiscard]] bool wasFileLoaded() const { return was_file_loaded_; }
-
-  /// Flat keys as stored ("ROS/domain_id", "JSBSim/ports/input", …).
-  [[nodiscard]] const std::map<std::string, std::string> & entries() const { return entries_; }
-
-  /// Entries whose key starts with @p prefix (e.g. "JSBSim/").
-  [[nodiscard]] std::vector<std::pair<std::string, std::string>> entriesWithPrefix(
-    std::string_view prefix) const;
-
-  [[nodiscard]] std::string get(std::string_view key, std::string_view fallback = {}) const;
-  void set(std::string_view key, std::string value);
-
-  /// Write current entries to path_ (full file).
-  bool save(std::string * error_out = nullptr) const;
-
-  /// Update [Camera] keys and rewrite the whole file.
-  bool persistCamera(const CameraSelection & camera, std::string * error_out = nullptr);
-
-  // --- Nested accessors: settings.ros().domainId() ---
-
-  class Ros
-  {
-   public:
-    explicit Ros(const Settings * owner) : owner_(owner) {}
-    [[nodiscard]] std::uint8_t domainId() const;
-    /// Sanitized graph namespace; empty = root.
-    [[nodiscard]] std::string namespaceName() const;
-    void setDomainId(std::uint8_t id);
-    void setNamespaceName(std::string ns);
-
-   private:
-    const Settings * owner_;
-    Settings * mutableOwner() const { return const_cast<Settings *>(owner_); }
+    [[nodiscard]] bool Empty() const { return values.empty() && children.empty(); }
   };
 
-  class Camera
-  {
+  static Settings Load();
+  static Settings LoadFromPath(std::string path);
+
+  Settings(const Settings&) = default;
+  Settings& operator=(const Settings&) = default;
+  Settings(Settings&&) noexcept = default;
+  Settings& operator=(Settings&&) noexcept = default;
+
+  [[nodiscard]] const std::string& Path() const { return path_; }
+
+  [[nodiscard]] bool WasFileLoaded() const { return was_file_loaded_; }
+
+  /// Root of the in-memory tree (children are top-level sections: ROS, Camera, JSBSim, …).
+  [[nodiscard]] const Node& Root() const { return root_; }
+
+  [[nodiscard]] Node& Root() { return root_; }
+
+  /// Direct child group of root, or nullptr if missing.
+  [[nodiscard]] const Node* Section(std::string_view name) const;
+  [[nodiscard]] Node* Section(std::string_view name);
+
+  /// Flatten under a top-level section for legacy callers (path uses '/').
+  /// e.g. EntriesUnder("JSBSim") → ("airport/magvar","12.0"), …
+  [[nodiscard]] std::vector<std::pair<std::string, std::string>> EntriesUnder(std::string_view top_section) const;
+
+  /// Get/set by path segments from root (e.g. "ROS", "domain_id").
+  [[nodiscard]] std::string Get(std::vector<std::string_view> path, std::string_view fallback = {}) const;
+  void Set(std::vector<std::string_view> path, std::string value);
+
+  /// Get/set using '/' or '\\' separated path from root (convenience).
+  [[nodiscard]] std::string GetPath(std::string_view path, std::string_view fallback = {}) const;
+  void SetPath(std::string_view path, std::string value);
+
+  bool Save(std::string& error_out) const;
+  bool Save() const;
+
+  bool PersistCamera(const CameraSelection& camera, std::string& error_out);
+  bool PersistCamera(const CameraSelection& camera);
+
+  class RosSection {
    public:
-    explicit Camera(const Settings * owner) : owner_(owner) {}
-    [[nodiscard]] std::string videoSource() const;
-    [[nodiscard]] int deviceId() const;
-    [[nodiscard]] std::string devicePath() const;
-    [[nodiscard]] std::string backend() const;
-    [[nodiscard]] CameraSelection selection() const;
-    void setSelection(const CameraSelection & sel);
+    explicit RosSection(const Settings* owner) : owner_(owner) {}
+
+    [[nodiscard]] std::uint8_t DomainId() const;
+    [[nodiscard]] std::string NamespaceName() const;
+    void SetDomainId(std::uint8_t id);
+    void SetNamespaceName(std::string ns);
 
    private:
-    const Settings * owner_;
-    Settings * mutableOwner() const { return const_cast<Settings *>(owner_); }
+    const Settings* owner_;
+
+    Settings* MutableOwner() const { return const_cast<Settings*>(owner_); }
   };
 
-  class JsbSim
-  {
+  class CameraSection {
    public:
-    explicit JsbSim(const Settings * owner) : owner_(owner) {}
-    /// Value of key under JSBSim/ (e.g. "ports/input" → JSBSim/ports/input).
-    [[nodiscard]] std::string get(std::string_view relative_key) const;
-    void set(std::string_view relative_key, std::string value);
+    explicit CameraSection(const Settings* owner) : owner_(owner) {}
+
+    [[nodiscard]] std::string VideoSource() const;
+    [[nodiscard]] int DeviceId() const;
+    [[nodiscard]] std::string DevicePath() const;
+    [[nodiscard]] std::string Backend() const;
+    [[nodiscard]] CameraSelection Selection() const;
+    void SetSelection(const CameraSelection& sel);
 
    private:
-    const Settings * owner_;
-    Settings * mutableOwner() const { return const_cast<Settings *>(owner_); }
+    const Settings* owner_;
+
+    Settings* MutableOwner() const { return const_cast<Settings*>(owner_); }
   };
 
-  [[nodiscard]] Ros ros() const { return Ros(this); }
-  [[nodiscard]] Camera camera() const { return Camera(this); }
-  [[nodiscard]] JsbSim jsbSim() const { return JsbSim(this); }
+  class JsbSimSection {
+   public:
+    explicit JsbSimSection(const Settings* owner) : owner_(owner) {}
+
+    /// Relative path under JSBSim (e.g. "ports/input" or "ports\\input").
+    [[nodiscard]] std::string Get(std::string_view relative_key) const;
+    void Set(std::string_view relative_key, std::string value);
+    [[nodiscard]] const Node* Tree() const;
+
+   private:
+    const Settings* owner_;
+
+    Settings* MutableOwner() const { return const_cast<Settings*>(owner_); }
+  };
+
+  [[nodiscard]] RosSection Ros() const { return RosSection(this); }
+
+  [[nodiscard]] CameraSection Camera() const { return CameraSection(this); }
+
+  [[nodiscard]] JsbSimSection JsbSim() const { return JsbSimSection(this); }
 
  private:
   Settings() = default;
 
-  void populateDefaults();
-  void overlayFromFile(const std::string & path);
-  void applyProcessEnvOverrides();
-  void exportDomainIdToEnvIfUnset() const;
-  static std::string resolvePath();
+  void PopulateDefaults();
+  void OverlayFromFile(const std::string& path);
+  void ApplyProcessEnvOverrides();
+  void ExportDomainIdToEnvIfUnset() const;
+  static std::string ResolvePath();
+
+  static std::vector<std::string> SplitPath(std::string_view path);
+  static void FlattenNode(const Node& node, const std::string& prefix,
+                          std::vector<std::pair<std::string, std::string>>& out);
+  Node* EnsurePath(const std::vector<std::string>& path_to_group);
+  const Node* FindNode(const std::vector<std::string>& path_to_group) const;
 
   std::string path_;
   bool was_file_loaded_{false};
-  std::map<std::string, std::string> entries_;
+  Node root_;
 };
 
 }  // namespace ah

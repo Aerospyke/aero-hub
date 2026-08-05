@@ -7,7 +7,7 @@
 #include <QString>
 
 /// Qt-facing thin wrapper around ah::Settings (std-only AhCommon).
-/// Prefer settings.ros().domainId() via core() when writing new code.
+/// Prefer settings.Ros().DomainId() via Core() when writing new code.
 class AhSettings final {
  public:
   AhSettings();
@@ -15,16 +15,17 @@ class AhSettings final {
   AhSettings(const AhSettings&) = delete;
   AhSettings& operator=(const AhSettings&) = delete;
 
-  [[nodiscard]] ah::Settings& core() { return settings_; }
-  [[nodiscard]] const ah::Settings& core() const { return settings_; }
+  [[nodiscard]] ah::Settings& Core() { return settings_; }
 
-  [[nodiscard]] QString Path() const { return QString::fromStdString(settings_.path()); }
-  [[nodiscard]] bool WasSettingsFileLoaded() const { return settings_.wasFileLoaded(); }
+  [[nodiscard]] const ah::Settings& Core() const { return settings_; }
 
-  [[nodiscard]] std::uint8_t RosDomainId() const { return settings_.ros().domainId(); }
-  [[nodiscard]] QString RosNamespace() const {
-    return QString::fromStdString(settings_.ros().namespaceName());
-  }
+  [[nodiscard]] QString Path() const { return QString::fromStdString(settings_.Path()); }
+
+  [[nodiscard]] bool WasSettingsFileLoaded() const { return settings_.WasFileLoaded(); }
+
+  [[nodiscard]] std::uint8_t RosDomainId() const { return settings_.Ros().DomainId(); }
+
+  [[nodiscard]] QString RosNamespace() const { return QString::fromStdString(settings_.Ros().NamespaceName()); }
 
  private:
   ah::Settings settings_;

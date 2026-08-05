@@ -20,13 +20,11 @@ class JsbSettingsTreeModel final : public QAbstractItemModel {
   [[nodiscard]] int rowCount(const QModelIndex& parent) const override;
   [[nodiscard]] int columnCount(const QModelIndex& parent) const override;
   [[nodiscard]] QVariant data(const QModelIndex& index, int role) const override;
-  [[nodiscard]] QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const override;
+  [[nodiscard]] QVariant headerData(int section, Qt::Orientation orientation,
+                                    int role = Qt::DisplayRole) const override;
   [[nodiscard]] QHash<int, QByteArray> roleNames() const override;
 
-  enum CustomRoles : uint16_t {
-    NameRole = Qt::UserRole + 1,
-    ValueRole
-  };
+  enum CustomRoles : uint16_t { NameRole = Qt::UserRole + 1, ValueRole };
 
  private:
   struct Node {
@@ -36,6 +34,7 @@ class JsbSettingsTreeModel final : public QAbstractItemModel {
     Node* parent = nullptr;
 
     Node() = default;
+
     explicit Node(QString n, QString v = QString(), Node* p = nullptr)
         : name(std::move(n)), value(std::move(v)), parent(p) {}
   };

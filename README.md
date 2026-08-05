@@ -218,8 +218,8 @@ aero-hub/
     README.md
 ```
 
-**Settings:** `ah::Settings` in AhCommon — e.g. `settings.ros().domainId()`, `settings.camera().selection()`,
-`settings.jsbSim().get("ports/input")`. Dashboard and `ah_core` share this (no Qt in common).
+**Settings:** `ah::Settings` in AhCommon — e.g. `settings.Ros().DomainId()`, `settings.Camera().Selection()`,
+`settings.JsbSim().Get("ports/input")`. Dashboard and `ah_core` share this (no Qt in common).
 
 **Optional ROS rebuild from CMake** (not required for every app build):
 

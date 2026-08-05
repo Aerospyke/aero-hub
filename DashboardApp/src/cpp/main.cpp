@@ -52,28 +52,21 @@ int main(int argc, char* argv[]) {
   hooks.on_status_json = [system_status](const std::string& json) {
     const QString payload = QString::fromStdString(json);
     QMetaObject::invokeMethod(
-        system_status,
-        [system_status, payload]() { system_status->ApplyJson(payload); },
-        Qt::QueuedConnection);
+        system_status, [system_status, payload]() { system_status->ApplyJson(payload); }, Qt::QueuedConnection);
   };
   hooks.on_video_jpeg = [video_feed](std::vector<uint8_t> jpeg) {
-    const QByteArray bytes(reinterpret_cast<const char*>(jpeg.data()),
-                           static_cast<int>(jpeg.size()));
+    const QByteArray bytes(reinterpret_cast<const char*>(jpeg.data()), static_cast<int>(jpeg.size()));
     QMetaObject::invokeMethod(
-        video_feed,
-        [video_feed, bytes]() { video_feed->ApplyJpeg(bytes); },
-        Qt::QueuedConnection);
+        video_feed, [video_feed, bytes]() { video_feed->ApplyJpeg(bytes); }, Qt::QueuedConnection);
   };
   hooks.on_detections_json = [detections_model](const std::string& json) {
     const QString payload = QString::fromStdString(json);
     QMetaObject::invokeMethod(
-        detections_model,
-        [detections_model, payload]() { detections_model->ApplyJson(payload); },
+        detections_model, [detections_model, payload]() { detections_model->ApplyJson(payload); },
         Qt::QueuedConnection);
   };
 
-  const AhRosBridge RosBridge(app_settings.RosDomainId(),
-                              app_settings.RosNamespace().toStdString(), std::move(hooks));
+  const AhRosBridge RosBridge(app_settings.RosDomainId(), app_settings.RosNamespace().toStdString(), std::move(hooks));
   auto* track_controller = new AhTrackController(RosBridge.Node(), QCoreApplication::instance());
   auto* camera_controller = new AhCameraController(RosBridge.Node(), QCoreApplication::instance());
   auto* yolo_controller = new AhYoloController(RosBridge.Node(), QCoreApplication::instance());
@@ -104,7 +97,7 @@ int main(int argc, char* argv[]) {
   auto* animation = new Animation;
   animation->setPfd(flight_telemetry);
 
-  auto* jsb_settings_model = new JsbSettingsTreeModel(&app_settings.core(), &engine);
+  auto* jsb_settings_model = new JsbSettingsTreeModel(&app_settings.Core(), &engine);
   engine.rootContext()->setContextProperty("flight_telemetry", flight_telemetry);
   engine.rootContext()->setContextProperty("jsbSettingsModel", jsb_settings_model);
   engine.rootContext()->setContextProperty("systemStatus", system_status);

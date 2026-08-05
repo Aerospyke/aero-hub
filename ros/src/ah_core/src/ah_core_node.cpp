@@ -396,7 +396,7 @@ void AhCoreNode::ApplySelectionToParams()
 void AhCoreNode::PersistSelectionToSettingsFile()
 {
   std::string err;
-  if (!PersistCameraSelectionToSettingsFile(settings_path_, camera_, &err) &&
+  if (!PersistCameraSelectionToSettingsFile(settings_path_, camera_, err) &&
     !settings_path_.empty())
   {
     RCLCPP_WARN(get_logger(), "%s", err.c_str());

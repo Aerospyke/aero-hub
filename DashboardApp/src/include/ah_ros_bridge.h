@@ -34,15 +34,16 @@ class AhRosBridge {
   /// @param ros_namespace Node namespace (empty = root). Topics use relative
   ///        ah/... names so they become /{namespace}/ah/... when set.
   /// @param hooks Optional status/video/stop callbacks.
-  explicit AhRosBridge(std::uint8_t ros_domain_id, std::string ros_namespace = {},
-                       Hooks hooks = {});
+  explicit AhRosBridge(std::uint8_t ros_domain_id, std::string ros_namespace = {}, Hooks hooks = {});
   ~AhRosBridge();
 
   AhRosBridge(const AhRosBridge&) = delete;
   AhRosBridge& operator=(const AhRosBridge&) = delete;
 
   [[nodiscard]] rclcpp::Node::SharedPtr Node() const { return node_; }
+
   [[nodiscard]] std::uint8_t RosDomainId() const { return ros_domain_id_; }
+
   [[nodiscard]] const std::string& RosNamespace() const { return ros_namespace_; }
 
  private:

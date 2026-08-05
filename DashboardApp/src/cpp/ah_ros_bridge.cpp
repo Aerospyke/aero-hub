@@ -27,10 +27,8 @@ AhRosBridge::AhRosBridge(std::uint8_t ros_domain_id, std::string ros_namespace, 
   executor_->add_node(node_);
 
   spin_thread_ = std::thread([this]() {
-    RCLCPP_INFO(node_->get_logger(),
-                "ah_dashboard online — domain=%u namespace=\"%s\" (fqn=%s)",
-                static_cast<unsigned>(ros_domain_id_), ros_namespace_.c_str(),
-                node_->get_fully_qualified_name());
+    RCLCPP_INFO(node_->get_logger(), "ah_dashboard online — domain=%u namespace=\"%s\" (fqn=%s)",
+                static_cast<unsigned>(ros_domain_id_), ros_namespace_.c_str(), node_->get_fully_qualified_name());
     executor_->spin();
     RCLCPP_INFO(node_->get_logger(), "ah_dashboard executor stopped");
 
@@ -44,19 +42,18 @@ void AhRosBridge::SetupSubscriptions() {
   rclcpp::QoS status_qos(rclcpp::KeepLast(1));
   status_qos.reliable();
 
-  status_sub_ = node_->create_subscription<std_msgs::msg::String>(
-      ah_ros_names::StatusTopic, status_qos, [this](const std_msgs::msg::String::SharedPtr msg) {
-        if (hooks_.on_status_json && msg) {
-          hooks_.on_status_json(msg->data);
-        }
-      });
+  status_sub_ = node_->create_subscription<std_msgs::msg::String>(ah_ros_names::StatusTopic, status_qos,
+                                                                  [this](const std_msgs::msg::String::SharedPtr msg) {
+                                                                    if (hooks_.on_status_json && msg) {
+                                                                      hooks_.on_status_json(msg->data);
+                                                                    }
+                                                                  });
 
   rclcpp::QoS video_qos(rclcpp::KeepLast(1));
   video_qos.best_effort();
 
   video_sub_ = node_->create_subscription<sensor_msgs::msg::CompressedImage>(
-      ah_ros_names::VideoCompressedTopic, video_qos,
-      [this](const sensor_msgs::msg::CompressedImage::SharedPtr msg) {
+      ah_ros_names::VideoCompressedTopic, video_qos, [this](const sensor_msgs::msg::CompressedImage::SharedPtr msg) {
         if (!hooks_.on_video_jpeg || !msg || msg->data.empty()) {
           return;
         }
@@ -65,17 +62,14 @@ void AhRosBridge::SetupSubscriptions() {
 
   // YOLO detections (Task_34): best-effort latest JSON from ah_yolo.
   detections_sub_ = node_->create_subscription<std_msgs::msg::String>(
-      ah_ros_names::DetectionsTopic, video_qos,
-      [this](const std_msgs::msg::String::SharedPtr msg) {
+      ah_ros_names::DetectionsTopic, video_qos, [this](const std_msgs::msg::String::SharedPtr msg) {
         if (hooks_.on_detections_json && msg) {
           hooks_.on_detections_json(msg->data);
         }
       });
 
-  RCLCPP_INFO(node_->get_logger(),
-              "subscribed to %s + %s + %s (relative; under node namespace)",
-              ah_ros_names::StatusTopic, ah_ros_names::VideoCompressedTopic,
-              ah_ros_names::DetectionsTopic);
+  RCLCPP_INFO(node_->get_logger(), "subscribed to %s + %s + %s (relative; under node namespace)",
+              ah_ros_names::StatusTopic, ah_ros_names::VideoCompressedTopic, ah_ros_names::DetectionsTopic);
 }
 
 AhRosBridge::~AhRosBridge() {
@@ -101,12 +95,10 @@ AhRosBridge::~AhRosBridge() {
 
 std::uint8_t AhRosBridge::SanitizeDomainId(std::uint8_t ros_domain_id) {
   if (ros_domain_id > MaxRosDomainId) {
-    std::cerr << "AhRosBridge: invalid ROS domain id " << static_cast<int>(ros_domain_id)
-              << " (valid range 0–" << static_cast<int>(MaxRosDomainId) << "); using default "
-              << static_cast<int>(DefaultRosDomainId) << '\n';
+    std::cerr << "AhRosBridge: invalid ROS domain id " << static_cast<int>(ros_domain_id) << " (valid range 0–"
+              << static_cast<int>(MaxRosDomainId) << "); using default " << static_cast<int>(DefaultRosDomainId)
+              << '\n';
     return DefaultRosDomainId;
   }
   return ros_domain_id;
 }
-
-

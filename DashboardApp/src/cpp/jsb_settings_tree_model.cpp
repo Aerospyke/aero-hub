@@ -2,10 +2,9 @@
 
 #include "ah_common/settings.hpp"
 
-#include <QMap>
+#include <functional>
 
-JsbSettingsTreeModel::JsbSettingsTreeModel(const ah::Settings* settings, QObject* parent)
-    : QAbstractItemModel(parent) {
+JsbSettingsTreeModel::JsbSettingsTreeModel(const ah::Settings* settings, QObject* parent) : QAbstractItemModel(parent) {
   root_ = std::make_unique<Node>("root");
   if (settings) {
     buildTree(settings);
@@ -13,46 +12,27 @@ JsbSettingsTreeModel::JsbSettingsTreeModel(const ah::Settings* settings, QObject
 }
 
 void JsbSettingsTreeModel::buildTree(const ah::Settings* settings) {
-  const auto entries = settings->entriesWithPrefix("JSBSim/");
-  QMap<QString, Node*> sectionMap;
-
-  for (const auto& kv : entries) {
-    QString fullKey = QString::fromStdString(kv.first);
-    // Legacy QSettings files used '\' for nested groups; normalize to '/'.
-    fullKey.replace(QLatin1Char('\\'), QLatin1Char('/'));
-    if (!fullKey.startsWith(QStringLiteral("JSBSim/"))) {
-      continue;
-    }
-    const QString subKey = fullKey.mid(7);  // strip "JSBSim/"
-    // Skip empty path segments (e.g. trailing slash).
-    QStringList parts = subKey.split(QLatin1Char('/'), Qt::SkipEmptyParts);
-    if (parts.isEmpty()) {
-      continue;
-    }
-
-    // Hierarchy: JSBSim / <section> / <leaf…>  (e.g. airport / magvar)
-    const QString sectionName = parts.first();
-    Node* sectionNode = sectionMap.value(sectionName, nullptr);
-    if (!sectionNode) {
-      auto section = std::make_unique<Node>(sectionName, QString(), root_.get());
-      sectionNode = section.get();
-      root_->children.push_back(std::move(section));
-      sectionMap.insert(sectionName, sectionNode);
-    }
-
-    // Keys that are only "JSBSim/section" with no leaf — treat as section value (rare).
-    if (parts.size() == 1) {
-      if (!kv.second.empty()) {
-        sectionNode->value = QString::fromStdString(kv.second);
-      }
-      continue;
-    }
-
-    const QString leafName = parts.mid(1).join(QLatin1Char('/'));
-    const QString val = QString::fromStdString(kv.second);
-    sectionNode->children.push_back(
-        std::make_unique<Node>(leafName, val, sectionNode));
+  const ah::Settings::Node* jsb = settings->JsbSim().Tree();
+  if (!jsb) {
+    return;
   }
+
+  // Mirror ah::Settings::Node (values + children) into the UI tree.
+  std::function<void(const ah::Settings::Node&, Node*)> walk;
+  walk = [&](const ah::Settings::Node& src, Node* parent_ui) {
+    for (const auto& kv : src.values) {
+      parent_ui->children.push_back(
+          std::make_unique<Node>(QString::fromStdString(kv.first), QString::fromStdString(kv.second), parent_ui));
+    }
+    for (const auto& ch : src.children) {
+      auto section = std::make_unique<Node>(QString::fromStdString(ch.first), QString(), parent_ui);
+      Node* section_ptr = section.get();
+      parent_ui->children.push_back(std::move(section));
+      walk(ch.second, section_ptr);
+    }
+  };
+
+  walk(*jsb, root_.get());
 }
 
 JsbSettingsTreeModel::Node* JsbSettingsTreeModel::getNode(const QModelIndex& index) {
@@ -87,7 +67,6 @@ QModelIndex JsbSettingsTreeModel::parent(const QModelIndex& index) const {
   }
 
   Node* parentNode = childNode->parent;
-  // Find the row of this parent under its parent (grandparent)
   Node* grandParent = parentNode->parent ? parentNode->parent : root_.get();
   for (int r = 0; r < static_cast<int>(grandParent->children.size()); ++r) {
     if (grandParent->children[static_cast<size_t>(r)].get() == parentNode) {
@@ -131,16 +110,16 @@ QVariant JsbSettingsTreeModel::data(const QModelIndex& index, int role) const {
 
 QVariant JsbSettingsTreeModel::headerData(int section, Qt::Orientation orientation, int role) const {
   if (orientation == Qt::Horizontal && role == Qt::DisplayRole) {
-    if (section == 0) return QStringLiteral("Setting");
-    if (section == 1) return QStringLiteral("Value");
+    if (section == 0)
+      return QStringLiteral("Setting");
+    if (section == 1)
+      return QStringLiteral("Value");
   }
   return {};
 }
 
 QHash<int, QByteArray> JsbSettingsTreeModel::roleNames() const {
-  return {
-    {Qt::DisplayRole, "display"},
-    {static_cast<int>(CustomRoles::NameRole), "name"},
-    {static_cast<int>(CustomRoles::ValueRole), "value"}
-  };
+  return {{Qt::DisplayRole, "display"},
+          {static_cast<int>(CustomRoles::NameRole), "name"},
+          {static_cast<int>(CustomRoles::ValueRole), "value"}};
 }
