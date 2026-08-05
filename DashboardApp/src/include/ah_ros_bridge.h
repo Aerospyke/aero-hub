@@ -47,7 +47,6 @@ class AhRosBridge {
 
  private:
   [[nodiscard]] static std::uint8_t SanitizeDomainId(std::uint8_t ros_domain_id);
-  [[nodiscard]] static std::string SanitizeNamespace(std::string ros_namespace);
   void SetupSubscriptions();
 
   std::uint8_t ros_domain_id_;

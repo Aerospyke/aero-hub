@@ -209,14 +209,22 @@ Mac host **will not** normally see container topics (Docker Desktop bridge). Sam
 
 ```text
 aero-hub/
-  CMakeLists.txt              # Dashboard project (plain CMake + Qt)
-  QtAppSetup.cmake
-  DashboardApp/               # UI + rclcpp bridge
+  CMakeLists.txt              # Dashboard superbuild (Qt + AhCommon)
+  AhCommon/                   # C++17 std-only: settings, Trim, SanitizeNamespace
+  DashboardApp/               # UI + rclcpp bridge (C++23)
   FlightInstruments/          # QML instruments module
-  CyberTheme/
   aerohub_settings_template.ini
-  ros/                        # colcon: ah_msgs, ah_core
+  ros/                        # colcon: ah_msgs, ah_core, ah_yolo
     README.md
+```
+
+**Settings:** `ah::Settings` in AhCommon — e.g. `settings.ros().domainId()`, `settings.camera().selection()`,
+`settings.jsbSim().get("ports/input")`. Dashboard and `ah_core` share this (no Qt in common).
+
+**Optional ROS rebuild from CMake** (not required for every app build):
+
+```bash
+cmake --build build/Debug --target build_ros
 ```
 
 ---

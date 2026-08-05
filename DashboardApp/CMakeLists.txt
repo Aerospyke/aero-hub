@@ -55,6 +55,7 @@ set(APPLICATION_INCLUDE_DIRECTORIES
 # RoboStack / plain CMake: rclcpp + msgs + CPython (for generator_py typesupport)
 set(LINKED_LIBRARIES_NON_QT
         QmlFlightInstruments
+        AhCommon::ah_common
         rclcpp::rclcpp
         ${std_msgs_TARGETS}
         ${sensor_msgs_TARGETS}

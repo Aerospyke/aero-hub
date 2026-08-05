@@ -1,8 +1,10 @@
 #include "jsb_settings_tree_model.h"
 
-#include <QSettings>
+#include "ah_common/settings.hpp"
 
-JsbSettingsTreeModel::JsbSettingsTreeModel(QSettings* settings, QObject* parent)
+#include <QMap>
+
+JsbSettingsTreeModel::JsbSettingsTreeModel(const ah::Settings* settings, QObject* parent)
     : QAbstractItemModel(parent) {
   root_ = std::make_unique<Node>("root");
   if (settings) {
@@ -10,16 +12,17 @@ JsbSettingsTreeModel::JsbSettingsTreeModel(QSettings* settings, QObject* parent)
   }
 }
 
-void JsbSettingsTreeModel::buildTree(QSettings* settings) {
-  const QStringList keys = settings->allKeys();
+void JsbSettingsTreeModel::buildTree(const ah::Settings* settings) {
+  const auto entries = settings->entriesWithPrefix("JSBSim/");
   QMap<QString, Node*> sectionMap;
 
-  for (const QString& fullKey : keys) {
-    if (!fullKey.startsWith("JSBSim/")) {
+  for (const auto& kv : entries) {
+    const QString fullKey = QString::fromStdString(kv.first);
+    if (!fullKey.startsWith(QStringLiteral("JSBSim/"))) {
       continue;
     }
-    const QString subKey = fullKey.mid(7); // strip "JSBSim/"
-    const QStringList parts = subKey.split('/');
+    const QString subKey = fullKey.mid(7);  // strip "JSBSim/"
+    const QStringList parts = subKey.split(QLatin1Char('/'));
     if (parts.isEmpty()) {
       continue;
     }
@@ -32,15 +35,14 @@ void JsbSettingsTreeModel::buildTree(QSettings* settings) {
       sectionMap.insert(sectionName, sectionNode);
     }
 
-    // Build the leaf name from remaining parts (usually just the last key)
     QString leafName;
     if (parts.size() > 1) {
-      leafName = parts.mid(1).join('/');
+      leafName = parts.mid(1).join(QLatin1Char('/'));
     } else {
-      leafName = sectionName; // fallback
+      leafName = sectionName;
     }
 
-    const QString val = settings->value(fullKey).toString();
+    const QString val = QString::fromStdString(kv.second);
     auto leaf = std::make_unique<Node>(leafName, val, sectionNode);
     sectionNode->children.push_back(std::move(leaf));
   }

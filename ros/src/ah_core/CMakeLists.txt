@@ -16,6 +16,15 @@ find_package(std_srvs REQUIRED)
 find_package(ah_msgs REQUIRED)
 find_package(OpenCV REQUIRED COMPONENTS core imgproc imgcodecs videoio)
 
+# Sibling AhCommon (std-only settings) — same sources as Dashboard root build.
+set(_AH_COMMON_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../AhCommon")
+if(NOT TARGET AhCommon::ah_common)
+  if(NOT EXISTS "${_AH_COMMON_DIR}/CMakeLists.txt")
+    message(FATAL_ERROR "AhCommon not found at ${_AH_COMMON_DIR}")
+  endif()
+  add_subdirectory("${_AH_COMMON_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/AhCommon")
+endif()
+
 add_executable(ah_core_node
   src/main.cpp
   src/ah_core_node.cpp
@@ -29,7 +38,10 @@ target_include_directories(ah_core_node
     ${OpenCV_INCLUDE_DIRS}
 )
 
-target_link_libraries(ah_core_node ${OpenCV_LIBS})
+target_link_libraries(ah_core_node
+  ${OpenCV_LIBS}
+  AhCommon::ah_common
+)
 
 ament_target_dependencies(ah_core_node
   rclcpp

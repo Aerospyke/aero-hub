@@ -104,7 +104,7 @@ int main(int argc, char* argv[]) {
   auto* animation = new Animation;
   animation->setPfd(flight_telemetry);
 
-  auto* jsb_settings_model = new JsbSettingsTreeModel(&app_settings.Settings(), &engine);
+  auto* jsb_settings_model = new JsbSettingsTreeModel(&app_settings.core(), &engine);
   engine.rootContext()->setContextProperty("flight_telemetry", flight_telemetry);
   engine.rootContext()->setContextProperty("jsbSettingsModel", jsb_settings_model);
   engine.rootContext()->setContextProperty("systemStatus", system_status);

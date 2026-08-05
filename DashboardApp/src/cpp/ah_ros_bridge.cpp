@@ -1,8 +1,8 @@
 #include "ah_ros_bridge.h"
 
+#include "ah_common/string_util.hpp"
 #include "ah_ros_names.h"
 
-#include <cctype>
 #include <iostream>
 #include <utility>
 
@@ -10,7 +10,7 @@
 
 AhRosBridge::AhRosBridge(std::uint8_t ros_domain_id, std::string ros_namespace, Hooks hooks)
     : ros_domain_id_(SanitizeDomainId(ros_domain_id)),
-      ros_namespace_(SanitizeNamespace(std::move(ros_namespace))),
+      ros_namespace_(ah::SanitizeNamespace(ros_namespace)),
       hooks_(std::move(hooks)) {
   if (!rclcpp::ok()) {
     rclcpp::InitOptions init_options;
@@ -109,18 +109,4 @@ std::uint8_t AhRosBridge::SanitizeDomainId(std::uint8_t ros_domain_id) {
   return ros_domain_id;
 }
 
-std::string AhRosBridge::SanitizeNamespace(std::string ros_namespace) {
-  while (!ros_namespace.empty() &&
-         (ros_namespace.front() == '/' || std::isspace(static_cast<unsigned char>(ros_namespace.front())))) {
-    ros_namespace.erase(ros_namespace.begin());
-  }
-  while (!ros_namespace.empty() &&
-         (ros_namespace.back() == '/' || std::isspace(static_cast<unsigned char>(ros_namespace.back())))) {
-    ros_namespace.pop_back();
-  }
-  if (ros_namespace.find("//") != std::string::npos) {
-    std::cerr << "AhRosBridge: invalid ROS namespace (empty segment); using root\n";
-    return {};
-  }
-  return ros_namespace;
-}
+

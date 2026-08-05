@@ -1,18 +1,20 @@
 #pragma once
 
 #include <QAbstractItemModel>
-#include <QSettings>
 #include <memory>
 #include <vector>
+
+namespace ah {
+class Settings;
+}
 
 class JsbSettingsTreeModel final : public QAbstractItemModel {
   Q_OBJECT
 
  public:
-  explicit JsbSettingsTreeModel(QSettings* settings, QObject* parent = nullptr);
+  explicit JsbSettingsTreeModel(const ah::Settings* settings, QObject* parent = nullptr);
   JsbSettingsTreeModel() = delete;
 
-  // QAbstractItemModel overrides
   [[nodiscard]] QModelIndex index(int row, int column, const QModelIndex& parent = QModelIndex()) const override;
   [[nodiscard]] QModelIndex parent(const QModelIndex& index) const override;
   [[nodiscard]] int rowCount(const QModelIndex& parent) const override;
@@ -40,6 +42,6 @@ class JsbSettingsTreeModel final : public QAbstractItemModel {
 
   std::unique_ptr<Node> root_;
 
-  void buildTree(QSettings* settings);
+  void buildTree(const ah::Settings* settings);
   static Node* getNode(const QModelIndex& index);
 };
