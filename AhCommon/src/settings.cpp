@@ -241,18 +241,7 @@ std::string Settings::ResolvePath() {
   if (env != nullptr && env[0] != '\0') {
     return std::string(env);
   }
-  const char* candidates[] = {
-      SettingsFileName,
-      "../aerohub_settings.ini",
-      "../../aerohub_settings.ini",
-      "/aero-hub/aerohub_settings.ini",
-  };
-  for (const char* c : candidates) {
-    std::ifstream in(c);
-    if (in) {
-      return std::string(c);
-    }
-  }
+
   return std::string(SettingsFileName);
 }
 
