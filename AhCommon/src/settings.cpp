@@ -4,6 +4,7 @@
 
 #include <fstream>
 #include <iostream>
+#include <ranges>
 
 namespace ah {
 namespace {
@@ -91,13 +92,21 @@ std::vector<std::string> Settings::SplitPath(std::string_view path) {
 
 void Settings::FlattenNode(const Node& node, const std::string& prefix,
                            std::vector<std::pair<std::string, std::string>>& out) {
-  for (const auto& [first, second] : node.values) {
-    const std::string Key = prefix.empty() ? first : prefix + "/" + first;
-    out.emplace_back(Key, second);
+  for (const auto& [leaf_key, value] : node.values) {
+    std::string key = prefix;
+    if (!key.empty()) {
+      key += '/';
+    }
+    key += leaf_key;
+    out.emplace_back(std::move(key), value);
   }
-  for (const auto& [fst, snd] : node.children) {
-    const std::string Next = prefix.empty() ? fst : prefix + "/" + fst;
-    FlattenNode(snd, Next, out);
+  for (const auto& [subgroup_name, child_node] : node.children) {
+    std::string next = prefix;
+    if (!next.empty()) {
+      next += '/';
+    }
+    next += subgroup_name;
+    FlattenNode(child_node, next, out);
   }
 }
 
@@ -332,11 +341,11 @@ bool Settings::Save(std::string& error_out) const {
   };
   push_if("ROS");
   push_if("Camera");
-  for (const auto& child : root_.children) {
-    if (child.first == "ROS" || child.first == "Camera") {
+  for (const auto& subgroup_name : root_.children | std::views::keys) {
+    if (subgroup_name == "ROS" || subgroup_name == "Camera") {
       continue;
     }
-    section_order.push_back(child.first);
+    section_order.push_back(subgroup_name);
   }
 
   std::ofstream out(path_);
