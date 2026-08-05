@@ -2,6 +2,7 @@
 
 #include "ah_common/string_util.hpp"
 
+#include <algorithm>
 #include <cstdlib>
 #include <fstream>
 
@@ -180,11 +181,16 @@ void Settings::overlayFromFile(const std::string & path)
     if (eq == std::string::npos) {
       continue;
     }
-    const std::string key = Trim(trimmed_line.substr(0, eq), kTrimIniChars);
+    std::string key = Trim(trimmed_line.substr(0, eq), kTrimIniChars);
     const std::string val = Trim(trimmed_line.substr(eq + 1), kTrimIniChars);
     if (key.empty() || section.empty()) {
       continue;
     }
+    // Qt QSettings IniFormat nests groups with '\' under a section, e.g.
+    //   [JSBSim]
+    //   airport\magvar=12
+    // Normalize to forward-slash flat keys: JSBSim/airport/magvar
+    std::replace(key.begin(), key.end(), '\\', '/');
     entries_[section + "/" + key] = val;
   }
 }

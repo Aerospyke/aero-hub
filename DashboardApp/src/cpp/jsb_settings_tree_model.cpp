@@ -17,34 +17,41 @@ void JsbSettingsTreeModel::buildTree(const ah::Settings* settings) {
   QMap<QString, Node*> sectionMap;
 
   for (const auto& kv : entries) {
-    const QString fullKey = QString::fromStdString(kv.first);
+    QString fullKey = QString::fromStdString(kv.first);
+    // Legacy QSettings files used '\' for nested groups; normalize to '/'.
+    fullKey.replace(QLatin1Char('\\'), QLatin1Char('/'));
     if (!fullKey.startsWith(QStringLiteral("JSBSim/"))) {
       continue;
     }
     const QString subKey = fullKey.mid(7);  // strip "JSBSim/"
-    const QStringList parts = subKey.split(QLatin1Char('/'));
+    // Skip empty path segments (e.g. trailing slash).
+    QStringList parts = subKey.split(QLatin1Char('/'), Qt::SkipEmptyParts);
     if (parts.isEmpty()) {
       continue;
     }
 
-    const QString& sectionName = parts.first();
+    // Hierarchy: JSBSim / <section> / <leaf…>  (e.g. airport / magvar)
+    const QString sectionName = parts.first();
     Node* sectionNode = sectionMap.value(sectionName, nullptr);
     if (!sectionNode) {
-      sectionNode = new Node(sectionName, QString(), root_.get());
-      root_->children.emplace_back(sectionNode);
+      auto section = std::make_unique<Node>(sectionName, QString(), root_.get());
+      sectionNode = section.get();
+      root_->children.push_back(std::move(section));
       sectionMap.insert(sectionName, sectionNode);
     }
 
-    QString leafName;
-    if (parts.size() > 1) {
-      leafName = parts.mid(1).join(QLatin1Char('/'));
-    } else {
-      leafName = sectionName;
+    // Keys that are only "JSBSim/section" with no leaf — treat as section value (rare).
+    if (parts.size() == 1) {
+      if (!kv.second.empty()) {
+        sectionNode->value = QString::fromStdString(kv.second);
+      }
+      continue;
     }
 
+    const QString leafName = parts.mid(1).join(QLatin1Char('/'));
     const QString val = QString::fromStdString(kv.second);
-    auto leaf = std::make_unique<Node>(leafName, val, sectionNode);
-    sectionNode->children.push_back(std::move(leaf));
+    sectionNode->children.push_back(
+        std::make_unique<Node>(leafName, val, sectionNode));
   }
 }
 

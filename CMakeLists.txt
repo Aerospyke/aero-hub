@@ -26,10 +26,11 @@ list(APPEND CMAKE_PREFIX_PATH ${QT_INSTALL_LOCATION})
 
 
 # RoboStack: prefer configuring with conda env active (conda activate ros_env && open -na CLion.app).
+# adding the ROS environment via CMAKE_PREFIX_PATH is only necessary if building from a terminal which has not already
+# loaded a ROS virtual environment (e.g. via Conda on macOS) or run the ROS setup script or started CLion without first
+# activating the ros_env
 # Cold start (CLion from Dock): CONDA_PREFIX is unset — fall back to default ros_env so
 # find_package(rclcpp) can resolve ament typesupports (avoids "No 'rosidl_typesupport_c' found").
-# Either use this bhild target (highly tuned to my(CJH) environment) or you can call colcon directly in the terminal with your environment loaded
-# e.g. 'colcon build --packages-select ah_msgs ah_core ah_yolo --cmake-args -DCMAKE_BUILD_TYPE=Release '
 if(NOT DEFINED ENV{CONDA_PREFIX} OR "$ENV{CONDA_PREFIX}" STREQUAL "")
     set(_ah_default_ros_env "$ENV{HOME}/miniconda3/envs/ros_env")
     if(EXISTS "${_ah_default_ros_env}/share/rclcpp/cmake")
@@ -67,6 +68,8 @@ add_subdirectory(AhCommon)
 # Uses ros/build_ros.sh so colcon is found even when CMake/CLion did not inherit
 # the conda PATH (configure-time $ENV{PATH} is often missing ros_env/bin).
 # Usage: cmake --build <build-dir> --target build_ros
+# Either use this build target (highly tuned to my(CJH) environment) or you can call colcon directly in the terminal with your environment loaded
+# e.g. 'colcon build --packages-select ah_msgs ah_core ah_yolo --cmake-args -DCMAKE_BUILD_TYPE=Release '
 add_custom_target(build_ros
   COMMAND bash "${CMAKE_SOURCE_DIR}/ros/build_ros.sh"
   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/ros
