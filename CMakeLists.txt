@@ -22,13 +22,8 @@ set(QT_QML_GENERATE_QML_CACHE ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
-list(APPEND CMAKE_PREFIX_PATH ${QT_INSTALL_LOCATION})
-
 
 # RoboStack: prefer configuring with conda env active (conda activate ros_env && open -na CLion.app).
-# adding the ROS environment via CMAKE_PREFIX_PATH is only necessary if building from a terminal which has not already
-# loaded a ROS virtual environment (e.g. via Conda on macOS) or run the ROS setup script or started CLion without first
-# activating the ros_env
 # Cold start (CLion from Dock): CONDA_PREFIX is unset — fall back to default ros_env so
 # find_package(rclcpp) can resolve ament typesupports (avoids "No 'rosidl_typesupport_c' found").
 if(NOT DEFINED ENV{CONDA_PREFIX} OR "$ENV{CONDA_PREFIX}" STREQUAL "")
@@ -45,6 +40,10 @@ if(NOT DEFINED ENV{CONDA_PREFIX} OR "$ENV{CONDA_PREFIX}" STREQUAL "")
             "Use: conda activate ros_env && open -na CLion.app")
     endif()
 endif()
+
+# Prefer the official Qt kit over any partial Qt under ros_env (e.g. missing Graphs).
+# Must come *after* ROS cold-start PREPEND so this stays first on CMAKE_PREFIX_PATH.
+list(PREPEND CMAKE_PREFIX_PATH ${QT_INSTALL_LOCATION})
 
 find_package(Qt6 ${QT_VERSION_TO_USE} COMPONENTS
         Core
