@@ -47,24 +47,13 @@ def _import_yolo():
     return YOLO
 
 
-def _default_models_dir() -> Path:
-    # Prefer AERO_HUB_MODELS, then aero-hub/models relative to common layouts.
-    env = os.environ.get("AERO_HUB_MODELS", "").strip()
+def _default_yolo_models_dir() -> Path:
+    # Set by AhCommon from [ROS] yolo_models_dir when ah_yolo bootstraps (or init script).
+    env = os.environ.get("AERO_HUB_YOLO_MODELS", "").strip()
     if env:
         return Path(env).expanduser().resolve()
-    here = Path(__file__).resolve()
-    candidates = [
-        here.parents[4] / "models",  # …/aero-hub/ros/install/... → not reliable
-        Path.cwd() / "models",
-        Path.cwd().parent / "models",
-        Path.cwd().parent.parent / "models",
-        Path.home() / "Documents/projects/pix-eagle-stack/aero-hub/models",
-    ]
-    for c in candidates:
-        if c.is_dir():
-            return c.resolve()
+    # Fallback: ./models under CWD only (same discipline as settings file).
     return (Path.cwd() / "models").resolve()
-
 
 # Accepted weight suffixes (Ultralytics prefers .pt; .safetensors also resolved).
 _WEIGHT_SUFFIXES = (".pt", ".safetensors", ".onnx")
@@ -88,7 +77,7 @@ def resolve_weights(profile: str, weights_path: str) -> Path:
             raise FileNotFoundError(f"weights_path not found: {p}")
         return p
 
-    models = _default_models_dir()
+    yolo_models_dir = _default_yolo_models_dir()
     profile = profile.strip().lower()
     if profile == "tank":
         env = os.environ.get("AERO_HUB_YOLO_TANK_WEIGHTS", "").strip()
@@ -112,11 +101,11 @@ def resolve_weights(profile: str, weights_path: str) -> Path:
         candidates: list[Path] = []
         for base in basenames:
             for suf in _WEIGHT_SUFFIXES:
-                candidates.append(models / f"{base}{suf}")
-        if models.is_dir():
+                candidates.append(yolo_models_dir / f"{base}{suf}")
+        if yolo_models_dir.is_dir():
             # Newer dated exports first (mini_tank_0308.pt before mini_tank_0101.pt).
             for pattern in ("mini_tank*.pt", "mini_tank*.safetensors", "tank*.pt", "tank*.safetensors"):
-                candidates.extend(sorted(models.glob(pattern), reverse=True))
+                candidates.extend(sorted(yolo_models_dir.glob(pattern), reverse=True))
 
         found = _first_existing(candidates)
         if found is not None:
@@ -125,14 +114,14 @@ def resolve_weights(profile: str, weights_path: str) -> Path:
         raise FileNotFoundError(
             "tank profile: place Ultralytics weights under models/ as "
             "mini_tank_0308.pt (or tank.pt), "
-            f"(looked under {models}), or set AERO_HUB_YOLO_TANK_WEIGHTS / weights_path. "
+            f"(looked under {yolo_models_dir}), or set AERO_HUB_YOLO_TANK_WEIGHTS / weights_path. "
             "See models/README.md."
         )
 
     if profile in ("coco80", "coco", "coco-80"):
         # Prefer local copy; else Ultralytics will download yolo11n.pt on first use.
         for name in ("yolo11n.pt", "yolov8n.pt"):
-            p = models / name
+            p = yolo_models_dir / name
             if p.is_file():
                 return p
         # Relative to package — still let Ultralytics fetch by name.

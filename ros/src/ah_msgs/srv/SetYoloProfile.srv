@@ -1,5 +1,5 @@
 # Switch ah_yolo detector profile at runtime (tank | coco80).
-# Empty weights_path → resolve defaults under AERO_HUB_MODELS / models/.
+# Empty weights_path → resolve defaults under AERO_HUB_YOLO_MODELS / models/.
 string profile
 string weights_path
 ---

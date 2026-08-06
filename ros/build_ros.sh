@@ -72,8 +72,9 @@ fi
 export AMENT_PREFIX_PATH="${CONDA_PREFIX}${AMENT_PREFIX_PATH:+:${AMENT_PREFIX_PATH}}"
 export CMAKE_PREFIX_PATH="${CONDA_PREFIX}${CMAKE_PREFIX_PATH:+:${CMAKE_PREFIX_PATH}}"
 export PYTHONPATH="${CONDA_PREFIX}/lib/python3.12/site-packages${PYTHONPATH:+:${PYTHONPATH}}"
-export RMW_IMPLEMENTATION="${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}"
-export ROS_DOMAIN_ID="${ROS_DOMAIN_ID:-42}"
+# Do not set ROS_DOMAIN_ID / RMW_IMPLEMENTATION / AERO_HUB_YOLO_MODELS here —
+# those come from aerohub_settings.ini via AhCommon when nodes or
+# init_ah_ros_in_terminal.sh bootstrap.
 
 echo "[build_ros] colcon=${COLCON_BIN}"
 echo "[build_ros] cwd=${_AH_ROS_DIR}"

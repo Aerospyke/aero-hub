@@ -376,7 +376,8 @@ AhCoreNode::AhCoreNode(
     camera_.device_path.c_str());
   RCLCPP_INFO(
     get_logger(),
-    "CLI clients must use the same ROS_DOMAIN_ID (export it or: source ./init_ah_ros_in_terminal.sh)");
+    "CLI clients: source ./init_ah_ros_in_terminal.sh "
+    "(exports ROS_DOMAIN_ID from aerohub_settings.ini via AhCommon)");
 }
 
 AhCoreNode::~AhCoreNode()

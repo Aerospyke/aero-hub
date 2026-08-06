@@ -206,7 +206,8 @@ pip install "ultralytics>=8.3.0"
 
 # offline smoke (no ROS)
 cd …/aero-hub
-export AERO_HUB_MODELS="$PWD/models"
+# Prefer [ROS] yolo_models_dir in aerohub_settings.ini (AhCommon publishes AERO_HUB_YOLO_MODELS)
+export AERO_HUB_YOLO_MODELS="$PWD/models"
 python ros/src/ah_yolo/scripts/smoke_infer.py --profile coco80 \
   --image /path/to/any.jpg
 # tank (after you copy weights → models/tank.pt):

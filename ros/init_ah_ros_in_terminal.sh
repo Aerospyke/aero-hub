@@ -1,12 +1,17 @@
-# Source this in every terminal that talks to ah_core (bash or zsh).
+# Source this in every terminal that talks to the AeroHub ROS graph (bash or zsh).
 #
-#   cd …/aero-hub/ros
-#   source ./init_ah_ros_in_terminal.sh
+#   cd …/aero-hub          # CWD must contain aerohub_settings.ini
+#   source ros/init_ah_ros_in_terminal.sh
 #
-# Why: ah_core reads domain_id=42 from aerohub_settings.ini into *its own process*
-# only. Your CLI shell does not inherit that — if ROS_DOMAIN_ID is unset, ros2
-# defaults to domain 0 and `ros2 service call` hangs on
-# "waiting for service to become available..." while the node is fine on 42.
+# This only:
+#   1) loads the colcon overlay (install/setup.*)
+#   2) exports ROS_DOMAIN_ID, RMW_IMPLEMENTATION, AERO_HUB_YOLO_MODELS from the INI
+#      via AhCommon (ah_settings_shell_exports) — no hard-coded defaults here
+#
+# Namespace is NOT exported: each node applies it from settings.
+#
+# Build AhCommon first if the helper is missing:
+#   cmake --build …/build/Debug --target build_ros
 
 if [ -n "${ZSH_VERSION:-}" ]; then
   _AH_ROS_DIR="$(cd "$(dirname "${(%):-%x}")" && pwd)"
@@ -25,18 +30,28 @@ else
   . "${_AH_ROS_DIR}/install/setup.bash"
 fi
 
-export ROS_DOMAIN_ID="${ROS_DOMAIN_ID:-42}"
-export RMW_IMPLEMENTATION="${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}"
+# Runtime env from aerohub_settings.ini (AhCommon) — domain, RMW, models path.
+_AH_EXPORTS=""
+for _AH_HELPER in \
+  "${_AH_ROS_DIR}/install/ah_common/lib/ah_common/ah_settings_shell_exports" \
+  "${_AH_ROS_DIR}/install/ah_common/bin/ah_settings_shell_exports" \
+  "${_AH_ROS_DIR}/../build/Debug/AhCommon/ah_settings_shell_exports" \
+  "${_AH_ROS_DIR}/../build/Debug/AhCommon/ah_settings_shell_exports.app/Contents/MacOS/ah_settings_shell_exports"
+do
+  if [ -x "${_AH_HELPER}" ]; then
+    _AH_EXPORTS="$("${_AH_HELPER}" 2>/dev/null)" || true
+    break
+  fi
+done
 
-# Optional: same settings file the node uses (camera + ROS keys).
-if [ -z "${AERO_HUB_SETTINGS:-}" ] && [ -f "${_AH_ROS_DIR}/../aerohub_settings.ini" ]; then
-  export AERO_HUB_SETTINGS="${_AH_ROS_DIR}/../aerohub_settings.ini"
+if [ -n "${_AH_EXPORTS}" ]; then
+  # shellcheck disable=SC2086
+  eval ${_AH_EXPORTS}
+else
+  echo "[ah_ros] warning: ah_settings_shell_exports not found — env not loaded from settings." >&2
+  echo "[ah_ros]   Build the ROS stack (cmake --build … --target build_ros) then re-source this script." >&2
+  echo "[ah_ros]   CWD must contain aerohub_settings.ini (typically aero-hub/)." >&2
 fi
 
-# YOLO weights directory (ah_yolo: coco80 → yolo11n.pt, tank → mini_tank_*.pt / tank.pt)
-if [ -z "${AERO_HUB_MODELS:-}" ] && [ -d "${_AH_ROS_DIR}/../models" ]; then
-  export AERO_HUB_MODELS="$(cd "${_AH_ROS_DIR}/../models" && pwd)"
-fi
-
-echo "[ah_ros] overlay=${_AH_ROS_DIR}/install  ROS_DOMAIN_ID=${ROS_DOMAIN_ID}  RMW=${RMW_IMPLEMENTATION}  MODELS=${AERO_HUB_MODELS:-}"
-unset _AH_ROS_DIR
+echo "[ah_ros] overlay=${_AH_ROS_DIR}/install  ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-unset}  RMW=${RMW_IMPLEMENTATION:-unset}  YOLO_MODELS=${AERO_HUB_YOLO_MODELS:-unset}"
+unset _AH_ROS_DIR _AH_HELPER _AH_EXPORTS

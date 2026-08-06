@@ -12,8 +12,8 @@ if(NOT TARGET AhCommon::ah_common)
   add_subdirectory("${_AH_COMMON_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/AhCommon")
 endif()
 
-# Install static + shared (libah_common_c) into the ament prefix for Python ctypes.
-install(TARGETS ah_common ah_common_c
+# Libraries for C++ / Python ctypes; shell helper for terminal init.
+install(TARGETS ah_common ah_common_c ah_settings_shell_exports
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION lib/${PROJECT_NAME}

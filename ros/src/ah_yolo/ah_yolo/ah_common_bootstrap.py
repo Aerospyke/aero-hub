@@ -19,7 +19,7 @@ class RosRuntimeBootstrap:
     domain_id: int
     namespace: str
     settings_path: str
-    models_dir: str
+    yolo_models_dir: str
     loaded_from_file: bool
 
 
@@ -29,7 +29,7 @@ class _AhSettingsBootstrap(ctypes.Structure):
         ("loaded_from_file", c_int),
         ("ros_namespace", c_char * 256),
         ("settings_path", c_char * 1024),
-        ("models_dir", c_char * 1024),
+        ("yolo_models_dir", c_char * 1024),
     ]
 
 
@@ -107,20 +107,19 @@ def apply_ros_runtime_from_ah_common() -> RosRuntimeBootstrap:
     domain_id = int(buf.domain_id)
     namespace = buf.ros_namespace.decode("utf-8", errors="replace")
     settings_path = buf.settings_path.decode("utf-8", errors="replace")
-    models_dir = buf.models_dir.decode("utf-8", errors="replace")
+    yolo_models_dir = buf.yolo_models_dir.decode("utf-8", errors="replace")
     loaded = bool(buf.loaded_from_file)
 
-    # C++ Load() setenv ROS_DOMAIN_ID when unset; ensure Python sees effective id.
+    # C++ Settings::Load() already published env from the INI (overwrite).
+    # Mirror into os.environ for any Python code that reads it.
     os.environ["ROS_DOMAIN_ID"] = str(domain_id)
-    if models_dir and not os.environ.get("AERO_HUB_MODELS", "").strip():
-        os.environ["AERO_HUB_MODELS"] = models_dir
-    if settings_path and not os.environ.get("AERO_HUB_SETTINGS", "").strip():
-        os.environ["AERO_HUB_SETTINGS"] = settings_path
+    if yolo_models_dir:
+        os.environ["AERO_HUB_YOLO_MODELS"] = yolo_models_dir
 
     return RosRuntimeBootstrap(
         domain_id=domain_id,
         namespace=namespace,
         settings_path=settings_path,
-        models_dir=models_dir,
+        yolo_models_dir=yolo_models_dir,
         loaded_from_file=loaded,
     )

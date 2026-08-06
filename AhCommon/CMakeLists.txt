@@ -56,6 +56,15 @@ install(TARGETS ah_common ah_common_c
   INCLUDES DESTINATION include
 )
 
+# Small CLI so terminal init can eval domain from settings (no hard-coded 42).
+add_executable(ah_settings_shell_exports src/ah_settings_shell_exports.cpp)
+target_link_libraries(ah_settings_shell_exports PRIVATE ah_common)
+target_compile_features(ah_settings_shell_exports PRIVATE cxx_std_23)
+
 install(DIRECTORY include/ah_common
   DESTINATION include
+)
+
+install(TARGETS ah_settings_shell_exports
+  RUNTIME DESTINATION bin
 )

@@ -28,7 +28,9 @@ struct CameraSelection {
 /// section headers.
 ///
 /// Always starts from built-in defaults, then overlays keys present in the INI.
-/// If the file is missing, defaults are written to aerohub_settings.ini.
+/// Load() only looks for "./aerohub_settings.ini" in the process CWD (no parent
+/// search, no alternate paths). Missing file → stderr warning + defaults
+/// (+ attempt to write a new file in CWD).
 class Settings {
  public:
   static constexpr std::uint8_t DefaultRosDomainId = 42;
@@ -44,7 +46,9 @@ class Settings {
     [[nodiscard]] bool Empty() const { return values.empty() && children.empty(); }
   };
 
+  /// Load "./aerohub_settings.ini" from the current working directory only.
   static Settings Load();
+  /// Load an explicit path (tests / callers that already know the path).
   static Settings LoadFromPath(std::string path);
 
   Settings(const Settings&) = default;
@@ -89,8 +93,13 @@ class Settings {
 
     [[nodiscard]] std::uint8_t DomainId() const;
     [[nodiscard]] std::string NamespaceName() const;
+    [[nodiscard]] std::string RmwImplementation() const;
+    /// YOLO weights directory (relative to CWD or absolute); published as AERO_HUB_YOLO_MODELS.
+    [[nodiscard]] std::string YoloModelsDir() const;
     void SetDomainId(std::uint8_t value) const;
     void SetNamespaceName(const std::string& value) const;
+    void SetRmwImplementation(const std::string& value) const;
+    void SetYoloModelsDir(const std::string& value) const;
 
    private:
     const Settings* owner_;
@@ -141,8 +150,9 @@ class Settings {
 
   void PopulateDefaults();
   void OverlayFromFile(const std::string& path);
-  void ApplyProcessEnvOverrides();
-  void ExportDomainIdToEnvIfUnset() const;
+  /// Publish process env vars that ROS/tools read (from INI only — no shell defaults).
+  /// Sets ROS_DOMAIN_ID, RMW_IMPLEMENTATION, AERO_HUB_YOLO_MODELS.
+  void PublishRuntimeEnvFromSettings() const;
   static std::string ResolvePath();
 
   static std::vector<std::string> SplitPath(std::string_view path);

@@ -1,6 +1,7 @@
 # AeroHub YOLO weights
 
-Used by `ah_yolo` (Task_33+). Directory is exported as `AERO_HUB_MODELS` by `ros/init_ah_ros_in_terminal.sh`.
+Used by `ah_yolo` (Task_33+). Path comes from `[ROS] yolo_models_dir` in `aerohub_settings.ini`
+(published as `AERO_HUB_YOLO_MODELS` via AhCommon / `init_ah_ros_in_terminal.sh`).
 
 | Profile | Default files (first found wins) | Notes |
 |---------|----------------------------------|-------|
@@ -17,7 +18,7 @@ Weights on disk: **`mini_tank_0308.pt`**.
 (calls `ah/yolo/set_profile`; `ah_yolo` must already be running).
 
 ```bash
-# after init_ah_ros_in_terminal.sh (sets AERO_HUB_MODELS)
+# after init_ah_ros_in_terminal.sh (sets AERO_HUB_YOLO_MODELS from settings)
 ros2 run ah_yolo ah_yolo_node --ros-args -p profile:=tank
 # or start on coco80 and switch from the dashboard
 ros2 run ah_yolo ah_yolo_node --ros-args -p profile:=coco80
@@ -34,13 +35,13 @@ Explicit path (optional):
 ```bash
 ros2 run ah_yolo ah_yolo_node --ros-args \
   -p profile:=tank \
-  -p weights_path:=$AERO_HUB_MODELS/mini_tank_0308.pt
+  -p weights_path:=$AERO_HUB_YOLO_MODELS/mini_tank_0308.pt
 ```
 
 Or env override:
 
 ```bash
-export AERO_HUB_YOLO_TANK_WEIGHTS=$AERO_HUB_MODELS/mini_tank_0308.pt
+export AERO_HUB_YOLO_TANK_WEIGHTS=$AERO_HUB_YOLO_MODELS/mini_tank_0308.pt
 ros2 run ah_yolo ah_yolo_node --ros-args -p profile:=tank
 ```
 
@@ -86,7 +87,8 @@ cp mini_tank_0308.pt tank.pt
 ## Env overrides
 
 ```bash
-export AERO_HUB_MODELS=/absolute/path/to/models
+# Prefer [ROS] yolo_models_dir in aerohub_settings.ini; optional env override after AhCommon publish:
+export AERO_HUB_YOLO_MODELS=/absolute/path/to/models
 export AERO_HUB_YOLO_TANK_WEIGHTS=/absolute/path/to/weights.pt
 ```
 

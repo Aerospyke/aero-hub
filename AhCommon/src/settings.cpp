@@ -2,6 +2,8 @@
 
 #include "ah_common/string_util.hpp"
 
+#include <cstdlib>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <ranges>
@@ -18,6 +20,9 @@ struct DefaultEntry {
 constexpr DefaultEntry DefaultSettings[] = {
     {.path = "ROS/domain_id", .value = "42"},
     {.path = "ROS/namespace", .value = ""},
+    {.path = "ROS/rmw_implementation", .value = "rmw_fastrtps_cpp"},
+    // Relative to process CWD (typically aero-hub/); published as AERO_HUB_YOLO_MODELS.
+    {.path = "ROS/yolo_models_dir", .value = "models"},
 
     {.path = "Camera/video_source", .value = "synthetic"},
     {.path = "Camera/device_id", .value = "-1"},
@@ -222,14 +227,20 @@ Settings Settings::LoadFromPath(std::string path) {
 
   if (s.was_file_loaded_) {
     s.OverlayFromFile(s.path_);
+  } else {
+    // Fail loudly: only the process working directory is searched (no parent-path hunt).
+    std::cerr << "AhCommon Settings: warning: \"" << s.path_ << "\" not found in the current working directory. "
+              << "Using built-in defaults (and writing a new file if possible). "
+              << "cd to the directory that contains " << SettingsFileName << " "
+              << "(typically aero-hub/) before starting nodes or the dashboard.\n";
   }
 
-  s.ApplyProcessEnvOverrides();
-  s.ExportDomainIdToEnvIfUnset();
+  // Runtime env (domain, RMW, models path) comes only from the settings tree.
+  s.PublishRuntimeEnvFromSettings();
 
   if (!s.was_file_loaded_) {
     if (std::string error_out; !s.Save(error_out)) {
-      std::cerr << error_out << std::endl;
+      std::cerr << "AhCommon Settings: warning: could not write defaults: " << error_out << '\n';
     }
   }
 
@@ -237,11 +248,8 @@ Settings Settings::LoadFromPath(std::string path) {
 }
 
 std::string Settings::ResolvePath() {
-  const char* env = std::getenv("AERO_HUB_SETTINGS");
-  if (env != nullptr && env[0] != '\0') {
-    return std::string(env);
-  }
-
+  // Only the working directory — never search parents or alternate roots.
+  // A missing file is reported as a warning in LoadFromPath.
   return std::string(SettingsFileName);
 }
 
@@ -291,21 +299,23 @@ void Settings::OverlayFromFile(const std::string& path) {
   }
 }
 
-void Settings::ApplyProcessEnvOverrides() {
-  const char* namespace_environment_definition = std::getenv("AERO_HUB_ROS_NAMESPACE");
-  if (namespace_environment_definition != nullptr) {
-    Set({"ROS", "namespace"}, SanitizeNamespace(namespace_environment_definition));
-  }
-}
-
-void Settings::ExportDomainIdToEnvIfUnset() const {
-  const char* ros_domain_id_environment_definition = std::getenv("ROS_DOMAIN_ID");
-  if (ros_domain_id_environment_definition != nullptr && ros_domain_id_environment_definition[0] != '\0') {
-    return;
-  }
+void Settings::PublishRuntimeEnvFromSettings() const {
+  // rmw/rcl and lab tools still read process environment variables. Always
+  // overwrite from the settings tree so the INI is the single source of truth
+  // (no competing shell defaults for domain / RMW / models).
   const std::string RosDomainId = Get({"ROS", "domain_id"}, "42");
   if (!RosDomainId.empty()) {
-    setenv("ROS_DOMAIN_ID", RosDomainId.c_str(), 0);
+    setenv("ROS_DOMAIN_ID", RosDomainId.c_str(), /*overwrite=*/1);
+  }
+
+  const std::string Rmw = Ros().RmwImplementation();
+  if (!Rmw.empty()) {
+    setenv("RMW_IMPLEMENTATION", Rmw.c_str(), /*overwrite=*/1);
+  }
+
+  const std::string YoloModelsDir = Ros().YoloModelsDir();
+  if (!YoloModelsDir.empty()) {
+    setenv("AERO_HUB_YOLO_MODELS", YoloModelsDir.c_str(), /*overwrite=*/1);
   }
 }
 
@@ -414,12 +424,37 @@ std::string Settings::RosSection::NamespaceName() const {
   return SanitizeNamespace(owner_->Get({"ROS", "namespace"}, ""));
 }
 
+std::string Settings::RosSection::RmwImplementation() const {
+  return owner_->Get({"ROS", "rmw_implementation"}, "rmw_fastrtps_cpp");
+}
+
+std::string Settings::RosSection::YoloModelsDir() const {
+  const std::string Dir = owner_->Get({"ROS", "yolo_models_dir"}, "models");
+  if (Dir.empty()) {
+    return {};
+  }
+  namespace fs = std::filesystem;
+  fs::path path(Dir);
+  if (!path.is_absolute()) {
+    path = fs::current_path() / path;
+  }
+  return path.lexically_normal().string();
+}
+
 void Settings::RosSection::SetDomainId(const std::uint8_t value) const {
   MutableOwner()->Set({"ROS", "domain_id"}, std::to_string(static_cast<int>(value)));
 }
 
 void Settings::RosSection::SetNamespaceName(const std::string& value) const {
   MutableOwner()->Set({"ROS", "namespace"}, SanitizeNamespace(value));
+}
+
+void Settings::RosSection::SetRmwImplementation(const std::string& value) const {
+  MutableOwner()->Set({"ROS", "rmw_implementation"}, value);
+}
+
+void Settings::RosSection::SetYoloModelsDir(const std::string& value) const {
+  MutableOwner()->Set({"ROS", "yolo_models_dir"}, value);
 }
 
 // --- CameraSection ---
