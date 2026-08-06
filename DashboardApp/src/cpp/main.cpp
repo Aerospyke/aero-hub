@@ -24,7 +24,7 @@
 #include "jsb_settings_tree_model.h"
 #include "primary_flight_data.h"
 
-int main(int argc, char* argv[]) {
+int main(int argument_count, char* argument_values[]) {
   // macOS "native" style forbids customizing SpinBox/Button backgrounds &
   // indicators. Use a style that allows full QML chrome (Basic/Fusion/Material).
   QQuickStyle::setStyle(QStringLiteral("Basic"));
@@ -35,7 +35,7 @@ int main(int argc, char* argv[]) {
 
   // QGuiApplication must exist before QTimer-based watchdogs (status link + video
   // stale detection) or the timers never fire and the UI stays "live" forever.
-  const QGuiApplication Application(argc, argv);
+  const QGuiApplication Application(argument_count, argument_values);
 
   auto* system_status = new AhSystemStatus(QCoreApplication::instance());
   auto* video_feed = new AhVideoFeed(QCoreApplication::instance());

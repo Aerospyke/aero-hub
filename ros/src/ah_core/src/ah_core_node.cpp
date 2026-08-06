@@ -497,7 +497,7 @@ void AhCoreNode::OnTimer()
     tracking_bounding_box_y_,
     tracking_bounding_box_width_,
     tracking_bounding_box_height_,
-    locked_track_id_);
+    currently_locked_object_id_);
   status_pub_->publish(status_msg);
 
   std::vector<int> params = {cv::IMWRITE_JPEG_QUALITY, kJpegQuality};
@@ -533,8 +533,8 @@ void AhCoreNode::OnStartTracking(
   tracking_started_ = true;
   tracker_type_ = "classic";
   // Classic bbox must not keep following a previous AI track_id.
-  locked_track_id_ = -1;
-  locked_track_miss_frames_ = 0;
+  currently_locked_object_id_ = -1;
+  current_lock_num_missed_frames_ = 0;
   tracking_bounding_box_x_ = request->x;
   tracking_bounding_box_y_ = request->y;
   tracking_bounding_box_width_ = request->width;
@@ -556,8 +556,8 @@ void AhCoreNode::OnStopTracking(
 {
   const bool was = tracking_started_;
   tracking_started_ = false;
-  locked_track_id_ = -1;
-  locked_track_miss_frames_ = 0;
+  currently_locked_object_id_ = -1;
+  current_lock_num_missed_frames_ = 0;
   if (!ai_tracking_active_) {
     tracker_type_ = "stub";
   }
@@ -572,8 +572,8 @@ void AhCoreNode::OnCancelTracking(
 {
   tracking_started_ = false;
   segmentation_active_ = false;
-  locked_track_id_ = -1;
-  locked_track_miss_frames_ = 0;
+  currently_locked_object_id_ = -1;
+  current_lock_num_missed_frames_ = 0;
   if (!ai_tracking_active_) {
     tracker_type_ = "stub";
   } else {
@@ -772,7 +772,7 @@ void AhCoreNode::PublishStatusSnapshot(const char * video_status)
     tracking_bounding_box_y_,
     tracking_bounding_box_width_,
     tracking_bounding_box_height_,
-    locked_track_id_);
+    currently_locked_object_id_);
   status_pub_->publish(status_msg);
 }
 
@@ -846,40 +846,37 @@ void AhCoreNode::OnDetections(const std_msgs::msg::String::SharedPtr msg)
 
 void AhCoreNode::UpdateLockFromTrackedId()
 {
-  if (!tracking_started_ || locked_track_id_ < 0) {
+  if (!tracking_started_ || currently_locked_object_id_ < 0) {
     return;
   }
 
-  const int want_id = locked_track_id_;
-
-  std::vector<DetectionBox> dets;
+  std::vector<DetectionBox> detected_objects;
   {
     std::lock_guard<std::mutex> lock(detections_mutex_);
-    dets = last_detections_;
+    detected_objects = last_detections_;
   }
 
-  for (const auto & d : dets) {
-    if (d.track_id == want_id) {
-      tracking_bounding_box_x_ = d.x;
-      tracking_bounding_box_y_ = d.y;
-      tracking_bounding_box_width_ = d.w;
-      tracking_bounding_box_height_ = d.h;
-      locked_track_miss_frames_ = 0;
+  for (const auto & object_bounding_box : detected_objects) {
+    if (object_bounding_box.track_id == currently_locked_object_id_) {
+      tracking_bounding_box_x_ = object_bounding_box.x;
+      tracking_bounding_box_y_ = object_bounding_box.y;
+      tracking_bounding_box_width_ = object_bounding_box.w;
+      tracking_bounding_box_height_ = object_bounding_box.h;
+      current_lock_num_missed_frames_ = 0;
       return;
     }
   }
 
   // Track ID missing this frame — keep last box for a short grace period.
-  ++locked_track_miss_frames_;
-  constexpr int kMaxMiss = 15;  // ~detections rate; clear after sustained loss
-  if (locked_track_miss_frames_ >= kMaxMiss) {
+  current_lock_num_missed_frames_++;
+  if (current_lock_num_missed_frames_ >= MaxMissedTrackingFramesBeforeDrop) {
     RCLCPP_WARN(
       get_logger(),
       "lost track_id=%d for %d frames — clearing AI lock",
-      want_id, locked_track_miss_frames_);
+      currently_locked_object_id_, current_lock_num_missed_frames_);
     tracking_started_ = false;
-    locked_track_id_ = -1;
-    locked_track_miss_frames_ = 0;
+    currently_locked_object_id_ = -1;
+    current_lock_num_missed_frames_ = 0;
     tracking_bounding_box_x_ = 0.f;
     tracking_bounding_box_y_ = 0.f;
     tracking_bounding_box_width_ = 0.f;
@@ -898,44 +895,45 @@ bool AhCoreNode::ResolveAiTrackingClickLock(
   // When several boxes contain the point (overlap / nested), pick the one whose
   // *center* is closest to the click — not merely the smallest area. That makes
   // switching from a large locked object onto a nearby smaller one reliable.
-  std::vector<DetectionBox> dets;
+  std::vector<DetectionBox> detected_objects;
   {
     std::lock_guard<std::mutex> lock(detections_mutex_);
-    dets = last_detections_;
+    detected_objects = last_detections_;
   }
 
-  int best = -1;
   float best_dist2 = 1e30f;
   float best_area = 1e30f;
-
-  for (size_t i = 0; i < dets.size(); ++i) {
-    const auto & d = dets[i];
-    const float x1 = d.x;
-    const float y1 = d.y;
-    const float x2 = d.x + d.w;
-    const float y2 = d.y + d.h;
+  DetectionBox best_matched_box;
+  bool did_click_in_box = false;
+  
+  for (const auto & object_bounding_box : detected_objects) {
+    const float x1 = object_bounding_box.x;
+    const float y1 = object_bounding_box.y;
+    const float x2 = object_bounding_box.x + object_bounding_box.w;
+    const float y2 = object_bounding_box.y + object_bounding_box.h;
     if (click_x < x1 || click_x > x2 || click_y < y1 || click_y > y2) {
       continue;
     }
-    const float cx = d.x + 0.5f * d.w;
-    const float cy = d.y + 0.5f * d.h;
+    const float cx = object_bounding_box.x + 0.5f * object_bounding_box.w;
+    const float cy = object_bounding_box.y + 0.5f * object_bounding_box.h;
     const float dx = click_x - cx;
     const float dy = click_y - cy;
     const float dist2 = dx * dx + dy * dy;
-    const float area = d.w * d.h;
+    const float area = object_bounding_box.w * object_bounding_box.h;
     // Prefer closer center; break ties with smaller area.
     if (dist2 < best_dist2 - 1e-12f ||
         (std::fabs(dist2 - best_dist2) <= 1e-12f && area < best_area))
     {
       best_dist2 = dist2;
       best_area = area;
-      best = static_cast<int>(i);
+      best_matched_box = object_bounding_box;
+      did_click_in_box = true;
     }
   }
-
-  if (best < 0) {
+  
+  if (!did_click_in_box) {
     if (out_label) {
-      *out_label = dets.empty() ? "no detections" : "miss (click a detection)";
+      *out_label = detected_objects.empty() ? "No Detections Available To Click" : "Did Not Click In A Detected Bounding Box";
     }
     if (out_track_id) {
       *out_track_id = -1;
@@ -943,20 +941,19 @@ bool AhCoreNode::ResolveAiTrackingClickLock(
     return false;
   }
 
-  const auto & d = dets[static_cast<size_t>(best)];
-  *out_x = d.x;
-  *out_y = d.y;
-  *out_w = d.w;
-  *out_h = d.h;
+  *out_x = best_matched_box.x;
+  *out_y = best_matched_box.y;
+  *out_w = best_matched_box.w;
+  *out_h = best_matched_box.h;
   if (out_track_id) {
-    *out_track_id = d.track_id;
+    *out_track_id = best_matched_box.track_id;
   }
   if (out_label) {
-    if (d.track_id >= 0) {
-      *out_label = (d.class_name.empty() ? "obj" : d.class_name) +
-                   " id=" + std::to_string(d.track_id);
+    if (best_matched_box.track_id >= 0) {
+      *out_label = (best_matched_box.class_name.empty() ? "obj" : best_matched_box.class_name) +
+                   " id=" + std::to_string(best_matched_box.track_id);
     } else {
-      *out_label = d.class_name.empty() ? "detection (no track_id)" : d.class_name;
+      *out_label = best_matched_box.class_name.empty() ? "detection (no track_id)" : best_matched_box.class_name;
     }
   }
   return true;
@@ -972,8 +969,8 @@ void AhCoreNode::OnAiTrackingToggle(
   if (turning_on) {
     // Enter ai tracking: clear classic framing; lock only appears after click-on-detection.
     tracking_started_ = false;
-    locked_track_id_ = -1;
-    locked_track_miss_frames_ = 0;
+    currently_locked_object_id_ = -1;
+    current_lock_num_missed_frames_ = 0;
     tracking_bounding_box_x_ = 0.f;
     tracking_bounding_box_y_ = 0.f;
     tracking_bounding_box_width_ = 0.f;
@@ -982,8 +979,8 @@ void AhCoreNode::OnAiTrackingToggle(
   } else {
     // Leave ai tracking: stop any ai tracking lock; classic drag box returns on the UI.
     tracking_started_ = false;
-    locked_track_id_ = -1;
-    locked_track_miss_frames_ = 0;
+    currently_locked_object_id_ = -1;
+    current_lock_num_missed_frames_ = 0;
     tracker_type_ = "stub";
     tracking_bounding_box_x_ = 0.35f;
     tracking_bounding_box_y_ = 0.35f;
@@ -1013,7 +1010,7 @@ void AhCoreNode::OnAiTrackingClick(
     return;
   }
 
-  const int previous_lock = locked_track_id_;
+  const int previous_lock = currently_locked_object_id_;
 
   float bx = 0.f, by = 0.f, bw = 0.f, bh = 0.f;
   int track_id = -1;
@@ -1023,14 +1020,14 @@ void AhCoreNode::OnAiTrackingClick(
   {
     // Miss: do not start tracking and do not invent a free-point box.
     tracking_started_ = false;
-    locked_track_id_ = -1;
-    locked_track_miss_frames_ = 0;
+    currently_locked_object_id_ = -1;
+    current_lock_num_missed_frames_ = 0;
     tracking_bounding_box_x_ = 0.f;
     tracking_bounding_box_y_ = 0.f;
     tracking_bounding_box_width_ = 0.f;
     tracking_bounding_box_height_ = 0.f;
     response->success = false;
-    response->message = "MISS: click must hit a detection (" + label + ")";
+    response->message = "Missed click, reason: " + label;
     response->lock_x = 0.f;
     response->lock_y = 0.f;
     response->lock_width = 0.f;
@@ -1060,8 +1057,8 @@ void AhCoreNode::OnAiTrackingClick(
   // Explicitly replace any previous lock (do not leave old track_id sticky).
   tracking_started_ = true;
   tracker_type_ = "ai_tracking";
-  locked_track_id_ = track_id;
-  locked_track_miss_frames_ = 0;
+  currently_locked_object_id_ = track_id;
+  current_lock_num_missed_frames_ = 0;
   tracking_bounding_box_x_ = bx;
   tracking_bounding_box_y_ = by;
   tracking_bounding_box_width_ = bw;

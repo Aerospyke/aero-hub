@@ -80,6 +80,6 @@ echo "[build_ros] cwd=${_AH_ROS_DIR}"
 echo "[build_ros] CONDA_PREFIX=${CONDA_PREFIX:-}"
 
 "${COLCON_BIN}" build \
-  --packages-select ah_msgs ah_core ah_yolo \
+  --packages-select ah_common ah_msgs ah_core ah_yolo \
   --cmake-args -DCMAKE_BUILD_TYPE=Release \
   "$@"

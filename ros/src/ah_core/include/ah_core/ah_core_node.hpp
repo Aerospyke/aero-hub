@@ -25,8 +25,6 @@ namespace ah_core
 class AhCoreNode : public rclcpp::Node
 {
 public:
-  // Relative topic/service names (no leading /) so node namespace prefixes them.
-  // Empty namespace → /ah/... ; namespace "uav1" → /uav1/ah/...
   explicit AhCoreNode(
     const std::string & ros_namespace,
     CameraSelection initial_camera,
@@ -35,6 +33,9 @@ public:
   ~AhCoreNode() override;
 
 private:
+
+  const int MaxMissedTrackingFramesBeforeDrop = 15;  // ~detections rate; clear after sustained loss
+
   void ApplySelectionToParams();
   void PersistSelectionToSettingsFile();
   /// Open or close long-lived capture to match camera_ (holds camera_mutex_).
@@ -127,8 +128,8 @@ private:
   mutable std::mutex detections_mutex_;
   std::vector<DetectionBox> last_detections_;
   /// When tracking under AI mode: follow this Ultralytics track_id frame-to-frame.
-  int locked_track_id_{-1};
-  int locked_track_miss_frames_{0};
+  int currently_locked_object_id_{-1};
+  int current_lock_num_missed_frames_{0};
 };
 
 }  // namespace ah_core

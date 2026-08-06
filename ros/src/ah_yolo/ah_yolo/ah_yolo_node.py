@@ -32,6 +32,8 @@ try:
 except ImportError:  # pragma: no cover — package layout during early bootstrap
     SetYoloProfile = None  # type: ignore
 
+from ah_yolo.ah_common_bootstrap import apply_ros_runtime_from_ah_common
+
 # Lazy import ultralytics so --help / package install works without torch.
 YOLO = None  # type: ignore
 
@@ -156,8 +158,8 @@ def pick_device(requested: str) -> str:
 
 
 class AhYoloNode(Node):
-    def __init__(self) -> None:
-        super().__init__("ah_yolo")
+    def __init__(self, *, namespace: str = "") -> None:
+        super().__init__("ah_yolo", namespace=namespace)
 
         self.declare_parameter("profile", "coco80")
         self.declare_parameter("weights_path", "")
@@ -211,9 +213,11 @@ class AhYoloNode(Node):
 
         self._load_model()
         domain = os.environ.get("ROS_DOMAIN_ID", "(default 0)")
+        ns = self.get_namespace() or "/"
         self.get_logger().info(
             f"ah_yolo ready: profile={self._profile()} weights={self._model_path} "
-            f"device={self._device()} domain={domain} sub={image_topic} pub={detections_topic}"
+            f"device={self._device()} domain={domain} namespace={ns} "
+            f"sub={image_topic} pub={detections_topic}"
         )
 
     def _profile(self) -> str:
@@ -421,8 +425,14 @@ class AhYoloNode(Node):
 
 
 def main(args: list[str] | None = None) -> None:
+    # Same settings engine as ah_core (AhCommon C++ lib via ctypes).
+    runtime = apply_ros_runtime_from_ah_common()
     rclpy.init(args=args)
-    node = AhYoloNode()
+    node = AhYoloNode(namespace=runtime.namespace)
+    node.get_logger().info(
+        f"AhCommon settings: path={runtime.settings_path} loaded={runtime.loaded_from_file} "
+        f"domain_id={runtime.domain_id} namespace={runtime.namespace!r}"
+    )
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:

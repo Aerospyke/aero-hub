@@ -65,15 +65,16 @@ endif ()
 add_subdirectory(AhCommon)
 
 # Optional: rebuild ROS packages via colcon (not a hard dependency of AeroHub).
-# Uses ros/build_ros.sh so colcon is found even when CMake/CLion did not inherit
-# the conda PATH (configure-time $ENV{PATH} is often missing ros_env/bin).
-# Usage: cmake --build <build-dir> --target build_ros
-# Either use this build target (highly tuned to my(CJH) environment) or you can call colcon directly in the terminal with your environment loaded
-# e.g. 'colcon build --packages-select ah_msgs ah_core ah_yolo --cmake-args -DCMAKE_BUILD_TYPE=Release '
+# Invokes ros/build_ros.sh so colcon is found when CMake/CLion lack conda PATH.
+# Builds: ah_common (AhCommon lib + libah_common_c for ah_yolo), ah_msgs, ah_core, ah_yolo.
+# Usage:  cmake --build <build-dir> --target build_ros
+# Then:   source ros/install/setup.zsh   # or init_ah_ros_in_terminal.sh
+# Equivalent:  cd ros && ./build_ros.sh
+# (or colcon with packages-select ah_common ah_msgs ah_core ah_yolo)
 add_custom_target(build_ros
   COMMAND bash "${CMAKE_SOURCE_DIR}/ros/build_ros.sh"
   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/ros
-  COMMENT "colcon build ah_msgs ah_core ah_yolo (optional; run when ROS packages change)"
+  COMMENT "colcon build ah_common ah_msgs ah_core ah_yolo (optional ROS stack)"
   VERBATIM
   USES_TERMINAL
 )
