@@ -29,7 +29,7 @@ macro(find_and_setup_qt)
 
     # Default components
     if (NOT ARG_COMPONENTS)
-        set(ARG_COMPONENTS Core Gui Quick Graphs ShaderTools QuickLayouts QuickControls2)
+        set(ARG_COMPONENTS Core Gui Quick Graphs ShaderTools QuickLayouts QuickControls2 Svg)
         message(WARNING "COMPONENTS not passed to find_and_setup_qt - using default: ${ARG_COMPONENTS}")
     endif ()
 
@@ -129,7 +129,7 @@ function(setup_qt_application)
     endif ()
 
     if (NOT ARG_LINKED_LIBRARIES_QT)
-        set(ARG_LINKED_LIBRARIES_QT Qt::Core Qt::Gui Qt::Quick Qt::Graphs Qt::ShaderTools Qt::QuickLayouts Qt::QuickControls2)
+        set(ARG_LINKED_LIBRARIES_QT Qt::Core Qt::Gui Qt::Quick Qt::Graphs Qt::ShaderTools Qt::QuickLayouts Qt::QuickControls2 Qt::Svg)
         message(WARNING "LINKED_LIBRARIES_QT not passed - using default: ${ARG_LINKED_LIBRARIES_QT}")
     endif ()
     # Argument Handling - Start

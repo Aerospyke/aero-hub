@@ -24,6 +24,7 @@ target_link_libraries(QmlFlightInstruments
         Qt::ShaderTools
         Qt::QuickLayouts
         Qt::QuickControls2
+        Qt::Svg
 )
 
 target_include_directories(QmlFlightInstruments

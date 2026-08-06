@@ -17,6 +17,7 @@ set(QT_PACKAGES
         ShaderTools
         QuickLayouts
         QuickControls2
+        Svg
 )
 
 set(APPLICATION_RESOURCE_DECLARATION_FILE
@@ -72,6 +73,7 @@ set(LINKED_LIBRARIES_QT
         Qt::ShaderTools
         Qt::QuickLayouts
         Qt::QuickControls2
+        Qt::Svg
 )
 
 find_and_setup_qt(COMPONENTS ${QT_PACKAGES}

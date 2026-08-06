@@ -54,6 +54,7 @@ find_package(Qt6 ${QT_VERSION_TO_USE} COMPONENTS
         ShaderTools
         QuickLayouts
         QuickControls2
+        Svg
         REQUIRED
 )
 
