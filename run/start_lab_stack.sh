@@ -22,7 +22,6 @@ _WITH_YOLO=1
 _WITH_DASH=1
 for _arg in "$@"; do
   case "${_arg}" in
-    --with-yolo) _WITH_YOLO=1 ;;
     --no-yolo) _WITH_YOLO=0 ;;
     --ros-only|ros-only) _WITH_DASH=0 ;;
     -h|--help)
