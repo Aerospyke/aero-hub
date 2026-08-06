@@ -138,9 +138,10 @@ source ./init_ah_ros_in_terminal.sh
 |----------|---------|
 | A — core | `ros2 run ah_core ah_core_node` |
 | B — YOLO (optional) | `ros2 run ah_yolo ah_yolo_node` |
-| C — dashboard | `./AeroHub.app/Contents/MacOS/AeroHub` (macOS) |
+| C — dashboard | `./start_dashboard.sh` (macOS; sources init then runs the app binary) |
 
-**CLion:** env `ros_env` active; Run configuration Working directory = **`aero-hub/run`**; target **AeroHub**. No need to `open` the installed app.
+**One-shot (tmux):** from `run/`, `./start_lab_stack.sh` starts panes for `ah_core`, `ah_yolo`, and the dashboard (`--no-yolo` / `--ros-only` to drop YOLO or the dashboard). Works inside Ghostty/Terminal/iTerm; needs `tmux`.
+**CLion:** env `ros_env` active; Run configuration Working directory = **`aero-hub/run`**; target **AeroHub**. Do not use bare `open ./AeroHub.app`.
 
 Settings: **`run/aerohub_settings.ini`** only (AhCommon creates defaults if missing: domain **42**, `yolo_models_dir=../yolo-models`, …). See [`run/README.md`](run/README.md).
 

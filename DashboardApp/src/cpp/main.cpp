@@ -24,6 +24,10 @@
 #include "jsb_settings_tree_model.h"
 #include "primary_flight_data.h"
 
+// Lab: settings + relative paths use process CWD. Launch from /run directory with two steps
+// 1. `source ./init_ah_ros_in_terminal.sh`
+// 2. './AeroHub.app/Contents/MacOS/AeroHub'
+// Do not use bare `open AeroHub.app` — it does not inherit the shell ROS env.
 int main(int argument_count, char* argument_values[]) {
   // macOS "native" style forbids customizing SpinBox/Button backgrounds &
   // indicators. Use a style that allows full QML chrome (Basic/Fusion/Material).
@@ -31,10 +35,7 @@ int main(int argument_count, char* argument_values[]) {
 
   Q_INIT_RESOURCE(QmlFlightInstruments);
 
-  // Lab: settings + relative paths use process CWD. Launch from /run directory with two steps
-  // 1. `source ./init_ah_ros_in_terminal.sh`
-  // 2. './AeroHub.app/Contents/MacOS/AeroHub'
-  // Do not use bare `open AeroHub.app` — it does not inherit the shell ROS env.
+
   AhSettings app_settings;
 
   // QGuiApplication must exist before QTimer-based watchdogs (status link + video

@@ -57,14 +57,29 @@ Confirm the echo line: `ROS_DOMAIN_ID`, `RMW`, `YOLO_MODELS` set.
 |------|---------|
 | **Core** | `ros2 run ah_core ah_core_node` |
 | **YOLO** (optional) | `ros2 run ah_yolo ah_yolo_node` |
-| **Dashboard (macOS)** | `./AeroHub.app/Contents/MacOS/AeroHub` |
+| **Dashboard (macOS)** | `./start_dashboard.sh`  (or `./AeroHub.app/Contents/MacOS/AeroHub` after `source`) |
 | **Dashboard (Linux)** | installed binary under `run/` (e.g. `./AeroHub` or `./bin/AeroHub`) |
 
+### Helpers
+
+```bash
+./start_dashboard.sh              # source init + dashboard in this shell
+./start_lab_stack.sh              # tmux: core | yolo | dashboard (default)
+./start_lab_stack.sh --no-yolo    # tmux: core | dashboard only
+./start_lab_stack.sh --ros-only   # tmux: core | yolo only (no dashboard)
+```
+
+`start_lab_stack.sh` uses **tmux** (one window, multiple panes) so it works in **Ghostty**, Terminal, iTerm, etc. Requires `tmux` on PATH (`brew install tmux`).
+
+```text
+reattach later:  tmux attach -t aerohub
+detach:          Ctrl-b d
+```
 ### Do **not**
 
 ```bash
-./init_ah_ros_in_terminal.sh     # wrong — must source
-open ./AeroHub.app               # wrong — no shell ROS env; use the MacOS binary path above
+./init_ah_ros_in_terminal.sh     # wrong — must source (start_dashboard.sh does this for you)
+open ./AeroHub.app               # wrong — no shell ROS env
 ```
 
 ### CLion
