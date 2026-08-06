@@ -3,6 +3,11 @@
 #   cd …/aero-hub/run
 #   source ./init_ah_ros_in_terminal.sh
 #
+# Then, in that same shell (do not use "open AeroHub.app" — it drops ROS env):
+#   ros2 run ah_core ah_core_node
+#   ros2 run ah_yolo ah_yolo_node
+#   ./AeroHub.app/Contents/MacOS/AeroHub
+#
 # This directory is the operational CWD:
 #   - aerohub_settings.ini (AhCommon, CWD only)
 #   - yolo_models_dir in INI (default ../yolo-models → real aero-hub/yolo-models/)
@@ -16,8 +21,8 @@
 # Namespace is NOT exported: each node applies it from settings.
 #
 # If bin/ah_settings_shell_exports is missing:
-#   cmake --build …/build/Debug --target build_ros
-#   # or:  ./ros/scripts/build_ros.sh
+#   ./ros/scripts/build_ros.sh
+#   # or:  cmake --build …/build/Debug --target build_ros
 
 if [ -n "${ZSH_VERSION:-}" ]; then
   _AH_RUN_DIR="$(cd "$(dirname "${(%):-%x}")" && pwd)"

@@ -89,91 +89,27 @@ find_and_setup_qt(COMPONENTS ${QT_PACKAGES}
         LINKED_LIBRARIES_NON_QT ${LINKED_LIBRARIES_NON_QT}
         LINKED_LIBRARIES_QT ${LINKED_LIBRARIES_QT})
 
-# Lab deploy (macOS): not a self-contained ROS distribution.
-# macdeployqt follows link-time deps only. For a lab ROS install we still:
-#  1) stage colcon ah_msgs into Frameworks (workspace overlay, not on system rpath)
-#  2) add LC_RPATH → lab ROS lib (RoboStack) so RMW/typesupport dlopen works
-# Linux: rely on LD_LIBRARY_PATH / RPATH from the sourced ROS env + colcon overlay.
+# Lab install RPATH: Qt Frameworks + RoboStack lib + workspace ah_msgs.
+# macdeployqt rewrites the binary and often drops non-Frameworks rpaths — re-apply after deploy.
+if(DEFINED ENV{CONDA_PREFIX} AND NOT "$ENV{CONDA_PREFIX}" STREQUAL "")
+    set(_AH_LAB_ROS_LIB "$ENV{CONDA_PREFIX}/lib")
+else()
+    set(_AH_LAB_ROS_LIB "$ENV{HOME}/miniconda3/envs/ros_env/lib")
+endif()
+set(_AH_MSGS_LIB "${CMAKE_SOURCE_DIR}/ros/install/ah_msgs/lib")
 if(APPLE)
-    set(_AH_MSGS_LIB_DIR "${CMAKE_SOURCE_DIR}/ros/install/ah_msgs/lib")
-    if(DEFINED ENV{CONDA_PREFIX} AND NOT "$ENV{CONDA_PREFIX}" STREQUAL "")
-        set(_AH_CONDA_LIB_DIR "$ENV{CONDA_PREFIX}/lib")
-        set(_AH_CONDA_PREFIX "$ENV{CONDA_PREFIX}")
-    else()
-        set(_AH_CONDA_PREFIX "$ENV{HOME}/miniconda3/envs/ros_env")
-        set(_AH_CONDA_LIB_DIR "${_AH_CONDA_PREFIX}/lib")
-    endif()
-    set(_AH_ROS_INSTALL "${CMAKE_SOURCE_DIR}/ros/install")
-
+    set_target_properties(${APPLICATION_NAME} PROPERTIES
+        INSTALL_RPATH "@executable_path/../Frameworks;${_AH_LAB_ROS_LIB};${_AH_MSGS_LIB}")
     install(CODE "
-        set(_app \"\${CMAKE_INSTALL_PREFIX}/${APPLICATION_NAME}.app\")
-        set(_exe \"\${_app}/Contents/MacOS/${APPLICATION_NAME}\")
-        set(_fw  \"\${_app}/Contents/Frameworks\")
-        set(_ah_msgs \"${_AH_MSGS_LIB_DIR}\")
-        set(_conda_lib \"${_AH_CONDA_LIB_DIR}\")
-        set(_conda_prefix \"${_AH_CONDA_PREFIX}\")
-        set(_ros_install \"${_AH_ROS_INSTALL}\")
-        if(NOT EXISTS \"\${_exe}\")
-            message(FATAL_ERROR \"AeroHub ROS fixup: missing \${_exe}\")
+        set(_exe \"\${CMAKE_INSTALL_PREFIX}/${APPLICATION_NAME}.app/Contents/MacOS/${APPLICATION_NAME}\")
+        if(EXISTS \"\${_exe}\")
+            execute_process(COMMAND install_name_tool -add_rpath \"${_AH_LAB_ROS_LIB}\" \"\${_exe}\" ERROR_QUIET)
+            execute_process(COMMAND install_name_tool -add_rpath \"${_AH_MSGS_LIB}\" \"\${_exe}\" ERROR_QUIET)
+            execute_process(COMMAND codesign --force --deep --sign - \"\${CMAKE_INSTALL_PREFIX}/${APPLICATION_NAME}.app\" ERROR_QUIET)
+            message(STATUS \"AeroHub: re-applied lab INSTALL_RPATH after macdeployqt\")
         endif()
-        file(MAKE_DIRECTORY \"\${_fw}\")
-
-        # 1) Bundle local ah_msgs into Frameworks and fix main binary load commands
-        if(EXISTS \"\${_ah_msgs}\")
-            file(GLOB _ah_dylibs \"\${_ah_msgs}/libah_msgs*.dylib\")
-            foreach(_lib \${_ah_dylibs})
-                get_filename_component(_name \"\${_lib}\" NAME)
-                file(COPY \"\${_lib}\" DESTINATION \"\${_fw}\")
-                execute_process(COMMAND install_name_tool
-                    -id \"@loader_path/../Frameworks/\${_name}\" \"\${_fw}/\${_name}\"
-                    ERROR_QUIET)
-                execute_process(COMMAND install_name_tool
-                    -change \"@rpath/\${_name}\"
-                            \"@loader_path/../Frameworks/\${_name}\"
-                            \"\${_exe}\"
-                    ERROR_QUIET)
-            endforeach()
-            foreach(_lib \${_ah_dylibs})
-                get_filename_component(_name \"\${_lib}\" NAME)
-                set(_dst \"\${_fw}/\${_name}\")
-                execute_process(COMMAND otool -L \"\${_dst}\" OUTPUT_VARIABLE _otool_out)
-                string(REGEX MATCHALL \"@rpath/[A-Za-z0-9_.+-]+\" _rpath_deps \"\${_otool_out}\")
-                foreach(_dep \${_rpath_deps})
-                    string(REPLACE \"@rpath/\" \"\" _dname \"\${_dep}\")
-                    if(EXISTS \"\${_fw}/\${_dname}\")
-                        execute_process(COMMAND install_name_tool
-                            -change \"\${_dep}\" \"@loader_path/\${_dname}\" \"\${_dst}\"
-                            ERROR_QUIET)
-                    endif()
-                endforeach()
-            endforeach()
-        else()
-            message(WARNING \"AeroHub ROS fixup: \${_ah_msgs} missing (build ROS first)\")
-        endif()
-
-        # 2) Match IDE/build-tree: rpath into RoboStack lib for RMW/typesupport plugins
-        if(EXISTS \"\${_conda_lib}\")
-            execute_process(
-                COMMAND install_name_tool -add_rpath \"\${_conda_lib}\" \"\${_exe}\"
-                ERROR_QUIET)
-            message(STATUS \"AeroHub: added rpath \${_conda_lib}\")
-        else()
-            message(WARNING \"AeroHub ROS fixup: \${_conda_lib} missing; activate ros_env before install\")
-        endif()
-
-        # 3) Optional: rpath to colcon install package libs (ah_msgs already copied)
-        if(EXISTS \"\${_ros_install}/ah_msgs/lib\")
-            execute_process(
-                COMMAND install_name_tool -add_rpath \"\${_ros_install}/ah_msgs/lib\" \"\${_exe}\"
-                ERROR_QUIET)
-        endif()
-
-        execute_process(
-            COMMAND codesign --force --deep --sign - \"\${_app}\"
-            RESULT_VARIABLE _sign_rc)
-        if(NOT _sign_rc EQUAL 0)
-            message(FATAL_ERROR \"AeroHub ROS fixup: codesign failed (\${_sign_rc})\")
-        endif()
-        message(STATUS \"AeroHub: ah_msgs bundled + RoboStack rpath applied\")
     ")
+else()
+    set_target_properties(${APPLICATION_NAME} PROPERTIES
+        INSTALL_RPATH "$ORIGIN;$ORIGIN/../lib;${_AH_LAB_ROS_LIB};${_AH_MSGS_LIB}")
 endif()

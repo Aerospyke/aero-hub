@@ -105,7 +105,7 @@ Release: `conan install -pr=clang-release`, then `cmake --preset conan-release` 
 
 **CLion:** activate `ros_env`, open the project, use either a plain CMake profile (Path A) or a Conan Debug profile (Path B). Working directory for Run: **`aero-hub/run`**.
 
-After either path, `ros/install` exists and the dashboard is installed under `run/` (`AeroHub.app` on macOS). The UI still expects a **lab ROS install** for RMW/plugins (install adds rpath / ament bootstrap for that; it is not a standalone ROS distribution).
+After either path, `ros/install` exists and the dashboard is installed under `run/` (`AeroHub.app` on macOS). The UI expects a **lab ROS install** (RoboStack / system Jazzy) for RMW and plugins — not a self-contained ROS tree inside the app.
 
 Iterative rebuild:
 
@@ -120,23 +120,29 @@ cmake --install build/Debug
 
 ### Run the stack
 
-**Every terminal:**
+**Rules**
+
+1. **CWD = `run/`** for every process (settings file is CWD-only).
+2. **Every terminal:** `source ./init_ah_ros_in_terminal.sh` (do **not** execute it with `./`).
+3. **Dashboard:** run the binary **in that same shell**. Do **not** use `open ./AeroHub.app` — macOS `open` does not inherit the shell’s ROS env and will crash or mis-configure.
+
+**Terminal setup (each role):**
 
 ```bash
-conda activate ros_env
+conda activate ros_env          # or: source /opt/ros/jazzy/setup.bash on Linux
 cd /path/to/aero-hub/run
 source ./init_ah_ros_in_terminal.sh
 ```
 
-| Role | Command |
-|------|---------|
-| Core | `ros2 run ah_core ah_core_node` |
-| YOLO | `ros2 run ah_yolo ah_yolo_node` |
-| Dashboard | `open ./AeroHub.app` |
+| Terminal | Command |
+|----------|---------|
+| A — core | `ros2 run ah_core ah_core_node` |
+| B — YOLO (optional) | `ros2 run ah_yolo ah_yolo_node` |
+| C — dashboard | `./AeroHub.app/Contents/MacOS/AeroHub` (macOS) |
 
-Or run **AeroHub** from CLion with Working directory = `aero-hub/run`.
+**CLion:** env `ros_env` active; Run configuration Working directory = **`aero-hub/run`**; target **AeroHub**. No need to `open` the installed app.
 
-Settings live only under **`run/`** (`aerohub_settings.ini`; defaults include `domain_id=42`, `yolo_models_dir=../yolo-models`). More detail: [`run/README.md`](run/README.md), [`ros/README.md`](ros/README.md).
+Settings: **`run/aerohub_settings.ini`** only (AhCommon creates defaults if missing: domain **42**, `yolo_models_dir=../yolo-models`, …). See [`run/README.md`](run/README.md).
 
 ### Manual test script (acceptance)
 

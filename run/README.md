@@ -1,89 +1,88 @@
 # AeroHub `run/` — operational directory
 
-Lab root for day-to-day work: ROS nodes, CLI, and dashboard. **CWD should be this directory.**
+Lab root for day-to-day work: ROS nodes, CLI, and dashboard. **Always use this directory as CWD.**
 
 ## Lab model (macOS + Linux)
 
-This tree is **not** a self-contained product image. It assumes:
+Not a self-contained product image. Assumes:
 
 1. A **ROS 2 Jazzy lab install** (RoboStack `ros_env` and/or `/opt/ros/jazzy`, etc.)
 2. This repo’s **colcon overlay** at `../ros/install`
-3. You **`source ./init_ah_ros_in_terminal.sh`** in each terminal (do not `./` it)
+3. **`source ./init_ah_ros_in_terminal.sh`** in every terminal (never `./init_…`)
 
-AhCommon loads **`./aerohub_settings.ini` from CWD only**. Missing file → built-in defaults written here.  
-YOLO weights: `[ROS] yolo_models_dir` (default `../yolo-models`).
-
-Dashboard install may vendor **Qt** into the app bundle (macOS) and add **rpath / ament hooks** so the process can see the lab ROS install. It does **not** replace installing ROS on the machine.
-
-## Layout
-
-| Path | Role |
+| File | Role |
 |------|------|
-| `aerohub_settings.ini` | Runtime policy (created by AhCommon if missing) |
-| `bin/ah_settings_shell_exports` | From `build_ros` (env exports from INI) |
-| `init_ah_ros_in_terminal.sh` | Overlay + env from INI (**source** every terminal) |
-| `AeroHub.app` / binary | Dashboard after `cmake --install` (platform-specific) |
+| `aerohub_settings.ini` | Runtime policy (AhCommon creates defaults if missing) |
+| `bin/ah_settings_shell_exports` | From `build_ros` (env from INI) |
+| `init_ah_ros_in_terminal.sh` | Overlay + domain / RMW / YOLO path from INI |
+| `AeroHub.app` | Dashboard after `cmake --install` (macOS) |
 
-**Order:** `./ros/scripts/build_ros.sh` **before** Dashboard CMake configure (`ah_msgs`).
+Settings are **CWD-only**. YOLO weights: `[ROS] yolo_models_dir` (default `../yolo-models`).
+
+**Build order:** `./ros/scripts/build_ros.sh` before Dashboard CMake configure (`ah_msgs`).
 
 ---
 
-## From-scratch: Path A — plain CMake (no Conan)
+## Build (summary)
 
 ```bash
 cd /path/to/aero-hub
-# Optional clean:
-# rm -rf ros/build ros/install ros/log build/Debug run/bin run/AeroHub.app
+conda activate ros_env    # or source system ROS on Linux
 
-conda activate ros_env   # or: source /opt/ros/jazzy/setup.bash on Linux
 ./ros/scripts/build_ros.sh
-
-cmake -S . -B build/Debug -DCMAKE_BUILD_TYPE=Debug
+cmake -S . -B build/Debug -DCMAKE_BUILD_TYPE=Debug   # Path A: no Conan
 cmake --build build/Debug --target AeroHub
 cmake --install build/Debug
 ```
 
----
-
-## From-scratch: Path B — Conan toolchain (optional)
-
-`conanfile.py` has no package deps today; it only generates toolchain/presets.
-
-```bash
-cd /path/to/aero-hub
-conan install -pr=clang-debug
-conda activate ros_env
-./ros/scripts/build_ros.sh
-
-cmake --preset conan-debug
-cmake --build build/Debug --target AeroHub
-cmake --install build/Debug
-```
+Optional Conan: `conan install -pr=clang-debug` then `cmake --preset conan-debug` instead of bare `-S/-B`. Full detail: [`../README.md`](../README.md).
 
 ---
 
-## Run (macOS or Linux lab)
+## Run the stack
 
-**Every terminal:**
+### Every terminal (required)
 
 ```bash
-conda activate ros_env   # or source system ROS setup on Linux
+conda activate ros_env    # or: source /opt/ros/jazzy/setup.bash
 cd /path/to/aero-hub/run
 source ./init_ah_ros_in_terminal.sh
-
-ros2 run ah_core ah_core_node
-ros2 run ah_yolo ah_yolo_node
 ```
 
-**Dashboard**
+Confirm the echo line: `ROS_DOMAIN_ID`, `RMW`, `YOLO_MODELS` set.
+
+### Processes (separate terminals, each after the setup above)
+
+| Role | Command |
+|------|---------|
+| **Core** | `ros2 run ah_core ah_core_node` |
+| **YOLO** (optional) | `ros2 run ah_yolo ah_yolo_node` |
+| **Dashboard (macOS)** | `./AeroHub.app/Contents/MacOS/AeroHub` |
+| **Dashboard (Linux)** | installed binary under `run/` (e.g. `./AeroHub` or `./bin/AeroHub`) |
+
+### Do **not**
 
 ```bash
-# macOS (after install):
-open ./AeroHub.app
-# or: ./AeroHub.app/Contents/MacOS/AeroHub
-
-# Linux (after install; path may be run/bin/AeroHub or similar):
-# ./AeroHub
+./init_ah_ros_in_terminal.sh     # wrong — must source
+open ./AeroHub.app               # wrong — no shell ROS env; use the MacOS binary path above
 ```
 
-**IDE:** Working directory = `…/aero-hub/run`, with the same ROS env active.
+### CLion
+
+- Activate **`ros_env`** before opening the IDE (or ensure the Run env has it).
+- Target: **AeroHub**
+- **Working directory:** `…/aero-hub/run`
+- You can run the build-tree binary from CLion; no need to `open` the installed `.app`.
+
+---
+
+## Quick smoke check
+
+With core (and optionally dashboard) up:
+
+```bash
+# same shell setup as above
+echo $ROS_DOMAIN_ID
+ros2 node list
+ros2 topic echo /ah/system/status --once
+```

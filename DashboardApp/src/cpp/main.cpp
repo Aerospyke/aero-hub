@@ -8,8 +8,6 @@
 #include <QString>
 #include <QtGlobal>
 
-#include <cstdlib>
-#include <filesystem>
 #include <string>
 #include <utility>
 #include <vector>
@@ -26,47 +24,6 @@
 #include "jsb_settings_tree_model.h"
 #include "primary_flight_data.h"
 
-namespace {
-
-// Lab model: ROS lives in the machine install (RoboStack /opt/ros), not inside the
-// app bundle. Finder / bare open has no shell env. AhCommon sets domain/RMW from
-// the INI; ament still needs prefixes for RMW + typesupport plugins.
-void EnsureAmentPrefixPathForLab() {
-  namespace fs = std::filesystem;
-  std::string conda;
-  if (const char* c = std::getenv("CONDA_PREFIX"); c != nullptr && c[0] != '\0') {
-    conda = c;
-  } else if (const char* home = std::getenv("HOME"); home != nullptr) {
-    const fs::path Candidate = fs::path(home) / "miniconda3" / "envs" / "ros_env";
-    if (fs::is_directory(Candidate / "share" / "rmw_fastrtps_cpp")) {
-      conda = Candidate.string();
-      setenv("CONDA_PREFIX", conda.c_str(), /*overwrite=*/0);
-    }
-  }
-  if (conda.empty()) {
-    return;
-  }
-
-  std::string ament = conda;
-  // Colcon overlay next to operational CWD (run/ → ../ros/install/<pkg>).
-  const fs::path RosInstall = fs::current_path() / ".." / "ros" / "install";
-  if (fs::is_directory(RosInstall)) {
-    for (const auto& entry : fs::directory_iterator(RosInstall)) {
-      if (entry.is_directory() && fs::is_directory(entry.path() / "share")) {
-        ament += ':';
-        ament += entry.path().lexically_normal().string();
-      }
-    }
-  }
-  if (const char* existing = std::getenv("AMENT_PREFIX_PATH");
-      existing != nullptr && existing[0] != '\0') {
-    ament = std::string(existing) + ':' + ament;
-  }
-  setenv("AMENT_PREFIX_PATH", ament.c_str(), /*overwrite=*/1);
-}
-
-}  // namespace
-
 int main(int argument_count, char* argument_values[]) {
   // macOS "native" style forbids customizing SpinBox/Button backgrounds &
   // indicators. Use a style that allows full QML chrome (Basic/Fusion/Material).
@@ -74,9 +31,11 @@ int main(int argument_count, char* argument_values[]) {
 
   Q_INIT_RESOURCE(QmlFlightInstruments);
 
+  // Lab: settings + relative paths use process CWD. Launch from /run directory with two steps
+  // 1. `source ./init_ah_ros_in_terminal.sh`
+  // 2. './AeroHub.app/Contents/MacOS/AeroHub'
+  // Do not use bare `open AeroHub.app` — it does not inherit the shell ROS env.
   AhSettings app_settings;
-  EnsureAmentPrefixPathForLab();
-
 
   // QGuiApplication must exist before QTimer-based watchdogs (status link + video
   // stale detection) or the timers never fire and the UI stays "live" forever.
