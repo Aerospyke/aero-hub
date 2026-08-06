@@ -2,7 +2,7 @@
 """ah_yolo_node — Ultralytics YOLO on /ah/video/compressed → /ah/detections (JSON).
 
 Profiles:
-  tank   — mini-tank detector (models/mini_tank_*.pt, tank.pt, or param)
+  tank   — mini-tank detector (yolo-models/mini_tank_*.pt, tank.pt, or param)
   coco80 — COCO-style 80-class baseline (yolo11n.pt by default)
 
 Runtime: Python + Ultralytics (simplest path that loads custom .pt weights).
@@ -52,8 +52,8 @@ def _default_yolo_models_dir() -> Path:
     env = os.environ.get("AERO_HUB_YOLO_MODELS", "").strip()
     if env:
         return Path(env).expanduser().resolve()
-    # Fallback: ./models under CWD only (same discipline as settings file).
-    return (Path.cwd() / "models").resolve()
+    # Fallback matches settings default (CWD = run/ → ../yolo-models).
+    return (Path.cwd() / ".." / "yolo-models").resolve()
 
 # Accepted weight suffixes (Ultralytics prefers .pt; .safetensors also resolved).
 _WEIGHT_SUFFIXES = (".pt", ".safetensors", ".onnx")
@@ -112,10 +112,10 @@ def resolve_weights(profile: str, weights_path: str) -> Path:
             return found
 
         raise FileNotFoundError(
-            "tank profile: place Ultralytics weights under models/ as "
+            "tank profile: place Ultralytics weights under yolo-models/ as "
             "mini_tank_0308.pt (or tank.pt), "
             f"(looked under {yolo_models_dir}), or set AERO_HUB_YOLO_TANK_WEIGHTS / weights_path. "
-            "See models/README.md."
+            "See yolo-models/README.md."
         )
 
     if profile in ("coco80", "coco", "coco-80"):
@@ -242,7 +242,7 @@ class AhYoloNode(Node):
                 raise RuntimeError(
                     f"Failed to load {path} with Ultralytics ({ex}). "
                     "Prefer the training run's best.pt / last.pt, or convert: "
-                    "pip install safetensors torch  # then see models/README.md. "
+                    "pip install safetensors torch  # then see yolo-models/README.md. "
                     "You can also pass -p weights_path:=/path/to/best.pt"
                 ) from ex
             raise

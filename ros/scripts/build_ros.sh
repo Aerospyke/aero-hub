@@ -2,12 +2,13 @@
 # Rebuild ah_msgs / ah_core / ah_yolo via colcon.
 # Used by CMake target "build_ros" and safe to run by hand.
 #
-#   ./ros/build_ros.sh
+#   ./ros/scripts/build_ros.sh
 #   cmake --build build/Debug --target build_ros
 #
 set -euo pipefail
 
-_AH_ROS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+_AH_SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+_AH_ROS_DIR="$(cd "${_AH_SCRIPTS_DIR}/.." && pwd)"
 cd "${_AH_ROS_DIR}"
 
 # --- Ensure colcon is on PATH (CMake/CLion often lack conda activation) ---
@@ -72,9 +73,11 @@ fi
 export AMENT_PREFIX_PATH="${CONDA_PREFIX}${AMENT_PREFIX_PATH:+:${AMENT_PREFIX_PATH}}"
 export CMAKE_PREFIX_PATH="${CONDA_PREFIX}${CMAKE_PREFIX_PATH:+:${CMAKE_PREFIX_PATH}}"
 export PYTHONPATH="${CONDA_PREFIX}/lib/python3.12/site-packages${PYTHONPATH:+:${PYTHONPATH}}"
+# rosidl_generator_rs (and some tools) require ROS_DISTRO; RoboStack is Jazzy.
+export ROS_DISTRO="${ROS_DISTRO:-jazzy}"
 # Do not set ROS_DOMAIN_ID / RMW_IMPLEMENTATION / AERO_HUB_YOLO_MODELS here —
 # those come from aerohub_settings.ini via AhCommon when nodes or
-# init_ah_ros_in_terminal.sh bootstrap.
+# run/init_ah_ros_in_terminal.sh bootstrap.
 
 echo "[build_ros] colcon=${COLCON_BIN}"
 echo "[build_ros] cwd=${_AH_ROS_DIR}"
@@ -84,3 +87,6 @@ echo "[build_ros] CONDA_PREFIX=${CONDA_PREFIX:-}"
   --packages-select ah_common ah_msgs ah_core ah_yolo \
   --cmake-args -DCMAKE_BUILD_TYPE=Release \
   "$@"
+
+# Install runtime tools into aero-hub/run/ (single operational CWD).
+bash "${_AH_SCRIPTS_DIR}/populate_runtime.sh"

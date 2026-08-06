@@ -40,47 +40,48 @@ This is the **supported end-to-end path on macOS**: dashboard and `ah_core` both
 4. **CMake** 3.16+, **Conan** if your CLion profile uses the existing Conan toolchain (optional for a plain CMake configure).
 5. **OpenCV** available to the RoboStack / system environment used to build `ah_core` (RoboStack/desktop images usually provide it).
 
-### 1. Build ROS packages (`ah_msgs` + `ah_core`)
+### 1. Build ROS packages (`ah_msgs` + `ah_core` + …)
 
-Dashboard links against **`ros/install`** for `ah_msgs`. Build this first.
+Dashboard links against **`ros/install`** for `ah_msgs`. Build this first. Preferred entry:
 
 ```bash
 conda activate ros_env
-cd /path/to/aero-hub/ros
-
-# Command line: no extra compiler flags needed.
-# Do NOT use --symlink-install for this lab (breaks remote IDE indexing).
-colcon build --packages-select ah_msgs ah_core
-source install/setup.bash
+cd /path/to/aero-hub
+cmake --build build/Debug --target build_ros
+# or:  ./ros/scripts/build_ros.sh
 ```
 
-Optional (CLion only): if the Compilation Database fails on conda’s triple-prefixed clang, regenerate with system compilers:
+That runs colcon (`ah_common`, `ah_msgs`, `ah_core`, `ah_yolo`) and **populates [`run/bin`](run/)** (`ah_settings_shell_exports`).
+
+Optional (CLion only): if the Compilation Database fails on conda’s triple-prefixed clang, regenerate with system compilers under `ros/`:
 
 ```bash
+cd /path/to/aero-hub/ros
 colcon build --packages-select ah_msgs ah_core --cmake-args \
   -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
   -DCMAKE_C_COMPILER=/usr/bin/clang \
   -DCMAKE_CXX_COMPILER=/usr/bin/clang++
 ```
 
-Smoke-test core alone:
+Smoke-test core alone (always from **`run/`**):
 
 ```bash
-export ROS_DOMAIN_ID=42
+cd /path/to/aero-hub/run
+source ./init_ah_ros_in_terminal.sh
 ros2 run ah_core ah_core_node
-# other terminal (same env + source install/setup.bash + domain 42):
+# other terminal (same cd + source):
 ros2 topic echo /ah/system/status --once
 ros2 node list   # expect /ah_core
 ```
 
-More detail (Docker build of the same packages): [`ros/README.md`](ros/README.md).
+More detail: [`run/README.md`](run/README.md), [`ros/README.md`](ros/README.md).
 
 ### 2. Settings file (domain / namespace)
 
-Working directory for the app should be able to see **`aerohub_settings.ini`** (often the `aero-hub/` project root as CLion CWD).
+**Operational CWD is [`run/`](run/).** AhCommon loads **`./aerohub_settings.ini` from CWD only**.
 
-- Template: [`aerohub_settings_template.ini`](aerohub_settings_template.ini)
-- If missing, the app writes defaults (including `domain_id=42`, empty `namespace`)
+- Live file: **`run/aerohub_settings.ini` only** (never put this in the project root)
+- If missing, **AhCommon** creates it from built-in defaults (domain 42, `yolo_models_dir=../yolo-models`, etc.)
 
 ```ini
 [ROS]
@@ -89,12 +90,7 @@ namespace=
 ; namespace=uav1   # multi-vehicle: dashboard + core must match
 ```
 
-**CLI tools** (`ros2 topic …`) do **not** read that INI; for them:
-
-```bash
-export ROS_DOMAIN_ID=42
-# if using a namespace, topic names are /uav1/ah/... not /ah/...
-```
+**CLI tools** get domain/RMW/models from `run/init_ah_ros_in_terminal.sh` (via AhCommon), not by reading the INI themselves.
 
 ### 3. Build the dashboard (plain CMake + Qt)
 
@@ -110,7 +106,7 @@ open -na "CLion.app"
 - Open the `aero-hub` project; use your Debug (Conan) CMake profile.  
 - Build target **AeroHub**.  
 - Cold-start from Dock: root `CMakeLists.txt` falls back to `~/miniconda3/envs/ros_env` if `CONDA_PREFIX` is unset (still prefer launching from `ros_env`).  
-- Working directory for Run: `aero-hub/` (so `aerohub_settings.ini` is found).
+- Working directory for Run: **`aero-hub/run`** (so `aerohub_settings.ini` is found).
 
 **Command-line rebuild** of an **already configured** tree (what iterative CLI builds use after CLion has configured once):
 
@@ -136,9 +132,8 @@ build/Debug/DashboardApp/AeroHub.app/Contents/MacOS/AeroHub
 
 ```bash
 conda activate ros_env
-cd /path/to/aero-hub/ros
-source install/setup.bash
-export ROS_DOMAIN_ID=42
+cd /path/to/aero-hub/run
+source ./init_ah_ros_in_terminal.sh
 ros2 run ah_core ah_core_node
 ```
 
@@ -146,13 +141,12 @@ ros2 run ah_core ah_core_node
 
 ```bash
 conda activate ros_env
-export ROS_DOMAIN_ID=42   # optional if settings file has domain_id=42
-# CWD = aero-hub/ so aerohub_settings.ini is found (or set CLion working directory)
-cd /path/to/aero-hub
-./build/Debug/DashboardApp/AeroHub.app/Contents/MacOS/AeroHub
+cd /path/to/aero-hub/run
+source ./init_ah_ros_in_terminal.sh
+# After: cmake --install build/Debug   (CMAKE_INSTALL_PREFIX = run/)
+open ./AeroHub.app
+# or CLion: Working directory = aero-hub/run
 ```
-
-Or run **AeroHub** from CLion with the same env / working directory.
 
 ### 5. Manual test script (acceptance)
 
@@ -210,21 +204,21 @@ Mac host **will not** normally see container topics (Docker Desktop bridge). Sam
 ```text
 aero-hub/
   CMakeLists.txt              # Dashboard superbuild (Qt + AhCommon)
-  AhCommon/                   # C++17 std-only: settings, Trim, SanitizeNamespace
+  AhCommon/                   # std-only: settings, Trim, SanitizeNamespace
   DashboardApp/               # UI + rclcpp bridge (C++23)
   FlightInstruments/          # QML instruments module
-  aerohub_settings_template.ini
-  ros/                        # colcon: ah_msgs, ah_core, ah_yolo
+  run/                        # operational CWD (init, settings, bin/)
+  ros/                        # colcon: ah_common, ah_msgs, ah_core, ah_yolo
     README.md
 ```
 
 **Settings:** `ah::Settings` in AhCommon — e.g. `settings.Ros().DomainId()`, `settings.Camera().Selection()`,
-`settings.JsbSim().Get("ports/input")`. Dashboard and `ah_core` share this (no Qt in common).
+`settings.JsbSim().Get("ports/input")`. Dashboard and `ah_core` share this (no Qt in common). Live file: **`run/aerohub_settings.ini`** (auto-created with defaults if missing).
 
 **Optional ROS rebuild from CMake** (not required for every app build):
 
 ```bash
-cmake --build build/Debug --target build_ros
+cmake --build build/Debug --target build_ros   # colcon + populate run/
 ```
 
 ---
@@ -252,7 +246,7 @@ AeroHub source code in this directory is licensed under the
 ROS packages declare the same SPDX id in `package.xml` (`Apache-2.0`).
 
 Third-party runtimes (ROS 2, Qt, OpenCV, Ultralytics, etc.) and model
-weights under `models/` keep their own terms — see `NOTICE`.
+weights under `yolo-models/` keep their own terms — see `NOTICE`.
 
 ---
 

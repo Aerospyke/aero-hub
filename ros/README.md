@@ -68,27 +68,27 @@ source install/setup.bash
 
 ```bash
 conda activate ros_env
-cd ~/Documents/projects/pix-eagle-stack/aero-hub/ros
-export ROS_DOMAIN_ID=42
-export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
-colcon build --packages-select ah_msgs ah_core ah_yolo
+cd ~/Documents/projects/pix-eagle-stack/aero-hub
+./ros/scripts/build_ros.sh
+# (colcon + populates run/bin)
 
 # YOLO deps (once per env):
 pip install "ultralytics>=8.3.0"
 
 # IMPORTANT — every terminal (node *and* service-call CLI):
+cd …/aero-hub/run
 source ./init_ah_ros_in_terminal.sh
-# That sets overlay + ROS_DOMAIN_ID=42 + RMW. Bare `source install/setup.zsh`
-# alone is not enough if domain is unset (CLI stays on domain 0 → service call hangs).
+# That sets overlay + ROS_DOMAIN_ID / RMW / YOLO models from aerohub_settings.ini.
+# Bare `source ros/install/setup.zsh` alone is not enough (CLI stays on domain 0 → hangs).
 ```
 
-**Domain footgun:** `ah_core` applies `[ROS] domain_id=42` from `aerohub_settings.ini` **only inside the node process**. Terminal 2 does not get that automatically. If Terminal 2 has no `ROS_DOMAIN_ID`, `ros2 service call` hangs on `waiting for service to become available...` while Terminal 1 looks healthy.
+**Domain footgun:** `ah_core` applies `[ROS] domain_id` from `run/aerohub_settings.ini` **only inside the node process**. Terminal 2 does not get that automatically. If Terminal 2 has no `ROS_DOMAIN_ID`, `ros2 service call` hangs on `waiting for service to become available...` while Terminal 1 looks healthy.
 
 ```bash
 # Terminal 2 must also:
-cd …/aero-hub/ros
+cd …/aero-hub/run
 source ./init_ah_ros_in_terminal.sh
-echo $ROS_DOMAIN_ID   # must print 42
+echo $ROS_DOMAIN_ID   # must match [ROS] domain_id (default 42)
 ros2 service list | grep camera
 ros2 service call /ah/camera/list ah_msgs/srv/ListCameras "{refresh: true}"
 ```
@@ -107,10 +107,11 @@ source install/setup.zsh   # or setup.bash under bash
 
 ### 3. Run the stub node
 
-From workspace root `ros/` (after overlay sourced):
+From operational directory `run/` (after init sourced):
 
 ```bash
-export ROS_DOMAIN_ID=42
+cd …/aero-hub/run
+source ./init_ah_ros_in_terminal.sh
 ros2 run ah_core ah_core_node
 # wait for:  ah_core ready: …
 ```
@@ -124,7 +125,7 @@ ros2 run ah_core ah_core_node
 | `ah/camera/list` | `ah_msgs/srv/ListCameras` | Enumerate devices (Task_30); no hard-coded IDs |
 | `ah/camera/select` | `ah_msgs/srv/SelectCamera` | Select synthetic or camera; persists to params + `[Camera]` INI |
 
-**Namespace (multi-drone):** set `[ROS] namespace=` in `aerohub_settings.ini` (cwd) or `AERO_HUB_ROS_NAMESPACE`. Empty = root (`/ah/...`). Example `uav1` → `/uav1/ah/...`. Dashboard and core must match.
+**Namespace (multi-drone):** set `[ROS] namespace=` in `run/aerohub_settings.ini` (CWD = `run/`). Empty = root (`/ah/...`). Example `uav1` → `/uav1/ah/...`. Dashboard and core must match.
 
 **Camera (Task_30 / Task_31):** selection is owned by `ah_core`. Params: `video.source`, `camera.device_id`, `camera.device_path`, `camera.backend`. Prefer `device_path` (`index:N`, `/dev/videoN`, or `synthetic`) over bare indices so USB/OBS reordering does not require code changes. After select (or INI load), `ah_core` opens a long-lived capture and publishes live JPEG on `ah/video/compressed` (`header.frame_id=ah_camera`). Synthetic fallback if grab fails (`video_status` = `degraded` / `unavailable`).
 
@@ -205,12 +206,12 @@ Runtime: **Python + Ultralytics** (loads custom `.pt` tank weights without ONNX 
 pip install "ultralytics>=8.3.0"
 
 # offline smoke (no ROS)
-cd …/aero-hub
+cd …/aero-hub/run
+source ./init_ah_ros_in_terminal.sh
 # Prefer [ROS] yolo_models_dir in aerohub_settings.ini (AhCommon publishes AERO_HUB_YOLO_MODELS)
-export AERO_HUB_YOLO_MODELS="$PWD/models"
 python ros/src/ah_yolo/scripts/smoke_infer.py --profile coco80 \
   --image /path/to/any.jpg
-# tank (after you copy weights → models/tank.pt):
+# tank (after you copy weights → yolo-models/tank.pt):
 python ros/src/ah_yolo/scripts/smoke_infer.py --profile tank \
   --image /path/to/tank.jpg
 
@@ -226,10 +227,10 @@ ros2 topic echo /ah/detections --once
 
 | Profile | Weights | Purpose |
 |---------|---------|---------|
-| `coco80` | `models/yolo11n.pt` or Ultralytics download | COCO-80 / virtual world |
-| `tank` | `models/tank.pt` **or** `tank.safetensors` / `AERO_HUB_YOLO_TANK_WEIGHTS` | cyberbrick mini tank |
+| `coco80` | `yolo-models/yolo11n.pt` or Ultralytics download | COCO-80 / virtual world |
+| `tank` | `yolo-models/tank.pt` **or** `tank.safetensors` / `AERO_HUB_YOLO_TANK_WEIGHTS` | cyberbrick mini tank |
 
-**`.safetensors`:** path is accepted, but Ultralytics usually needs a **`.pt`** checkpoint (`best.pt`/`last.pt` from the same train run). See `aero-hub/models/README.md`.
+**`.safetensors`:** path is accepted, but Ultralytics usually needs a **`.pt`** checkpoint (`best.pt`/`last.pt` from the same train run). See `aero-hub/yolo-models/README.md`.
 
 Detections: `std_msgs/String` JSON on `ah/detections` (bbox_normalized [0,1], **`track_id`** from Ultralytics `model.track(persist=True)`). Overlay = Task_34.  
 AI lock follows **`track_id`** across frames in `ah_core` after `ah/ai_tracking/click`.

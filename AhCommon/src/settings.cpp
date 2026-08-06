@@ -16,13 +16,14 @@ struct DefaultEntry {
   const char* value;
 };
 
-// Keep in sync with aerohub_settings_template.ini
+// Built-in defaults written to aerohub_settings.ini when the file is missing (CWD).
 constexpr DefaultEntry DefaultSettings[] = {
     {.path = "ROS/domain_id", .value = "42"},
     {.path = "ROS/namespace", .value = ""},
     {.path = "ROS/rmw_implementation", .value = "rmw_fastrtps_cpp"},
-    // Relative to process CWD (typically aero-hub/); published as AERO_HUB_YOLO_MODELS.
-    {.path = "ROS/yolo_models_dir", .value = "models"},
+    // Relative to process CWD (aero-hub/run/); real tree is aero-hub/yolo-models/.
+    // Published as AERO_HUB_YOLO_MODELS.
+    {.path = "ROS/yolo_models_dir", .value = "../yolo-models"},
 
     {.path = "Camera/video_source", .value = "synthetic"},
     {.path = "Camera/device_id", .value = "-1"},
@@ -231,8 +232,7 @@ Settings Settings::LoadFromPath(std::string path) {
     // Fail loudly: only the process working directory is searched (no parent-path hunt).
     std::cerr << "AhCommon Settings: warning: \"" << s.path_ << "\" not found in the current working directory. "
               << "Using built-in defaults (and writing a new file if possible). "
-              << "cd to the directory that contains " << SettingsFileName << " "
-              << "(typically aero-hub/) before starting nodes or the dashboard.\n";
+              << "Operational CWD is typically aero-hub/run/.\n";
   }
 
   // Runtime env (domain, RMW, models path) comes only from the settings tree.
@@ -429,7 +429,7 @@ std::string Settings::RosSection::RmwImplementation() const {
 }
 
 std::string Settings::RosSection::YoloModelsDir() const {
-  const std::string Dir = owner_->Get({"ROS", "yolo_models_dir"}, "models");
+  const std::string Dir = owner_->Get({"ROS", "yolo_models_dir"}, "../yolo-models");
   if (Dir.empty()) {
     return {};
   }

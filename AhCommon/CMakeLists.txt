@@ -57,9 +57,21 @@ install(TARGETS ah_common ah_common_c
 )
 
 # Small CLI so terminal init can eval domain from settings (no hard-coded 42).
+# Operational copy lives at aero-hub/run/bin/ (see ros/scripts/populate_runtime.sh).
 add_executable(ah_settings_shell_exports src/ah_settings_shell_exports.cpp)
 target_link_libraries(ah_settings_shell_exports PRIVATE ah_common)
 target_compile_features(ah_settings_shell_exports PRIVATE cxx_std_23)
+
+# When built from the Dashboard superbuild, refresh run/bin after link.
+set(_AH_RUN_BIN_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../run/bin")
+add_custom_command(TARGET ah_settings_shell_exports POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E make_directory "${_AH_RUN_BIN_DIR}"
+  COMMAND ${CMAKE_COMMAND} -E copy
+    "$<TARGET_FILE:ah_settings_shell_exports>"
+    "${_AH_RUN_BIN_DIR}/ah_settings_shell_exports"
+  COMMENT "Install ah_settings_shell_exports → run/bin/"
+  VERBATIM
+)
 
 install(DIRECTORY include/ah_common
   DESTINATION include

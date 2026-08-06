@@ -5,7 +5,7 @@ include(QtAppSetup.cmake)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_INSTALL_PREFIX "${CMAKE_SOURCE_DIR}/install-check")
+set(CMAKE_INSTALL_PREFIX "${CMAKE_SOURCE_DIR}/run")
 
 set(QT_INSTALL_LOCATION "/Users/aerospyke/Qt/6.11.0/macos")
 set(QT_VERSION_TO_USE 6.11)
@@ -65,16 +65,26 @@ endif ()
 add_subdirectory(AhCommon)
 
 # Optional: rebuild ROS packages via colcon (not a hard dependency of AeroHub).
-# Invokes ros/build_ros.sh so colcon is found when CMake/CLion lack conda PATH.
+# Invokes ros/scripts/build_ros.sh so colcon is found when CMake/CLion lack conda PATH.
 # Builds: ah_common (AhCommon lib + libah_common_c for ah_yolo), ah_msgs, ah_core, ah_yolo.
+# Ends by populating run/bin (ah_settings_shell_exports).
 # Usage:  cmake --build <build-dir> --target build_ros
-# Then:   source ros/install/setup.zsh   # or init_ah_ros_in_terminal.sh
-# Equivalent:  cd ros && ./build_ros.sh
-# (or colcon with packages-select ah_common ah_msgs ah_core ah_yolo)
+# Then:   cd run && source ./init_ah_ros_in_terminal.sh
+# Equivalent:  ./ros/scripts/build_ros.sh
 add_custom_target(build_ros
-  COMMAND bash "${CMAKE_SOURCE_DIR}/ros/build_ros.sh"
+  COMMAND bash "${CMAKE_SOURCE_DIR}/ros/scripts/build_ros.sh"
   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/ros
-  COMMENT "colcon build ah_common ah_msgs ah_core ah_yolo (optional ROS stack)"
+  COMMENT "colcon build ROS stack + populate run/"
+  VERBATIM
+  USES_TERMINAL
+)
+
+# Install/copy runtime helper into run/ without a full colcon rebuild (if already built).
+# Build-side only — operators never invoke this; use run/ for day-to-day work.
+add_custom_target(populate_run
+  COMMAND bash "${CMAKE_SOURCE_DIR}/ros/scripts/populate_runtime.sh"
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+  COMMENT "Populate aero-hub/run/bin (ah_settings_shell_exports)"
   VERBATIM
   USES_TERMINAL
 )

@@ -6,7 +6,7 @@
   python ros/src/ah_yolo/scripts/smoke_infer.py --profile coco80 \\
       --image /path/to.jpg
   python ros/src/ah_yolo/scripts/smoke_infer.py --profile tank \\
-      --weights models/mini_tank_0308.pt --image zAttachments/tank_alone.jpeg
+      --weights yolo-models/mini_tank_0308.pt --image zAttachments/tank_alone.jpeg
 """
 
 from __future__ import annotations

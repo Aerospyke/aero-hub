@@ -1,7 +1,8 @@
 # AeroHub YOLO weights
 
-Used by `ah_yolo` (Task_33+). Path comes from `[ROS] yolo_models_dir` in `aerohub_settings.ini`
-(published as `AERO_HUB_YOLO_MODELS` via AhCommon / `init_ah_ros_in_terminal.sh`).
+Used by `ah_yolo` (Task_33+). Path comes from `[ROS] yolo_models_dir` in `run/aerohub_settings.ini`
+(published as `AERO_HUB_YOLO_MODELS` via AhCommon / `run/init_ah_ros_in_terminal.sh`).
+With CWD = `run/`, default `yolo_models_dir=../yolo-models` points at this directory.
 
 | Profile | Default files (first found wins) | Notes |
 |---------|----------------------------------|-------|
@@ -18,7 +19,8 @@ Weights on disk: **`mini_tank_0308.pt`**.
 (calls `ah/yolo/set_profile`; `ah_yolo` must already be running).
 
 ```bash
-# after init_ah_ros_in_terminal.sh (sets AERO_HUB_YOLO_MODELS from settings)
+cd …/aero-hub/run
+source ./init_ah_ros_in_terminal.sh   # sets AERO_HUB_YOLO_MODELS from settings
 ros2 run ah_yolo ah_yolo_node --ros-args -p profile:=tank
 # or start on coco80 and switch from the dashboard
 ros2 run ah_yolo ah_yolo_node --ros-args -p profile:=coco80
@@ -27,7 +29,7 @@ ros2 run ah_yolo ah_yolo_node --ros-args -p profile:=coco80
 Startup log should show something like:
 
 ```text
-ah_yolo ready: profile=tank weights=…/models/mini_tank_0308.pt …
+ah_yolo ready: profile=tank weights=…/yolo-models/mini_tank_0308.pt …
 ```
 
 Explicit path (optional):
@@ -55,7 +57,7 @@ ros2 service call /ah/yolo/reload std_srvs/srv/Trigger
 
 ```bash
 ros2 run ah_yolo ah_yolo_node --ros-args -p profile:=coco80
-# → models/yolo11n.pt
+# → yolo-models/yolo11n.pt
 ```
 
 ## Adding a newer tank checkpoint
@@ -64,7 +66,7 @@ Prefer a dated name so versions stay clear:
 
 ```bash
 cp /path/to/runs/detect/.../weights/best.pt \
-  ~/Documents/projects/pix-eagle-stack/aero-hub/models/mini_tank_MMDD.pt
+  ~/Documents/projects/pix-eagle-stack/aero-hub/yolo-models/mini_tank_MMDD.pt
 ```
 
 `profile:=tank` prefers **`mini_tank_0308`**, then other `mini_tank*`, then `tank.pt`.  
@@ -88,7 +90,7 @@ cp mini_tank_0308.pt tank.pt
 
 ```bash
 # Prefer [ROS] yolo_models_dir in aerohub_settings.ini; optional env override after AhCommon publish:
-export AERO_HUB_YOLO_MODELS=/absolute/path/to/models
+export AERO_HUB_YOLO_MODELS=/absolute/path/to/yolo-models
 export AERO_HUB_YOLO_TANK_WEIGHTS=/absolute/path/to/weights.pt
 ```
 

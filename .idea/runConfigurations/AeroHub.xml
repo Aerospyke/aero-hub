@@ -1,0 +1,7 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="AeroHub" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" WORKING_DIR="file://$PROJECT_DIR$/run" PASS_PARENT_ENVS_2="true" PROJECT_NAME="aero-hub" TARGET_NAME="AeroHub" CONFIG_NAME="conan-release - conan-release" RUN_TARGET_PROJECT_NAME="aero-hub" RUN_TARGET_NAME="AeroHub">
+    <method v="2">
+      <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+    </method>
+  </configuration>
+</component>

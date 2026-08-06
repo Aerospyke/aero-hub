@@ -23,7 +23,7 @@ Examples include, without limitation:
   - Ultralytics YOLO and its dependencies (see Ultralytics license terms)
   - PyTorch / related ML runtime (see their respective licenses)
 
-Model weight files under models/ (e.g. yolo11n.pt, mini_tank_*.pt) may be
+Model weight files under yolo-models/ (e.g. yolo11n.pt, mini_tank_*.pt) may be
 subject to separate terms (dataset / training / vendor). They are not
 automatically licensed as Apache-2.0 source code solely by this NOTICE.
 

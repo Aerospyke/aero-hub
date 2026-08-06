@@ -6,8 +6,14 @@ log
 install
 Install-check
 
-# Local runtime settings (generated from defaults if missing; see aerohub_settings_template.ini)
+# Live settings (created by AhCommon if missing; CWD should be run/). Never commit.
 aerohub_settings.ini
+**/aerohub_settings.ini
+
+# Operational directory (run/): track scripts + README; ignore installed artifacts
+run/bin/
+run/AeroHub.app/
+run/*.app/
 
 # Qt Design Studio temporary / generated files
 *.qtds

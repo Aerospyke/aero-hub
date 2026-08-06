@@ -12,11 +12,15 @@ if(NOT TARGET AhCommon::ah_common)
   add_subdirectory("${_AH_COMMON_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/AhCommon")
 endif()
 
-# Libraries for C++ / Python ctypes; shell helper for terminal init.
-install(TARGETS ah_common ah_common_c ah_settings_shell_exports
+# Libraries for C++ / Python ctypes; shell helper installed to run/bin by build_ros.
+# RUNTIME → bin so path is always: install/ah_common/bin/ah_settings_shell_exports
+install(TARGETS ah_common ah_common_c
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
-  RUNTIME DESTINATION lib/${PROJECT_NAME}
+  RUNTIME DESTINATION lib
+)
+install(TARGETS ah_settings_shell_exports
+  RUNTIME DESTINATION bin
 )
 
 install(DIRECTORY "${_AH_COMMON_DIR}/include/ah_common"
