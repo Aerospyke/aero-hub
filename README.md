@@ -16,32 +16,40 @@ Primary project docs (decisions, tasks, interface map) live in the Obsidian vaul
 
 ---
 
-## Milestone_1 — build & run (demo path)
+## Target environment: lab ROS install (macOS + Linux)
 
-This is the **supported end-to-end path on macOS**: dashboard and `ah_core` both on the **host** under **RoboStack**, same ROS domain (default **42**).
+AeroHub is a **lab stack**, not a self-contained consumer app.
 
-**Why not Mac UI ↔ Docker `ah_core` for the demo?** Docker Desktop on macOS puts containers on a bridge network; default DDS discovery does not reach the host. That is tracked as vault Task_26. Use Docker for **Linux builds** of `ah_core` if you want; for the **live UI demo**, run core on the Mac.
+| Expectation | Meaning |
+|-------------|---------|
+| **ROS is already installed** | RoboStack (`ros_env`) and/or system ROS 2 Jazzy (`/opt/ros/jazzy`, etc.) |
+| **Workspace overlay** | This repo’s `ros/install` (colcon) sits on top of that distro |
+| **Runtime uses the lab install** | RMW plugins, typesupport, OpenCV, etc. come from the ROS prefix — we do **not** ship a full private ROS tree inside the dashboard package |
+| **Operational root** | Always [`run/`](run/) as CWD (settings, init script, optional installed UI) |
+
+**macOS:** RoboStack + host UI/core (same machine) is the usual demo. Docker Desktop on Mac still does not bridge DDS to the host for Mac UI ↔ container core (vault Task_26).
+
+**Linux:** Same lab model — native Jazzy or RoboStack; colcon overlay; run from `run/`. Dashboard is an ELF (or whatever CMake produces), not `AeroHub.app`. Prefer a sourced ROS env (or the small ament/rpath lab hooks) rather than AppImage-style ROS bundling.
 
 ### Lab baseline
 
 | Setting | Value |
 |---------|--------|
-| Distro | ROS 2 **Jazzy** (RoboStack `ros_env` on Mac) |
-| RMW | `rmw_fastrtps_cpp` (usually the default; export only if needed) |
-| Domain | **42** (settings file and/or `export ROS_DOMAIN_ID=42` for CLI) |
+| Distro | ROS 2 **Jazzy** (RoboStack and/or system install) |
+| RMW | `rmw_fastrtps_cpp` (from lab install; also in `run/aerohub_settings.ini`) |
+| Domain | **42** (INI / AhCommon; init script exports for CLI) |
 | Namespace | empty = root graph `/ah/...` (optional multi-drone: `namespace=uav1` → `/uav1/ah/...`) |
+| Platforms | **macOS** and **Linux** lab machines |
 
 ### Prerequisites
 
-1. **macOS** lab machine (arm64 tested).
-2. **RoboStack Jazzy** conda env (example name: `ros_env`).  
-   See [RoboStack Getting Started](https://robostack.github.io/GettingStarted.html).
-3. **Qt 6.11** (or edit `CMakeLists.txt` `QT_INSTALL_LOCATION` / `QT_VERSION_TO_USE`).
-4. **CMake** 3.16+.
-5. **OpenCV** available in the RoboStack env used to build `ah_core`.
-6. **Optional:** Conan (only if you use Path B / a Conan CLion profile). `conanfile.py` currently has **no package requirements** — it only generates a toolchain/layout.
+1. **macOS or Linux** lab host with a working ROS 2 Jazzy install (RoboStack `ros_env` is the tested Mac path).
+2. **Qt 6** for the dashboard (edit `CMakeLists.txt` `QT_INSTALL_LOCATION` / `QT_VERSION_TO_USE` on Mac as needed).
+3. **CMake** 3.16+.
+4. **OpenCV** available to the same env that builds `ah_core`.
+5. **Optional:** Conan (Path B / CLion profiles only). `conanfile.py` has **no package requirements** today.
 
-**Operational CWD is [`run/`](run/).** Settings: `run/aerohub_settings.ini` only (created by AhCommon with defaults if missing). Always **`source`** `run/init_ah_ros_in_terminal.sh` (do not execute it).
+**Operational CWD is [`run/`](run/).** Settings: `run/aerohub_settings.ini` only (AhCommon writes defaults if missing). Always **`source`** `run/init_ah_ros_in_terminal.sh` (do not execute it).
 
 **Order matters:** build ROS (`ros/install` + `ah_msgs`) **before** configuring the Dashboard.
 
@@ -97,7 +105,9 @@ Release: `conan install -pr=clang-release`, then `cmake --preset conan-release` 
 
 **CLion:** activate `ros_env`, open the project, use either a plain CMake profile (Path A) or a Conan Debug profile (Path B). Working directory for Run: **`aero-hub/run`**.
 
-After either path, `ros/install` exists and `run/AeroHub.app` is installed. Iterative rebuild:
+After either path, `ros/install` exists and the dashboard is installed under `run/` (`AeroHub.app` on macOS). The UI still expects a **lab ROS install** for RMW/plugins (install adds rpath / ament bootstrap for that; it is not a standalone ROS distribution).
+
+Iterative rebuild:
 
 ```bash
 cmake --build build/Debug --target AeroHub

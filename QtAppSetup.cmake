@@ -16,6 +16,7 @@ macro(find_and_setup_qt)
             APPLICATION_INCLUDE_DIRECTORIES
             LINKED_LIBRARIES_NON_QT
             LINKED_LIBRARIES_QT
+            DEPLOY_TOOL_OPTIONS
     )
 
     cmake_parse_arguments(ARG "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
@@ -58,6 +59,7 @@ macro(find_and_setup_qt)
             APPLICATION_INCLUDE_DIRECTORIES ${ARG_APPLICATION_INCLUDE_DIRECTORIES}
             LINKED_LIBRARIES_NON_QT ${ARG_LINKED_LIBRARIES_NON_QT}
             LINKED_LIBRARIES_QT ${ARG_LINKED_LIBRARIES_QT}
+            DEPLOY_TOOL_OPTIONS ${ARG_DEPLOY_TOOL_OPTIONS}
     )
 endmacro()
 
@@ -77,6 +79,7 @@ function(setup_qt_application)
             APPLICATION_INCLUDE_DIRECTORIES
             LINKED_LIBRARIES_NON_QT
             LINKED_LIBRARIES_QT
+            DEPLOY_TOOL_OPTIONS
     )
 
     cmake_parse_arguments(ARG "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
@@ -185,10 +188,12 @@ function(setup_qt_application)
             BUNDLE DESTINATION .
     )
 
+    # Optional extra flags for macdeployqt / windeployqt (caller-supplied; no project paths here).
     qt_generate_deploy_qml_app_script(
             TARGET ${ARG_APPLICATION_NAME}
             OUTPUT_SCRIPT deploy_script
             NO_UNSUPPORTED_PLATFORM_ERROR
+            DEPLOY_TOOL_OPTIONS ${ARG_DEPLOY_TOOL_OPTIONS}
     )
 
     install(SCRIPT ${deploy_script})
