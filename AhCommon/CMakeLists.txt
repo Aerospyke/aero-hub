@@ -48,14 +48,6 @@ set_target_properties(ah_common_c PROPERTIES
   INSTALL_RPATH "@loader_path"
 )
 
-install(TARGETS ah_common ah_common_c
-  EXPORT AhCommonTargets
-  LIBRARY DESTINATION lib
-  ARCHIVE DESTINATION lib
-  RUNTIME DESTINATION bin
-  INCLUDES DESTINATION include
-)
-
 # Small CLI so terminal init can eval domain from settings (no hard-coded 42).
 # Operational copy lives at aero-hub/run/bin/ (see ros/scripts/populate_runtime.sh).
 add_executable(ah_settings_shell_exports src/ah_settings_shell_exports.cpp)
@@ -73,10 +65,22 @@ add_custom_command(TARGET ah_settings_shell_exports POST_BUILD
   VERBATIM
 )
 
-install(DIRECTORY include/ah_common
-  DESTINATION include
-)
+# Install rules only when AhCommon is configured as its own project.
+# - Dashboard superbuild: cmake --install deploys AeroHub.app only (prefix = run/).
+# - Colcon ah_common package: has its own install(TARGETS ...) for libs + helper.
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+  install(TARGETS ah_common ah_common_c
+    EXPORT AhCommonTargets
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    RUNTIME DESTINATION bin
+    INCLUDES DESTINATION include
+  )
+  install(DIRECTORY include/ah_common
+    DESTINATION include
+  )
+  install(TARGETS ah_settings_shell_exports
+    RUNTIME DESTINATION bin
+  )
+endif()
 
-install(TARGETS ah_settings_shell_exports
-  RUNTIME DESTINATION bin
-)

@@ -36,119 +36,99 @@ This is the **supported end-to-end path on macOS**: dashboard and `ah_core` both
 1. **macOS** lab machine (arm64 tested).
 2. **RoboStack Jazzy** conda env (example name: `ros_env`).  
    See [RoboStack Getting Started](https://robostack.github.io/GettingStarted.html).
-3. **Qt 6.11** (or edit `CMakeLists.txt` `QT_INSTALL_LOCATION` / `QT_VERSION_TO_USE` to match your install).
-4. **CMake** 3.16+, **Conan** if your CLion profile uses the existing Conan toolchain (optional for a plain CMake configure).
-5. **OpenCV** available to the RoboStack / system environment used to build `ah_core` (RoboStack/desktop images usually provide it).
+3. **Qt 6.11** (or edit `CMakeLists.txt` `QT_INSTALL_LOCATION` / `QT_VERSION_TO_USE`).
+4. **CMake** 3.16+.
+5. **OpenCV** available in the RoboStack env used to build `ah_core`.
+6. **Optional:** Conan (only if you use Path B / a Conan CLion profile). `conanfile.py` currently has **no package requirements** — it only generates a toolchain/layout.
 
-### 1. Build ROS packages (`ah_msgs` + `ah_core` + …)
+**Operational CWD is [`run/`](run/).** Settings: `run/aerohub_settings.ini` only (created by AhCommon with defaults if missing). Always **`source`** `run/init_ah_ros_in_terminal.sh` (do not execute it).
 
-Dashboard links against **`ros/install`** for `ah_msgs`. Build this first. Preferred entry:
+**Order matters:** build ROS (`ros/install` + `ah_msgs`) **before** configuring the Dashboard.
+
+Optional clean:
 
 ```bash
-conda activate ros_env
 cd /path/to/aero-hub
-cmake --build build/Debug --target build_ros
-# or:  ./ros/scripts/build_ros.sh
+rm -rf ros/build ros/install ros/log build/Debug run/bin run/AeroHub.app
 ```
 
-That runs colcon (`ah_common`, `ah_msgs`, `ah_core`, `ah_yolo`) and **populates [`run/bin`](run/)** (`ah_settings_shell_exports`).
+---
 
-Optional (CLion only): if the Compilation Database fails on conda’s triple-prefixed clang, regenerate with system compilers under `ros/`:
+### Path A — plain CMake (no Conan)
+
+Recommended for terminal builds. Qt and install prefix come from root `CMakeLists.txt`; activate `ros_env` so ROS is found.
 
 ```bash
-cd /path/to/aero-hub/ros
-colcon build --packages-select ah_msgs ah_core --cmake-args \
-  -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
-  -DCMAKE_C_COMPILER=/usr/bin/clang \
-  -DCMAKE_CXX_COMPILER=/usr/bin/clang++
-```
-
-Smoke-test core alone (always from **`run/`**):
-
-```bash
-cd /path/to/aero-hub/run
-source ./init_ah_ros_in_terminal.sh
-ros2 run ah_core ah_core_node
-# other terminal (same cd + source):
-ros2 topic echo /ah/system/status --once
-ros2 node list   # expect /ah_core
-```
-
-More detail: [`run/README.md`](run/README.md), [`ros/README.md`](ros/README.md).
-
-### 2. Settings file (domain / namespace)
-
-**Operational CWD is [`run/`](run/).** AhCommon loads **`./aerohub_settings.ini` from CWD only**.
-
-- Live file: **`run/aerohub_settings.ini` only** (never put this in the project root)
-- If missing, **AhCommon** creates it from built-in defaults (domain 42, `yolo_models_dir=../yolo-models`, etc.)
-
-```ini
-[ROS]
-domain_id=42
-namespace=
-; namespace=uav1   # multi-vehicle: dashboard + core must match
-```
-
-**CLI tools** get domain/RMW/models from `run/init_ah_ros_in_terminal.sh` (via AhCommon), not by reading the INI themselves.
-
-### 3. Build the dashboard (plain CMake + Qt)
-
-**Not colcon.** The **verified lab path** is **CLion** with RoboStack + the existing Conan/CMake profile (this repo’s `build/Debug` uses Conan’s toolchain, not a bare `CMAKE_PREFIX_PATH`-only configure).
-
-**CLion (primary):**
-
-```bash
-conda activate ros_env
-open -na "CLion.app"
-```
-
-- Open the `aero-hub` project; use your Debug (Conan) CMake profile.  
-- Build target **AeroHub**.  
-- Cold-start from Dock: root `CMakeLists.txt` falls back to `~/miniconda3/envs/ros_env` if `CONDA_PREFIX` is unset (still prefer launching from `ros_env`).  
-- Working directory for Run: **`aero-hub/run`** (so `aerohub_settings.ini` is found).
-
-**Command-line rebuild** of an **already configured** tree (what iterative CLI builds use after CLion has configured once):
-
-```bash
-conda activate ros_env
 cd /path/to/aero-hub
-cmake --build build/Debug --target AeroHub -j"$(sysctl -n hw.ncpu)"
+conda activate ros_env
+
+# 1) ROS first (colcon → ros/install, run/bin/ah_settings_shell_exports)
+./ros/scripts/build_ros.sh
+
+# 2) Configure + build + install Dashboard (CMAKE_INSTALL_PREFIX = run/)
+cmake -S . -B build/Debug -DCMAKE_BUILD_TYPE=Debug
+cmake --build build/Debug --target AeroHub
+cmake --install build/Debug
 ```
 
-A **fresh** CLI configure from scratch is not the documented lab path: this project’s Debug/Release dirs are set up with **Conan** (`CMakeUserPresets.json` → `build/*/generators/conan_toolchain.cmake`). Re-create that via CLion or your usual Conan + CMake flow; do not assume a one-liner `-DCMAKE_PREFIX_PATH="$CONDA_PREFIX;…/Qt"` is equivalent unless you have verified it on your machine.
+Release: use `build/Release` and `-DCMAKE_BUILD_TYPE=Release`.
 
-**Requires:** successful `ros/install` (for `ah_msgs`) so track services link. Qt path is set in root `CMakeLists.txt` (`QT_INSTALL_LOCATION`).
+---
 
-Binary (Debug example):
+### Path B — Conan toolchain (optional)
 
-```text
-build/Debug/DashboardApp/AeroHub.app/Contents/MacOS/AeroHub
+Useful if you keep Conan profiles / CLion presets. Still **no Conan dependencies** today — only generates `build/*/generators` and CMake presets.
+
+```bash
+cd /path/to/aero-hub
+conan install -pr=clang-debug
+conda activate ros_env
+
+# 1) ROS first (same as Path A)
+./ros/scripts/build_ros.sh
+
+# 2) Configure via Conan preset, then build + install
+cmake --preset conan-debug
+cmake --build build/Debug --target AeroHub
+cmake --install build/Debug
 ```
 
-### 4. Run the Milestone_1 demo (two processes, same host)
+Release: `conan install -pr=clang-release`, then `cmake --preset conan-release` and build/install under `build/Release`.
 
-**Terminal A — core**
+**CLion:** activate `ros_env`, open the project, use either a plain CMake profile (Path A) or a Conan Debug profile (Path B). Working directory for Run: **`aero-hub/run`**.
+
+After either path, `ros/install` exists and `run/AeroHub.app` is installed. Iterative rebuild:
+
+```bash
+cmake --build build/Debug --target AeroHub
+cmake --install build/Debug
+# ROS only:  ./ros/scripts/build_ros.sh
+# or after Dashboard is configured:  cmake --build build/Debug --target build_ros
+```
+
+---
+
+### Run the stack
+
+**Every terminal:**
 
 ```bash
 conda activate ros_env
 cd /path/to/aero-hub/run
 source ./init_ah_ros_in_terminal.sh
-ros2 run ah_core ah_core_node
 ```
 
-**Terminal B — dashboard**
+| Role | Command |
+|------|---------|
+| Core | `ros2 run ah_core ah_core_node` |
+| YOLO | `ros2 run ah_yolo ah_yolo_node` |
+| Dashboard | `open ./AeroHub.app` |
 
-```bash
-conda activate ros_env
-cd /path/to/aero-hub/run
-source ./init_ah_ros_in_terminal.sh
-# After: cmake --install build/Debug   (CMAKE_INSTALL_PREFIX = run/)
-open ./AeroHub.app
-# or CLion: Working directory = aero-hub/run
-```
+Or run **AeroHub** from CLion with Working directory = `aero-hub/run`.
 
-### 5. Manual test script (acceptance)
+Settings live only under **`run/`** (`aerohub_settings.ini`; defaults include `domain_id=42`, `yolo_models_dir=../yolo-models`). More detail: [`run/README.md`](run/README.md), [`ros/README.md`](ros/README.md).
+
+### Manual test script (acceptance)
 
 With both processes running (domain **42**, matching **namespace**):
 
@@ -215,10 +195,12 @@ aero-hub/
 **Settings:** `ah::Settings` in AhCommon — e.g. `settings.Ros().DomainId()`, `settings.Camera().Selection()`,
 `settings.JsbSim().Get("ports/input")`. Dashboard and `ah_core` share this (no Qt in common). Live file: **`run/aerohub_settings.ini`** (auto-created with defaults if missing).
 
-**Optional ROS rebuild from CMake** (not required for every app build):
+**Optional ROS rebuild** (not required for every app build):
 
 ```bash
-cmake --build build/Debug --target build_ros   # colcon + populate run/
+./ros/scripts/build_ros.sh
+# or, after Dashboard CMake is configured:
+cmake --build build/Debug --target build_ros
 ```
 
 ---
@@ -229,7 +211,8 @@ cmake --build build/Debug --target build_ros   # colcon + populate run/
 |---------|----------------|
 | `No 'rosidl_typesupport_c' found` | CMake without RoboStack env — activate `ros_env` or use cold-start path in root `CMakeLists.txt` |
 | `find_package(ah_msgs)` fails | Build `ros/` first (`colcon` → `install/`) |
-| `ros2` does not see app / core | Different `ROS_DOMAIN_ID` or **namespace** between processes |
+| `ros2` does not see app / core | Different `ROS_DOMAIN_ID` or **namespace**; or ran `./init_…` instead of `source` |
+| `Package 'ah_core' not found` | Overlay not in this shell — `source run/init_ah_ros_in_terminal.sh` |
 | dyld `_PyExc_RuntimeError` | Dashboard must link `Python3::Python` (already in CMake) |
 | SpinBox customize warnings on macOS | App sets `QQuickStyle` to **Basic** in `main.cpp` |
 | Mac `ros2` cannot see Docker topics | Expected on Docker Desktop — use same-host demo or Task_26 later |

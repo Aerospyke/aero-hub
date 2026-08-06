@@ -15,8 +15,8 @@
         <entry key="conan-release - conan-release">
           <value>
             <PerProfileState>
-              <option name="myQmlPath" value="$USER_HOME$/Qt/6.11.0/macos/qml" />
-              <option name="myQtBinPath" value="$USER_HOME$/Qt/6.11.0/macos/bin" />
+              <option name="myQmlPath" value="$USER_HOME$/miniconda3/envs/ros_env/lib/qt6/qml" />
+              <option name="myQtBinPath" value="$USER_HOME$/miniconda3/envs/ros_env/lib/qt6/bin" />
             </PerProfileState>
           </value>
         </entry>
