@@ -94,9 +94,11 @@ add_custom_target(populate_run
 #   cmake --build <build-dir> --target bundle_ros_runtime
 #   → run/AeroHub-standalone.app
 add_custom_target(bundle_ros_runtime
-  COMMAND bash "${CMAKE_SOURCE_DIR}/scripts/bundle_ros_into_app.sh"
-    --src "${CMAKE_SOURCE_DIR}/run/AeroHub.app"
-    --dst "${CMAKE_SOURCE_DIR}/run/AeroHub-standalone.app"
+  COMMAND "${CMAKE_COMMAND}" -E env
+    "CONDA_PREFIX=$ENV{CONDA_PREFIX}"
+    python3 "${CMAKE_SOURCE_DIR}/scripts/bundle_ros_into_app.py"
+      --src "${CMAKE_SOURCE_DIR}/run/AeroHub.app"
+      --dst "${CMAKE_SOURCE_DIR}/run/AeroHub-standalone.app"
   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
   COMMENT "Copy run/AeroHub.app → AeroHub-standalone.app and stage ROS dylibs"
   VERBATIM

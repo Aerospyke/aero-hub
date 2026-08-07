@@ -114,7 +114,7 @@ cmake --build build/Debug --target AeroHub
 cmake --install build/Debug    # → run/AeroHub.app
 
 # iterate: copy app + stage ROS dylibs only
-./scripts/bundle_ros_into_app.sh
+./scripts/bundle_ros_into_app.py
 # or:  cmake --build build/Debug --target bundle_ros_runtime
 # → run/AeroHub-standalone.app  (does not modify AeroHub.app)
 ```
