@@ -71,7 +71,7 @@ Item {
           Layout.fillWidth: true
         }
 
-        StatusLabel { text: "tracking_started" }
+        StatusLabel { text: "was_tracking_started" }
         StatusValue {
           text: systemStatus.trackingStarted ? "true" : "false"
           color: systemStatus.trackingStarted ? "#6bcf7f" : root.chromeTextBright
@@ -91,7 +91,7 @@ Item {
           }
         }
 
-        StatusLabel { text: "ai_tracking_active" }
+        StatusLabel { text: "is_ai_tracking_active" }
         StatusValue { text: systemStatus.aiTrackingActive ? "true" : "false" }
 
         StatusLabel { text: "following_active" }

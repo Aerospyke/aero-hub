@@ -105,10 +105,10 @@ private:
   rclcpp::TimerBase::SharedPtr probe_timer_;
   int frame_id_{0};
 
-  bool tracking_started_{false};
-  bool segmentation_active_{false};
-  bool ai_tracking_active_{false};
-  bool following_active_{false};
+  bool was_tracking_started_{false};
+  bool is_segmentation_active_{false};
+  bool is_ai_tracking_active_{false};
+  bool is_following_active_{false};
   float tracking_bounding_box_x_{0.0f};
   float tracking_bounding_box_y_{0.0f};
   float tracking_bounding_box_width_{0.0f};

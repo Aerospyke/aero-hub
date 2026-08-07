@@ -55,7 +55,7 @@ std::string CreateStatusJson(
   const char * video_status,
   bool tracking_started,
   bool segmentation_active,
-  bool ai_tracking_active,
+  bool is_ai_tracking_active,
   bool following_active,
   const char * tracker_type,
   const CameraSelection & cam,
@@ -66,17 +66,17 @@ std::string CreateStatusJson(
   oss.setf(std::ios::fixed);
   oss.precision(3);
   oss << '{'
-      << "\"ai_tracking_active\":" << (ai_tracking_active ? "true" : "false") << ','
-      << "\"tracking_started\":" << (tracking_started ? "true" : "false") << ','
+      << "\"is_ai_tracking_active\":" << (is_ai_tracking_active ? "true" : "false") << ','
+      << "\"was_tracking_started\":" << (tracking_started ? "true" : "false") << ','
       << "\"segmentation_active\":" << (segmentation_active ? "true" : "false") << ','
       << "\"following_active\":" << (following_active ? "true" : "false") << ','
-      << "\"video_status\":\"" << video_status << "\","
-      << "\"tracker_type\":\"" << JsonEscape(tracker_type ? tracker_type : "stub") << "\","
-      << "\"follower_mode\":\"none\","
-      << "\"video_source\":\"" << JsonEscape(cam.video_source) << "\","
+      << R"("video_status":")" << video_status << "\","
+      << R"("tracker_type":")" << JsonEscape(tracker_type ? tracker_type : "stub") << "\","
+      << R"("follower_mode":"none",)"
+      << R"("video_source":")" << JsonEscape(cam.video_source) << "\","
       << "\"camera_device_id\":" << cam.device_id << ','
-      << "\"camera_device_path\":\"" << JsonEscape(cam.device_path) << "\","
-      << "\"camera_backend\":\"" << JsonEscape(cam.backend) << "\","
+      << R"("camera_device_path":")" << JsonEscape(cam.device_path) << "\","
+      << R"("camera_backend":")" << JsonEscape(cam.backend) << "\","
       << "\"locked_track_id\":" << locked_track_id << ','
       << "\"tracking_bbox_x\":" << track_x << ','
       << "\"tracking_bbox_y\":" << track_y << ','
@@ -444,7 +444,7 @@ void AhCoreNode::OnTimer()
     if (camera_.video_source == "camera" && camera_.device_id >= 0) {
       // Wait for async probe (or select) before fighting AVFoundation opens.
       if (!camera_probe_done_ && !capture_.IsOpen()) {
-        bgr = CreateSyntheticImage(frame_id_, tracking_started_);
+        bgr = CreateSyntheticImage(frame_id_, was_tracking_started_);
         video_status = "connected";
       } else {
         if (!capture_.IsOpen() || capture_.DeviceId() != camera_.device_id) {
@@ -456,18 +456,18 @@ void AhCoreNode::OnTimer()
               RCLCPP_WARN(get_logger(), "capture open failed: %s", err.c_str());
               ++capture_open_fail_log_count_;
             }
-            bgr = CreateSyntheticImage(frame_id_, tracking_started_);
+            bgr = CreateSyntheticImage(frame_id_, was_tracking_started_);
           }
         }
         if (capture_.IsOpen() && capture_.ReadBgr(&bgr) && !bgr.empty()) {
-          OverlayTrackingHint(bgr, tracking_started_);
+          OverlayTrackingHint(bgr, was_tracking_started_);
           frame_id = "ah_camera";
           video_status = "connected";
           last_video_status_ = video_status;
         } else if (bgr.empty()) {
           video_status = capture_.IsOpen() ? "degraded" : "unavailable";
           last_video_status_ = video_status;
-          bgr = CreateSyntheticImage(frame_id_, tracking_started_);
+          bgr = CreateSyntheticImage(frame_id_, was_tracking_started_);
           RCLCPP_WARN_THROTTLE(
             get_logger(), *get_clock(), 3000,
             "camera frame grab failed (status=%s id=%d) — publishing synthetic fallback",
@@ -478,7 +478,7 @@ void AhCoreNode::OnTimer()
       if (capture_.IsOpen()) {
         capture_.Close();
       }
-      bgr = CreateSyntheticImage(frame_id_, tracking_started_);
+      bgr = CreateSyntheticImage(frame_id_, was_tracking_started_);
       video_status = "connected";
       last_video_status_ = video_status;
     }
@@ -488,10 +488,10 @@ void AhCoreNode::OnTimer()
   status_msg.data = CreateStatusJson(
     now.seconds(),
     video_status,
-    tracking_started_,
-    segmentation_active_,
-    ai_tracking_active_,
-    following_active_,
+    was_tracking_started_,
+    is_segmentation_active_,
+    is_ai_tracking_active_,
+    is_following_active_,
     tracker_type_.c_str(),
     camera_,
     tracking_bounding_box_x_,
@@ -531,7 +531,7 @@ void AhCoreNode::OnStartTracking(
     return;
   }
 
-  tracking_started_ = true;
+  was_tracking_started_ = true;
   tracker_type_ = "classic";
   // Classic bbox must not keep following a previous AI track_id.
   currently_locked_object_id_ = -1;
@@ -555,11 +555,11 @@ void AhCoreNode::OnStopTracking(
   const std::shared_ptr<std_srvs::srv::Trigger::Request> /*request*/,
   std::shared_ptr<std_srvs::srv::Trigger::Response> response)
 {
-  const bool was = tracking_started_;
-  tracking_started_ = false;
+  const bool was = was_tracking_started_;
+  was_tracking_started_ = false;
   currently_locked_object_id_ = -1;
   current_lock_num_missed_frames_ = 0;
-  if (!ai_tracking_active_) {
+  if (!is_ai_tracking_active_) {
     tracker_type_ = "stub";
   }
   response->success = true;
@@ -571,11 +571,11 @@ void AhCoreNode::OnCancelTracking(
   const std::shared_ptr<std_srvs::srv::Trigger::Request> /*request*/,
   std::shared_ptr<std_srvs::srv::Trigger::Response> response)
 {
-  tracking_started_ = false;
-  segmentation_active_ = false;
+  was_tracking_started_ = false;
+  is_segmentation_active_ = false;
   currently_locked_object_id_ = -1;
   current_lock_num_missed_frames_ = 0;
-  if (!ai_tracking_active_) {
+  if (!is_ai_tracking_active_) {
     tracker_type_ = "stub";
   } else {
     tracker_type_ = "ai_tracking";
@@ -763,10 +763,10 @@ void AhCoreNode::PublishStatusSnapshot(const char * video_status)
   status_msg.data = CreateStatusJson(
     now.seconds(),
     video_status ? video_status : last_video_status_.c_str(),
-    tracking_started_,
-    segmentation_active_,
-    ai_tracking_active_,
-    following_active_,
+    was_tracking_started_,
+    is_segmentation_active_,
+    is_ai_tracking_active_,
+    is_following_active_,
     tracker_type_.c_str(),
     camera_,
     tracking_bounding_box_x_,
@@ -847,7 +847,7 @@ void AhCoreNode::OnDetections(const std_msgs::msg::String::SharedPtr msg)
 
 void AhCoreNode::UpdateLockFromTrackedId()
 {
-  if (!tracking_started_ || currently_locked_object_id_ < 0) {
+  if (!was_tracking_started_ || currently_locked_object_id_ < 0) {
     return;
   }
 
@@ -875,7 +875,7 @@ void AhCoreNode::UpdateLockFromTrackedId()
       get_logger(),
       "lost track_id=%d for %d frames — clearing AI lock",
       currently_locked_object_id_, current_lock_num_missed_frames_);
-    tracking_started_ = false;
+    was_tracking_started_ = false;
     currently_locked_object_id_ = -1;
     current_lock_num_missed_frames_ = 0;
     tracking_bounding_box_x_ = 0.f;
@@ -964,12 +964,12 @@ void AhCoreNode::OnAiTrackingToggle(
   const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
   std::shared_ptr<std_srvs::srv::SetBool::Response> response)
 {
-  const bool turning_on = request->data;
-  ai_tracking_active_ = turning_on;
+  const bool WasAiTrackingRequested = request->data;
+  is_ai_tracking_active_ = WasAiTrackingRequested;
 
-  if (turning_on) {
+  if (WasAiTrackingRequested) {
     // Enter ai tracking: clear classic framing; lock only appears after click-on-detection.
-    tracking_started_ = false;
+    was_tracking_started_ = false;
     currently_locked_object_id_ = -1;
     current_lock_num_missed_frames_ = 0;
     tracking_bounding_box_x_ = 0.f;
@@ -979,7 +979,7 @@ void AhCoreNode::OnAiTrackingToggle(
     tracker_type_ = "ai_tracking";
   } else {
     // Leave ai tracking: stop any ai tracking lock; classic drag box returns on the UI.
-    tracking_started_ = false;
+    was_tracking_started_ = false;
     currently_locked_object_id_ = -1;
     current_lock_num_missed_frames_ = 0;
     tracker_type_ = "stub";
@@ -990,7 +990,7 @@ void AhCoreNode::OnAiTrackingToggle(
   }
 
   response->success = true;
-  response->message = ai_tracking_active_ ? "ai tracking ON (click detections only)"
+  response->message = is_ai_tracking_active_ ? "ai tracking ON (click detections only)"
                                          : "ai tracking OFF (classic drag)";
   RCLCPP_INFO(get_logger(), "%s", response->message.c_str());
   PublishStatusSnapshot(last_video_status_.c_str());
@@ -1000,7 +1000,7 @@ void AhCoreNode::OnAiTrackingClick(
   const std::shared_ptr<ah_msgs::srv::AiTrackingClick::Request> request,
   std::shared_ptr<ah_msgs::srv::AiTrackingClick::Response> response)
 {
-  if (!ai_tracking_active_) {
+  if (!is_ai_tracking_active_) {
     response->success = false;
     response->message = "ai tracking is OFF — enable ah/ai_tracking/toggle first";
     return;
@@ -1020,7 +1020,7 @@ void AhCoreNode::OnAiTrackingClick(
         request->x, request->y, &bx, &by, &bw, &bh, &track_id, &label))
   {
     // Miss: do not start tracking and do not invent a free-point box.
-    tracking_started_ = false;
+    was_tracking_started_ = false;
     currently_locked_object_id_ = -1;
     current_lock_num_missed_frames_ = 0;
     tracking_bounding_box_x_ = 0.f;
@@ -1056,7 +1056,7 @@ void AhCoreNode::OnAiTrackingClick(
   }
 
   // Explicitly replace any previous lock (do not leave old track_id sticky).
-  tracking_started_ = true;
+  was_tracking_started_ = true;
   tracker_type_ = "ai_tracking";
   currently_locked_object_id_ = track_id;
   current_lock_num_missed_frames_ = 0;
