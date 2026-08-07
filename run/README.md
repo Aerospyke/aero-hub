@@ -101,3 +101,22 @@ echo $ROS_DOMAIN_ID
 ros2 node list
 ros2 topic echo /ah/system/status --once
 ```
+
+---
+
+## Experimental: ROS dylib bundling (no macdeployqt)
+
+To iterate on packing ROS shared libs into an app **without** re-running Qt deploy:
+
+```bash
+# once: normal lab install (includes macdeployqt)
+cmake --build build/Debug --target AeroHub
+cmake --install build/Debug    # → run/AeroHub.app
+
+# iterate: copy app + stage ROS dylibs only
+./scripts/bundle_ros_into_app.sh
+# or:  cmake --build build/Debug --target bundle_ros_runtime
+# → run/AeroHub-standalone.app  (does not modify AeroHub.app)
+```
+
+`run/AeroHub.app` stays the normal lab install. Standalone experiments use the copy.

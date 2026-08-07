@@ -13,6 +13,7 @@ aerohub_settings.ini
 # Operational directory (run/): track scripts + README; ignore installed artifacts
 run/bin/
 run/AeroHub.app/
+run/AeroHub-standalone.app/
 run/*.app/
 
 # Qt Design Studio temporary / generated files

@@ -89,5 +89,19 @@ add_custom_target(populate_run
   USES_TERMINAL
 )
 
+# Experimental: copy ROS shared libs into a *copy* of an existing installed app.
+# Does not re-run macdeployqt. Requires run/AeroHub.app from a prior cmake --install.
+#   cmake --build <build-dir> --target bundle_ros_runtime
+#   → run/AeroHub-standalone.app
+add_custom_target(bundle_ros_runtime
+  COMMAND bash "${CMAKE_SOURCE_DIR}/scripts/bundle_ros_into_app.sh"
+    --src "${CMAKE_SOURCE_DIR}/run/AeroHub.app"
+    --dst "${CMAKE_SOURCE_DIR}/run/AeroHub-standalone.app"
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+  COMMENT "Copy run/AeroHub.app → AeroHub-standalone.app and stage ROS dylibs"
+  VERBATIM
+  USES_TERMINAL
+)
+
 add_subdirectory(FlightInstruments)
 add_subdirectory(DashboardApp)
