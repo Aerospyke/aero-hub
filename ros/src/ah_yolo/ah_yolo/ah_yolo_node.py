@@ -158,12 +158,21 @@ class AhYoloNode(Node):
         self.declare_parameter("image_topic", "ah/video/compressed")
         self.declare_parameter("detections_topic", "ah/detections")
         self.declare_parameter("device", "")
+        # Ultralytics default (tracktrack/botsort) uses GMC sparseOptFlow; that
+        # asserts when consecutive frames differ in size (synthetic ↔ camera)
+        # and spams "GMC failed, falling back to identity". ByteTrack has no GMC.
+        self.declare_parameter("tracker", "bytetrack.yaml")
 
         self._model_lock = threading.Lock()
         self._model = None
         self._model_path: Path | None = None
         self._frame_count = 0
         self._last_infer_s = 0.0
+        self._last_frame_hw: tuple[int, int] | None = None
+        # Feed identity from /ah/system/status (video_source + camera id/path).
+        self._last_feed_key: str | None = None
+        self._pending_tracker_reset = False
+        self._pending_tracker_reset_reason = ""
 
         video_qos = QoSProfile(
             reliability=ReliabilityPolicy.BEST_EFFORT,
@@ -172,6 +181,11 @@ class AhYoloNode(Node):
         )
         det_qos = QoSProfile(
             reliability=ReliabilityPolicy.BEST_EFFORT,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1,
+        )
+        status_qos = QoSProfile(
+            reliability=ReliabilityPolicy.RELIABLE,
             history=HistoryPolicy.KEEP_LAST,
             depth=1,
         )
@@ -184,6 +198,11 @@ class AhYoloNode(Node):
         self._det_pub = self.create_publisher(String, detections_topic, det_qos)
         self._image_sub = self.create_subscription(
             CompressedImage, image_topic, self._on_image, video_qos
+        )
+        # Camera select updates status; use that to cancel MOT state on feed switch
+        # (same resolution still needs a clean slate — IDs must not carry across cameras).
+        self._status_sub = self.create_subscription(
+            String, "ah/system/status", self._on_status, status_qos
         )
 
         self._reload_srv = self.create_service(
@@ -217,6 +236,65 @@ class AhYoloNode(Node):
             self.get_parameter("device").get_parameter_value().string_value
         )
 
+    @staticmethod
+    def _reset_tracker_state(model: Any) -> None:
+        """Cancel multi-object tracks (feed switch / size change / recovery).
+
+        Important: with persist=True, Ultralytics does::
+
+            if hasattr(predictor, "trackers") and persist:
+                return
+
+        so ``trackers = []`` leaves an empty list and the next frame crashes with
+        ``list index out of range`` on ``predictor.trackers[0]``. Call each
+        tracker's ``reset()`` instead (or delete the attribute so trackers rebuild).
+        """
+        predictor = getattr(model, "predictor", None)
+        if predictor is None:
+            return
+        trackers = getattr(predictor, "trackers", None)
+        if trackers:
+            for tracker in trackers:
+                reset = getattr(tracker, "reset", None)
+                if callable(reset):
+                    try:
+                        reset()
+                    except Exception:  # noqa: BLE001
+                        pass
+            return
+        # No live trackers yet, or broken empty list from an older reset path —
+        # force on_predict_start to rebuild on the next track() call.
+        if hasattr(predictor, "trackers"):
+            try:
+                delattr(predictor, "trackers")
+            except Exception:  # noqa: BLE001
+                pass
+
+    def _request_tracker_reset(self, reason: str) -> None:
+        """Mark MOT state for cancel on the next image callback (thread-safe enough)."""
+        self._pending_tracker_reset = True
+        self._pending_tracker_reset_reason = reason
+
+    def _on_status(self, msg: String) -> None:
+        """Watch ah_core status for video feed identity changes."""
+        if not msg or not msg.data:
+            return
+        try:
+            data = json.loads(msg.data)
+        except json.JSONDecodeError:
+            return
+        source = str(data.get("video_source", "")).strip()
+        device_id = data.get("camera_device_id", -1)
+        path = str(data.get("camera_device_path", "")).strip()
+        feed_key = f"{source}|{device_id}|{path}"
+        if self._last_feed_key is None:
+            self._last_feed_key = feed_key
+            return
+        if feed_key != self._last_feed_key:
+            prev = self._last_feed_key
+            self._last_feed_key = feed_key
+            self._request_tracker_reset(f"video feed {prev} → {feed_key}")
+
     def _load_model(self) -> None:
         profile = self._profile()
         weights_param = (
@@ -225,6 +303,9 @@ class AhYoloNode(Node):
         path = resolve_weights(profile, weights_param)
         yolo_cls = _import_yolo()
         device = self._device()
+        self._last_frame_hw = None
+        self._pending_tracker_reset = True
+        self._pending_tracker_reset_reason = "model reload"
         self.get_logger().info(f"Loading YOLO weights={path} device={device} …")
 
         if path.suffix.lower() == ".safetensors":
@@ -331,9 +412,27 @@ class AhYoloNode(Node):
         conf = float(self.get_parameter("conf_threshold").value)
         iou = float(self.get_parameter("iou_threshold").value)
         device = self._device()
+        tracker = (
+            self.get_parameter("tracker").get_parameter_value().string_value.strip()
+            or "bytetrack.yaml"
+        )
 
-        # Use track() (ByteTrack/BoTSORT via Ultralytics) so detections carry a
-        # persistent track_id across frames. Plain predict() has no multi-frame IDs.
+        # Cancel tracks on resolution change and on explicit feed switch (status).
+        hw = (h, w)
+        if self._last_frame_hw is not None and self._last_frame_hw != hw:
+            self._request_tracker_reset(
+                f"frame size {self._last_frame_hw} → {hw}"
+            )
+        self._last_frame_hw = hw
+
+        if self._pending_tracker_reset:
+            reason = self._pending_tracker_reset_reason or "feed change"
+            self.get_logger().info(f"cancelling multi-object tracks ({reason})")
+            self._reset_tracker_state(model)
+            self._pending_tracker_reset = False
+            self._pending_tracker_reset_reason = ""
+
+        # track() (not predict) so detections carry persistent track_id for AI lock.
         t0 = time.perf_counter()
         try:
             results = model.track(
@@ -342,11 +441,28 @@ class AhYoloNode(Node):
                 iou=iou,
                 device=device,
                 persist=True,
+                tracker=tracker,
                 verbose=False,
             )
         except Exception as ex:  # noqa: BLE001
-            self.get_logger().error(f"track failed: {ex}")
-            return
+            # Common after a bad reset or mid-switch frame — clear MOT and retry once.
+            self.get_logger().warning(
+                f"track failed ({ex}); resetting tracker and retrying once"
+            )
+            self._reset_tracker_state(model)
+            try:
+                results = model.track(
+                    source=bgr,
+                    conf=conf,
+                    iou=iou,
+                    device=device,
+                    persist=True,
+                    tracker=tracker,
+                    verbose=False,
+                )
+            except Exception as ex2:  # noqa: BLE001
+                self.get_logger().error(f"track failed after reset: {ex2}")
+                return
         self._last_infer_s = time.perf_counter() - t0
 
         detections: list[dict[str, Any]] = []

@@ -58,18 +58,22 @@ class AhCoreNode : public rclcpp::Node {
 
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr status_pub_;
   rclcpp::Publisher<sensor_msgs::msg::CompressedImage>::SharedPtr video_pub_;
-  rclcpp::Service<ah_msgs::srv::StartTracking>::SharedPtr start_tracking_srv_;
-  rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr stop_tracking_srv_;
-  rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr cancel_tracking_srv_;
-  rclcpp::Service<ah_msgs::srv::ListCameras>::SharedPtr list_cameras_srv_;
-  rclcpp::Service<ah_msgs::srv::SelectCamera>::SharedPtr select_camera_srv_;
-  rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr ai_tracking_toggle_srv_;
-  rclcpp::Service<ah_msgs::srv::AiTrackingClick>::SharedPtr ai_tracking_click_srv_;
+
+  struct {
+    rclcpp::Service<ah_msgs::srv::StartTracking>::SharedPtr start_tracking;
+    rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr stop_tracking;
+    rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr cancel_tracking;
+    rclcpp::Service<ah_msgs::srv::ListCameras>::SharedPtr list_cameras;
+    rclcpp::Service<ah_msgs::srv::SelectCamera>::SharedPtr select_camera;
+    rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr ai_tracking_toggle;
+    rclcpp::Service<ah_msgs::srv::AiTrackingClick>::SharedPtr ai_tracking_select;
+  } ros_services_;
+
   rclcpp::Subscription<std_msgs::msg::String>::SharedPtr detections_sub_;
-  rclcpp::CallbackGroup::SharedPtr camera_cb_group_;
+  rclcpp::CallbackGroup::SharedPtr camera_callback_group_;
   rclcpp::TimerBase::SharedPtr timer_;
   rclcpp::TimerBase::SharedPtr probe_timer_;
-  int frame_id_{0};
+  int current_video_frame_id_{0};
 
   TrackingController tracking_;
 

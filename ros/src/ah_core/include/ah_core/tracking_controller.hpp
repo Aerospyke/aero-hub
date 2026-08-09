@@ -58,6 +58,10 @@ public:
   /// Parse detections JSON, store boxes, refresh lock from track_id.
   TrackingIngestResult IngestDetections(const std::string & json);
 
+  /// Drop lock, classic bbox, and cached detections after a video feed switch.
+  /// Keeps AI-mode toggle state (user stays in AI tracking UI, but must re-click).
+  TrackingOpResult ClearForVideoFeedChange();
+
   // --- Status / video accessors ---
   [[nodiscard]] bool WasTrackingStarted() const { return was_tracking_started_; }
   [[nodiscard]] bool IsSegmentationActive() const { return is_segmentation_active_; }

@@ -76,6 +76,39 @@ TrackingOpResult TrackingController::Cancel()
   return result;
 }
 
+TrackingOpResult TrackingController::ClearForVideoFeedChange()
+{
+  TrackingOpResult result;
+  const bool had_lock =
+    was_tracking_started_ || currently_locked_object_id_ >= 0 ||
+    tracking_bounding_box_width_ > 0.f || tracking_bounding_box_height_ > 0.f;
+
+  was_tracking_started_ = false;
+  is_segmentation_active_ = false;
+  currently_locked_object_id_ = -1;
+  current_lock_num_missed_frames_ = 0;
+  tracking_bounding_box_x_ = 0.f;
+  tracking_bounding_box_y_ = 0.f;
+  tracking_bounding_box_width_ = 0.f;
+  tracking_bounding_box_height_ = 0.f;
+  {
+    std::lock_guard<std::mutex> lock(detections_mutex_);
+    last_detections_.clear();
+  }
+  if (!is_ai_tracking_active_) {
+    tracker_type_ = "stub";
+  } else {
+    tracker_type_ = "ai_tracking";
+  }
+
+  result.success = true;
+  result.message = had_lock
+    ? "tracking cleared for video feed change"
+    : "video feed change (no active lock)";
+  result.publish_status = true;
+  return result;
+}
+
 TrackingOpResult TrackingController::SetAiTrackingActive(bool active)
 {
   TrackingOpResult result;

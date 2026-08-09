@@ -13,3 +13,7 @@ ah_yolo:
     detections_topic: ah/detections
     # Device: cpu | mps | 0 (CUDA). Empty = auto (mps on Apple if available else cpu)
     device: ""
+    # Ultralytics tracker YAML (package name or path). bytetrack.yaml avoids GMC
+    # sparseOptFlow spam when frame size changes (synthetic vs camera).
+    # botsort.yaml / tracktrack.yaml use GMC and may log OpenCV pyramid asserts.
+    tracker: bytetrack.yaml

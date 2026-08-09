@@ -44,48 +44,48 @@ AhCoreNode::AhCoreNode(const std::string& ros_namespace, CameraSelection initial
   status_pub_ = create_publisher<std_msgs::msg::String>("ah/system/status", status_qos);
   video_pub_ = create_publisher<sensor_msgs::msg::CompressedImage>("ah/video/compressed", video_qos);
 
-  start_tracking_srv_ = create_service<ah_msgs::srv::StartTracking>(
+  ros_services_.start_tracking = create_service<ah_msgs::srv::StartTracking>(
       "ah/tracking/start", [this](const std::shared_ptr<ah_msgs::srv::StartTracking::Request>& request,
                                   const std::shared_ptr<ah_msgs::srv::StartTracking::Response>& response) {
         OnStartTracking(request, response);
       });
 
-  stop_tracking_srv_ = create_service<std_srvs::srv::Trigger>(
+  ros_services_.stop_tracking = create_service<std_srvs::srv::Trigger>(
       "ah/tracking/stop",
       [this](const std::shared_ptr<std_srvs::srv::Trigger::Request>& request,
              const std::shared_ptr<std_srvs::srv::Trigger::Response>& response) { OnStopTracking(request, response); });
 
-  cancel_tracking_srv_ = create_service<std_srvs::srv::Trigger>(
+  ros_services_.cancel_tracking = create_service<std_srvs::srv::Trigger>(
       "ah/tracking/cancel", [this](const std::shared_ptr<std_srvs::srv::Trigger::Request>& request,
                                    const std::shared_ptr<std_srvs::srv::Trigger::Response>& response) {
         OnCancelTracking(request, response);
       });
 
-  camera_cb_group_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+  camera_callback_group_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
 
-  list_cameras_srv_ = create_service<ah_msgs::srv::ListCameras>(
+  ros_services_.list_cameras = create_service<ah_msgs::srv::ListCameras>(
       "ah/camera/list",
       [this](const std::shared_ptr<ah_msgs::srv::ListCameras::Request>& request,
              const std::shared_ptr<ah_msgs::srv::ListCameras::Response>& response) {
         OnListCameras(request, response);
       },
-      rclcpp::ServicesQoS(), camera_cb_group_);
+      rclcpp::ServicesQoS(), camera_callback_group_);
 
-  select_camera_srv_ = create_service<ah_msgs::srv::SelectCamera>(
+  ros_services_.select_camera = create_service<ah_msgs::srv::SelectCamera>(
       "ah/camera/select",
       [this](const std::shared_ptr<ah_msgs::srv::SelectCamera::Request>& request,
              const std::shared_ptr<ah_msgs::srv::SelectCamera::Response>& response) {
         OnSelectCamera(request, response);
       },
-      rclcpp::ServicesQoS(), camera_cb_group_);
+      rclcpp::ServicesQoS(), camera_callback_group_);
 
-  ai_tracking_toggle_srv_ = create_service<std_srvs::srv::SetBool>(
+  ros_services_.ai_tracking_toggle = create_service<std_srvs::srv::SetBool>(
       "ah/ai_tracking/toggle", [this](const std::shared_ptr<std_srvs::srv::SetBool::Request>& request,
                                       const std::shared_ptr<std_srvs::srv::SetBool::Response>& response) {
         OnAiTrackingToggle(request, response);
       });
 
-  ai_tracking_click_srv_ = create_service<ah_msgs::srv::AiTrackingClick>(
+  ros_services_.ai_tracking_select = create_service<ah_msgs::srv::AiTrackingClick>(
       "ah/ai_tracking/click", [this](const std::shared_ptr<ah_msgs::srv::AiTrackingClick::Request>& request,
                                      const std::shared_ptr<ah_msgs::srv::AiTrackingClick::Response>& response) {
         OnAiTrackingClick(request, response);
@@ -144,7 +144,7 @@ AhCoreNode::AhCoreNode(const std::string& ros_namespace, CameraSelection initial
           RCLCPP_INFO(get_logger(), "live capture open: id=%d path=%s", camera_.device_id, camera_.device_path.c_str());
         }
       },
-      camera_cb_group_);
+      camera_callback_group_);
 
   const char* ros_domain_id = std::getenv("ROS_DOMAIN_ID");
   RCLCPP_INFO(get_logger(),
@@ -203,13 +203,13 @@ bool AhCoreNode::SyncCaptureToSelection(std::string* error_out) {
 
 void AhCoreNode::OnTimer() {
   const auto now = get_clock()->now();
-  ++frame_id_;
+  ++current_video_frame_id_;
 
   VideoGrabResult grab;
   {
     std::lock_guard<std::mutex> lock(camera_mutex_);
-    grab =
-        GrabPublishableFrame(camera_capture_, camera_, camera_probe_done_, tracking_.WasTrackingStarted(), frame_id_);
+    grab = GrabPublishableFrame(camera_capture_, camera_, camera_probe_done_, tracking_.WasTrackingStarted(),
+                                current_video_frame_id_);
 
     if (!grab.capture_open_error.empty()) {
       last_video_status_ = grab.video_status;
@@ -359,10 +359,15 @@ void AhCoreNode::OnSelectCamera(const std::shared_ptr<ah_msgs::srv::SelectCamera
     }
     ApplySelectionToParams();
     PersistSelectionToSettingsFile();
+    // MOT IDs and lock boxes are feed-specific — clear before UI sees new video.
+    const auto track_clear = tracking_.ClearForVideoFeedChange();
+    if (track_clear.publish_status) {
+      PublishStatusSnapshot(last_video_status_.c_str());
+    }
     response->success = true;
     response->message = "selected synthetic test pattern";
     FillSelectResponse(response);
-    RCLCPP_INFO(get_logger(), "%s", response->message.c_str());
+    RCLCPP_INFO(get_logger(), "%s (%s)", response->message.c_str(), track_clear.message.c_str());
     return;
   }
 
@@ -423,12 +428,17 @@ void AhCoreNode::OnSelectCamera(const std::shared_ptr<ah_msgs::srv::SelectCamera
 
   ApplySelectionToParams();
   PersistSelectionToSettingsFile();
+  // New capture stream: drop AI lock / classic bbox / stale detections immediately.
+  const auto track_clear = tracking_.ClearForVideoFeedChange();
+  if (track_clear.publish_status) {
+    PublishStatusSnapshot(last_video_status_.c_str());
+  }
 
   response->success = true;
   response->message = "selected camera id=" + std::to_string(camera_.device_id) + " path=" + camera_.device_path +
                       " (live capture open)";
   FillSelectResponse(response);
-  RCLCPP_INFO(get_logger(), "%s", response->message.c_str());
+  RCLCPP_INFO(get_logger(), "%s (%s)", response->message.c_str(), track_clear.message.c_str());
 }
 
 void AhCoreNode::FillSelectResponse(const std::shared_ptr<ah_msgs::srv::SelectCamera::Response>& response) const {
