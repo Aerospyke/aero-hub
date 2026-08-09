@@ -1,8 +1,11 @@
 #pragma once
 
-// AhCoreNode — AeroHub core ROS node (status, video, track, camera list/select).
+// AhCoreNode — AeroHub core ROS node orchestration
+// (status, video, track, camera list/select, AI lock).
+// JSON → messages.hpp; frames → video_pipeline.hpp; tracking → tracking_controller.hpp.
 
 #include "ah_core/camera_devices.hpp"
+#include "ah_core/tracking_controller.hpp"
 
 #include <memory>
 #include <mutex>
@@ -33,11 +36,8 @@ public:
   ~AhCoreNode() override;
 
 private:
-
-  const int MaxMissedTrackingFramesBeforeDrop = 15;  // ~detections rate; clear after sustained loss
-
   void ApplySelectionToParams();
-  void PersistSelectionToSettingsFile();
+  void PersistSelectionToSettingsFile() const;
   /// Open or close long-lived capture to match camera_ (holds camera_mutex_).
   bool SyncCaptureToSelection(std::string * error_out = nullptr);
   void OnTimer();
@@ -66,27 +66,6 @@ private:
     std::shared_ptr<ah_msgs::srv::AiTrackingClick::Response> response);
   void OnDetections(std_msgs::msg::String::SharedPtr msg);
 
-  struct DetectionBox
-  {
-    int track_id{-1};  // Ultralytics multi-object track id (-1 if unknown)
-    float x{0.f};
-    float y{0.f};
-    float w{0.f};
-    float h{0.f};
-    float confidence{0.f};
-    std::string class_name;
-  };
-
-  /// Pick lock target from click + last detections (must hit a box).
-  bool ResolveAiTrackingClickLock(
-    float click_x, float click_y,
-    float * out_x, float * out_y, float * out_w, float * out_h,
-    int * out_track_id,
-    std::string * out_label) const;
-
-  /// If locked_track_id_ is set, refresh lock bbox from latest detections.
-  void UpdateLockFromTrackedId();
-
   /// Publish /ah/system/status immediately (lock changes should not wait for the video timer).
   void PublishStatusSnapshot(const char * video_status);
 
@@ -105,31 +84,17 @@ private:
   rclcpp::TimerBase::SharedPtr probe_timer_;
   int frame_id_{0};
 
-  bool was_tracking_started_{false};
-  bool is_segmentation_active_{false};
-  bool is_ai_tracking_active_{false};
-  bool is_following_active_{false};
-  float tracking_bounding_box_x_{0.0f};
-  float tracking_bounding_box_y_{0.0f};
-  float tracking_bounding_box_width_{0.0f};
-  float tracking_bounding_box_height_{0.0f};
-  std::string tracker_type_{"stub"};
+  TrackingController tracking_;
 
   CameraSelection camera_;
   std::string settings_path_;
   std::mutex camera_mutex_;
   std::vector<CameraDevice> camera_cache_;
   bool camera_probe_done_{false};
-  CameraCapture capture_;
+  CameraCapture camera_capture_;
   /// Last video_status string for status JSON (connected / degraded / unavailable).
   std::string last_video_status_{"connected"};
   int capture_open_fail_log_count_{0};
-
-  mutable std::mutex detections_mutex_;
-  std::vector<DetectionBox> last_detections_;
-  /// When tracking under AI mode: follow this Ultralytics track_id frame-to-frame.
-  int currently_locked_object_id_{-1};
-  int current_lock_num_missed_frames_{0};
 };
 
 }  // namespace ah_core

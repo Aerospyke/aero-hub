@@ -29,7 +29,10 @@ add_executable(ah_core_node
   src/main.cpp
   src/ah_core_node.cpp
   src/camera_devices.cpp
+  src/messages.cpp
   src/ros_runtime_settings.cpp
+  src/tracking_controller.cpp
+  src/video_pipeline.cpp
 )
 
 target_include_directories(ah_core_node
