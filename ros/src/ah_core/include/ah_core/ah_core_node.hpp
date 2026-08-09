@@ -12,9 +12,9 @@
 #include <string>
 #include <vector>
 
+#include "ah_msgs/srv/ai_tracking_click.hpp"
 #include "ah_msgs/srv/list_cameras.hpp"
 #include "ah_msgs/srv/select_camera.hpp"
-#include "ah_msgs/srv/ai_tracking_click.hpp"
 #include "ah_msgs/srv/start_tracking.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/compressed_image.hpp"
@@ -22,52 +22,39 @@
 #include "std_srvs/srv/set_bool.hpp"
 #include "std_srvs/srv/trigger.hpp"
 
-namespace ah_core
-{
+namespace ah_core {
 
-class AhCoreNode : public rclcpp::Node
-{
-public:
-  explicit AhCoreNode(
-    const std::string & ros_namespace,
-    CameraSelection initial_camera,
-    std::string settings_path);
+class AhCoreNode : public rclcpp::Node {
+ public:
+  explicit AhCoreNode(const std::string& ros_namespace, CameraSelection initial_camera, std::string settings_path);
 
   ~AhCoreNode() override;
 
-private:
+ private:
   void ApplySelectionToParams();
   void PersistSelectionToSettingsFile() const;
   /// Open or close long-lived capture to match camera_ (holds camera_mutex_).
-  bool SyncCaptureToSelection(std::string * error_out = nullptr);
+  bool SyncCaptureToSelection(std::string* error_out = nullptr);
   void OnTimer();
-  void OnStartTracking(
-    std::shared_ptr<ah_msgs::srv::StartTracking::Request> request,
-    std::shared_ptr<ah_msgs::srv::StartTracking::Response> response);
-  void OnStopTracking(
-    std::shared_ptr<std_srvs::srv::Trigger::Request> request,
-    std::shared_ptr<std_srvs::srv::Trigger::Response> response);
-  void OnCancelTracking(
-    std::shared_ptr<std_srvs::srv::Trigger::Request> request,
-    std::shared_ptr<std_srvs::srv::Trigger::Response> response);
-  void OnListCameras(
-    std::shared_ptr<ah_msgs::srv::ListCameras::Request> request,
-    std::shared_ptr<ah_msgs::srv::ListCameras::Response> response);
-  void OnSelectCamera(
-    std::shared_ptr<ah_msgs::srv::SelectCamera::Request> request,
-    std::shared_ptr<ah_msgs::srv::SelectCamera::Response> response);
-  void FillSelectResponse(
-    std::shared_ptr<ah_msgs::srv::SelectCamera::Response> response) const;
-  void OnAiTrackingToggle(
-    std::shared_ptr<std_srvs::srv::SetBool::Request> request,
-    std::shared_ptr<std_srvs::srv::SetBool::Response> response);
-  void OnAiTrackingClick(
-    std::shared_ptr<ah_msgs::srv::AiTrackingClick::Request> request,
-    std::shared_ptr<ah_msgs::srv::AiTrackingClick::Response> response);
+  void OnStartTracking(const std::shared_ptr<ah_msgs::srv::StartTracking::Request>& request,
+                       const std::shared_ptr<ah_msgs::srv::StartTracking::Response>& response);
+  void OnStopTracking(const std::shared_ptr<std_srvs::srv::Trigger::Request>& request,
+                      const std::shared_ptr<std_srvs::srv::Trigger::Response>& response);
+  void OnCancelTracking(const std::shared_ptr<std_srvs::srv::Trigger::Request>& request,
+                        const std::shared_ptr<std_srvs::srv::Trigger::Response>& response);
+  void OnListCameras(const std::shared_ptr<ah_msgs::srv::ListCameras::Request>& request,
+                     const std::shared_ptr<ah_msgs::srv::ListCameras::Response>& response);
+  void OnSelectCamera(const std::shared_ptr<ah_msgs::srv::SelectCamera::Request>& request,
+                      const std::shared_ptr<ah_msgs::srv::SelectCamera::Response>& response);
+  void FillSelectResponse(const std::shared_ptr<ah_msgs::srv::SelectCamera::Response>& response) const;
+  void OnAiTrackingToggle(const std::shared_ptr<std_srvs::srv::SetBool::Request>& request,
+                          const std::shared_ptr<std_srvs::srv::SetBool::Response>& response);
+  void OnAiTrackingClick(const std::shared_ptr<ah_msgs::srv::AiTrackingClick::Request>& request,
+                         const std::shared_ptr<ah_msgs::srv::AiTrackingClick::Response>& response);
   void OnDetections(std_msgs::msg::String::SharedPtr msg);
 
   /// Publish /ah/system/status immediately (lock changes should not wait for the video timer).
-  void PublishStatusSnapshot(const char * video_status);
+  void PublishStatusSnapshot(const char* video_status);
 
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr status_pub_;
   rclcpp::Publisher<sensor_msgs::msg::CompressedImage>::SharedPtr video_pub_;
