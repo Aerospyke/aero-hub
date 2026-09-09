@@ -203,15 +203,24 @@ struct CameraCapture::Impl
 
 namespace
 {
-// All-black (or near-black) frames after open: wrong index, lid closed, or
-// macOS Camera TCC denied for this process (Terminal / ros2).
-constexpr double kMinMeanLuma = 8.0;
+// Reject only featureless black (TCC deny / no sensor), not a dark-but-real
+// scene. A USB webcam in a dim room can sit at mean luma ~5 with real detail;
+// a mean-only gate of 8 falsely fails that as "no camera access".
+constexpr double kUniformBlackMean = 2.0;
+constexpr double kUniformBlackStd = 2.0;
 constexpr int kWarmupFrames = 8;
 
-double MeanLumaBgr(const cv::Mat & bgr)
+struct LumaStats
 {
+  double mean{0.0};
+  double stddev{0.0};
+};
+
+LumaStats LumaStatsBgr(const cv::Mat & bgr)
+{
+  LumaStats stats;
   if (bgr.empty()) {
-    return 0.0;
+    return stats;
   }
   cv::Mat gray;
   if (bgr.channels() == 1) {
@@ -219,7 +228,12 @@ double MeanLumaBgr(const cv::Mat & bgr)
   } else {
     cv::cvtColor(bgr, gray, cv::COLOR_BGR2GRAY);
   }
-  return cv::mean(gray)[0];
+  cv::Scalar mean_s;
+  cv::Scalar std_s;
+  cv::meanStdDev(gray, mean_s, std_s);
+  stats.mean = mean_s[0];
+  stats.stddev = std_s[0];
+  return stats;
 }
 
 bool TryOpenCapture(
@@ -252,28 +266,30 @@ bool TryOpenCapture(
     }
   }
 
-  const double mean = MeanLumaBgr(frame);
+  const LumaStats luma = LumaStatsBgr(frame);
   if (mean_luma) {
-    *mean_luma = mean;
+    *mean_luma = luma.mean;
   }
   if (last_frame) {
     *last_frame = frame;
   }
 
-  if (mean < kMinMeanLuma) {
+  if (luma.mean < kUniformBlackMean && luma.stddev < kUniformBlackStd) {
     cap->release();
     if (detail) {
       *detail =
-        "frames nearly black (mean_luma=" + std::to_string(mean) +
+        "frames uniform black (mean_luma=" + std::to_string(luma.mean) +
+        " std=" + std::to_string(luma.stddev) +
         " size=" + std::to_string(frame.cols) + "x" + std::to_string(frame.rows) +
-        "). Wrong index, lid closed, or grant Camera access to Terminal "
-        "(System Settings → Privacy & Security → Camera). USB LED should be on.";
+        "). No scene content — lid closed, or grant Camera access to the host "
+        "terminal app (Ghostty / Terminal / CLion), not a different app.";
     }
     return false;
   }
 
   if (detail) {
-    *detail = "ok mean_luma=" + std::to_string(mean) + " size=" +
+    *detail = "ok mean_luma=" + std::to_string(luma.mean) +
+              " std=" + std::to_string(luma.stddev) + " size=" +
               std::to_string(frame.cols) + "x" + std::to_string(frame.rows);
   }
   return true;
