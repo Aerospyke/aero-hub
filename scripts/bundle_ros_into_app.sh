@@ -118,6 +118,13 @@ if [[ -d "${_ROS_INSTALL}/ah_msgs/lib" ]]; then
     _SEED+=("${_f}")
   done < <(find "${_ROS_INSTALL}/ah_msgs/lib" -name 'libah_msgs*.dylib' -print0 2>/dev/null)
 fi
+_AH_PX4_LIB="${_AH_ROOT}/../3rd-party/px4_ws/install/px4_msgs/lib"
+if [[ -d "${_AH_PX4_LIB}" ]]; then
+  _SEARCH_DIRS+=("${_AH_PX4_LIB}")
+  while IFS= read -r -d '' _f; do
+    _SEED+=("${_f}")
+  done < <(find "${_AH_PX4_LIB}" -maxdepth 1 -name 'libpx4_msgs*.dylib' -print0 2>/dev/null)
+fi
 while IFS= read -r _dep; do
   _base="${_dep#@rpath/}"
   if [[ -f "${_FW}/${_base}" ]]; then

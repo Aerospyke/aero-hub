@@ -52,11 +52,30 @@ else
   . "${_AH_ROS_INSTALL}/setup.bash"
 fi
 
+# px4_msgs (release/1.17) is a sibling colcon install, not part of ros/install.
+# Prepend so ros2 CLI and the dashboard can resolve its typesupport libraries.
+_AH_PX4_PREFIX="${_AH_RUN_DIR}/../../3rd-party/px4_ws/install/px4_msgs"
+if [ -d "${_AH_PX4_PREFIX}/share/ament_index" ]; then
+  _AH_PX4_PREFIX="$(cd "${_AH_PX4_PREFIX}" && pwd)"
+  case ":${AMENT_PREFIX_PATH:-}:" in
+    *":${_AH_PX4_PREFIX}:"*) ;;
+    *) export AMENT_PREFIX_PATH="${_AH_PX4_PREFIX}${AMENT_PREFIX_PATH:+:${AMENT_PREFIX_PATH}}" ;;
+  esac
+  case ":${DYLD_LIBRARY_PATH:-}:" in
+    *":${_AH_PX4_PREFIX}/lib:"*) ;;
+    *) export DYLD_LIBRARY_PATH="${_AH_PX4_PREFIX}/lib${DYLD_LIBRARY_PATH:+:${DYLD_LIBRARY_PATH}}" ;;
+  esac
+  case ":${LD_LIBRARY_PATH:-}:" in
+    *":${_AH_PX4_PREFIX}/lib:"*) ;;
+    *) export LD_LIBRARY_PATH="${_AH_PX4_PREFIX}/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}" ;;
+  esac
+fi
+
 _AH_HELPER="${_AH_RUN_DIR}/bin/ah_settings_shell_exports"
 if [ ! -x "${_AH_HELPER}" ]; then
   echo "[ah_ros] error: ${_AH_HELPER} not found or not executable." >&2
   echo "[ah_ros]   Populate run/:  ./ros/scripts/build_ros.sh   (or cmake --build … --target build_ros)" >&2
-  unset _AH_RUN_DIR _AH_ROS_INSTALL _AH_HELPER
+  unset _AH_RUN_DIR _AH_ROS_INSTALL _AH_HELPER _AH_PX4_PREFIX
   return 1 2>/dev/null || exit 1
 fi
 
@@ -70,4 +89,4 @@ else
 fi
 
 echo "[ah_ros] cwd=${_AH_RUN_DIR}  overlay=${_AH_ROS_INSTALL}  ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-unset}  RMW=${RMW_IMPLEMENTATION:-unset}  YOLO_MODELS=${AERO_HUB_YOLO_MODELS:-unset}"
-unset _AH_RUN_DIR _AH_ROS_INSTALL _AH_HELPER _AH_EXPORTS
+unset _AH_RUN_DIR _AH_ROS_INSTALL _AH_HELPER _AH_EXPORTS _AH_PX4_PREFIX

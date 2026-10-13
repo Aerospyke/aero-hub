@@ -88,10 +88,17 @@ def resolve_path(p: str | Path) -> Path:
     return (Path.cwd() / path).resolve()
 
 
+def px4_msgs_lib() -> Path:
+    return Path(__file__).resolve().parent.parent.parent / "3rd-party" / "px4_ws" / "install" / "px4_msgs" / "lib"
+
+
 def collect_search_dirs(conda_lib: Path, ros_install: Path) -> list[Path]:
     dirs = [conda_lib]
     if ros_install.is_dir():
         dirs.extend(sorted({p for p in ros_install.rglob("lib") if p.is_dir()}))
+    px4_lib = px4_msgs_lib()
+    if px4_lib.is_dir():
+        dirs.append(px4_lib)
     return dirs
 
 
@@ -169,6 +176,9 @@ def main() -> int:
     ah_msgs_lib = ros_install / "ah_msgs" / "lib"
     if ah_msgs_lib.is_dir():
         seeds.extend(sorted(ah_msgs_lib.glob("libah_msgs*.dylib")))
+    px4_lib = px4_msgs_lib()
+    if px4_lib.is_dir():
+        seeds.extend(sorted(px4_lib.glob("libpx4_msgs*.dylib")))
 
     for dep in otool_rpath_deps(exe):
         base = dep.removeprefix("@rpath/")

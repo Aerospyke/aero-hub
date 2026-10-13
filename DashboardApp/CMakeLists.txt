@@ -5,6 +5,16 @@ find_package(std_srvs REQUIRED) # /ah/tracking/stop|cancel
 # Local colcon install (ah_msgs StartTracking.srv) — build ros/ first if missing
 list(PREPEND CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}/ros/install")
 find_package(ah_msgs REQUIRED)
+# PX4 message definitions (px4_msgs, release/1.17) built in the sibling px4_ws colcon
+# workspace. Added explicitly so CLion launched from the Dock (no conda activate.d hook)
+# can still find it when CLion is launched from the Dock.
+set(_AH_PX4_WS_INSTALL "${CMAKE_SOURCE_DIR}/../3rd-party/px4_ws/install")
+if(EXISTS "${_AH_PX4_WS_INSTALL}")
+    list(APPEND CMAKE_PREFIX_PATH "${_AH_PX4_WS_INSTALL}")
+else()
+    message(FATAL_ERROR "px4_ws not found at ${_AH_PX4_WS_INSTALL} (px4_msgs required)")
+endif()
+find_package(px4_msgs REQUIRED)
 # RoboStack's rclcpp deps pull in *_rosidl_generator_py dylibs that reference
 # CPython symbols but do not link libpython. A pure C++ app must link Python
 # or dyld fails at launch with: symbol not found … '_PyExc_RuntimeError'.
@@ -35,6 +45,7 @@ set(APPLICATION_SOURCE_FILES
         src/cpp/ah_camera_controller.cpp
         src/cpp/ah_detections_model.cpp
         src/cpp/ah_yolo_controller.cpp
+        src/cpp/ah_px4_telemetry.cpp
 )
 
 set(APPLICATION_HEADER_FILES
@@ -48,6 +59,8 @@ set(APPLICATION_HEADER_FILES
         src/include/ah_camera_controller.h
         src/include/ah_detections_model.h
         src/include/ah_yolo_controller.h
+        src/include/ah_px4_sample.h
+        src/include/ah_px4_telemetry.h
 )
 
 set(APPLICATION_INCLUDE_DIRECTORIES
@@ -62,6 +75,7 @@ set(LINKED_LIBRARIES_NON_QT
         ${sensor_msgs_TARGETS}
         ${std_srvs_TARGETS}
         ${ah_msgs_TARGETS}
+        ${px4_msgs_TARGETS}
         Python3::Python
 )
 
@@ -97,19 +111,29 @@ else()
     set(_AH_LAB_ROS_LIB "$ENV{HOME}/miniconda3/envs/ros_env/lib")
 endif()
 set(_AH_MSGS_LIB "${CMAKE_SOURCE_DIR}/ros/install/ah_msgs/lib")
+# px4_msgs_DIR is <prefix>/share/px4_msgs/cmake. The package prefix is three levels up.
+get_filename_component(_AH_PX4_MSGS_PREFIX "${px4_msgs_DIR}/../../.." ABSOLUTE)
+set(_AH_PX4_MSGS_LIB "${_AH_PX4_MSGS_PREFIX}/lib")
+message(STATUS "px4_msgs prefix: ${_AH_PX4_MSGS_PREFIX}")
+# Baked so a Dock-launched CLion run can dlopen typesupport without a sourced overlay.
+target_compile_definitions(${APPLICATION_NAME} PRIVATE "AH_PX4_MSGS_PREFIX=\"${_AH_PX4_MSGS_PREFIX}\"")
+
 if(APPLE)
     set_target_properties(${APPLICATION_NAME} PROPERTIES
-        INSTALL_RPATH "@executable_path/../Frameworks;${_AH_LAB_ROS_LIB};${_AH_MSGS_LIB}")
+        INSTALL_RPATH "@executable_path/../Frameworks;${_AH_LAB_ROS_LIB};${_AH_MSGS_LIB};${_AH_PX4_MSGS_LIB}")
+    # Build-tree binary (CLion Run) does not go through macdeployqt. Keep the px4 lib dir on BUILD_RPATH.
+    set_property(TARGET ${APPLICATION_NAME} APPEND PROPERTY BUILD_RPATH "${_AH_PX4_MSGS_LIB}")
     install(CODE "
         set(_exe \"\${CMAKE_INSTALL_PREFIX}/${APPLICATION_NAME}.app/Contents/MacOS/${APPLICATION_NAME}\")
         if(EXISTS \"\${_exe}\")
             execute_process(COMMAND install_name_tool -add_rpath \"${_AH_LAB_ROS_LIB}\" \"\${_exe}\" ERROR_QUIET)
             execute_process(COMMAND install_name_tool -add_rpath \"${_AH_MSGS_LIB}\" \"\${_exe}\" ERROR_QUIET)
+            execute_process(COMMAND install_name_tool -add_rpath \"${_AH_PX4_MSGS_LIB}\" \"\${_exe}\" ERROR_QUIET)
             execute_process(COMMAND codesign --force --deep --sign - \"\${CMAKE_INSTALL_PREFIX}/${APPLICATION_NAME}.app\" ERROR_QUIET)
             message(STATUS \"AeroHub: re-applied lab INSTALL_RPATH after macdeployqt\")
         endif()
     ")
 else()
     set_target_properties(${APPLICATION_NAME} PROPERTIES
-        INSTALL_RPATH "$ORIGIN;$ORIGIN/../lib;${_AH_LAB_ROS_LIB};${_AH_MSGS_LIB}")
+        INSTALL_RPATH "$ORIGIN;$ORIGIN/../lib;${_AH_LAB_ROS_LIB};${_AH_MSGS_LIB};${_AH_PX4_MSGS_LIB}")
 endif()
