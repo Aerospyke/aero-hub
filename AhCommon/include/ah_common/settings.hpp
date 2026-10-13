@@ -20,7 +20,7 @@ struct CameraSelection {
   std::string backend;
 };
 
-/// Full AeroHub settings file (ROS + Camera + JSBSim).
+/// Full AeroHub settings file (ROS + Camera + Vehicle + JSBSim).
 ///
 /// **Memory:** tree of groups; each node has leaf values and child groups.
 /// **Disk:** Qt QSettings IniFormat — top-level [Section], nested keys with '\\'
@@ -139,9 +139,26 @@ class Settings {
     Settings* MutableOwner() const { return const_cast<Settings*>(owner_); }
   };
 
+  /// PX4 vehicle graph ([Vehicle] namespace). Default "rover".
+  /// Independent of the dashboard node's ROS namespace.
+  class VehicleSection {
+   public:
+    explicit VehicleSection(const Settings* owner) : owner_(owner) {}
+
+    [[nodiscard]] std::string NamespaceName() const;
+    void SetNamespaceName(const std::string& value) const;
+
+   private:
+    const Settings* owner_;
+
+    Settings* MutableOwner() const { return const_cast<Settings*>(owner_); }
+  };
+
   [[nodiscard]] RosSection Ros() const { return RosSection(this); }
 
   [[nodiscard]] CameraSection Camera() const { return CameraSection(this); }
+
+  [[nodiscard]] VehicleSection Vehicle() const { return VehicleSection(this); }
 
   [[nodiscard]] JsbSimSection JsbSim() const { return JsbSimSection(this); }
 

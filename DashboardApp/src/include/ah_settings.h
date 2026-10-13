@@ -27,6 +27,11 @@ class AhSettings final {
 
   [[nodiscard]] QString RosNamespace() const { return QString::fromStdString(settings_.Ros().NamespaceName()); }
 
+  /// PX4 vehicle namespace ([Vehicle] namespace). Default "rover".
+  [[nodiscard]] QString VehicleNamespace() const {
+    return QString::fromStdString(settings_.Vehicle().NamespaceName());
+  }
+
  private:
   ah::Settings settings_;
 };

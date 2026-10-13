@@ -30,6 +30,9 @@ constexpr DefaultEntry DefaultSettings[] = {
     {.path = "Camera/device_path", .value = "synthetic"},
     {.path = "Camera/backend", .value = ""},
 
+    // PX4 uXRCE vehicle graph. Relative fmu/out/... topics resolve under this.
+    {.path = "Vehicle/namespace", .value = "rover"},
+
     {.path = "JSBSim/command_line/executable", .value = ""},
     {.path = "JSBSim/command_line/realtime", .value = "--realtime"},
     {.path = "JSBSim/command_line/aircraft", .value = "--aircraft=737"},
@@ -340,8 +343,9 @@ bool Settings::Save(std::string& error_out) const {
   };
   push_if("ROS");
   push_if("Camera");
+  push_if("Vehicle");
   for (const auto& subgroup_name : root_.children | std::views::keys) {
-    if (subgroup_name == "ROS" || subgroup_name == "Camera") {
+    if (subgroup_name == "ROS" || subgroup_name == "Camera" || subgroup_name == "Vehicle") {
       continue;
     }
     section_order.push_back(subgroup_name);
@@ -526,6 +530,16 @@ void Settings::JsbSimSection::Set(const std::string_view relative_key, std::stri
 
 const Settings::Node* Settings::JsbSimSection::Tree() const {
   return owner_->Section("JSBSim");
+}
+
+// --- VehicleSection ---
+
+std::string Settings::VehicleSection::NamespaceName() const {
+  return SanitizeNamespace(owner_->Get({"Vehicle", "namespace"}, "rover"));
+}
+
+void Settings::VehicleSection::SetNamespaceName(const std::string& value) const {
+  MutableOwner()->Set({"Vehicle", "namespace"}, SanitizeNamespace(value));
 }
 
 }  // namespace ah
