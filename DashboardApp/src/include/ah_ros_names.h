@@ -18,6 +18,12 @@ inline constexpr char AiTrackingClickService[] = "ah/ai_tracking/click";
 inline constexpr char YoloSetProfileService[] = "ah/yolo/set_profile";
 inline constexpr char YoloReloadService[] = "ah/yolo/reload";
 
+// PX4 uXRCE topics. Relative (no leading '/') so they resolve under the
+// vehicle namespace node: namespace "rover" -> /rover/fmu/out/...
+inline constexpr char Px4VehicleOdometryTopic[] = "fmu/out/vehicle_odometry";
+inline constexpr char Px4VehicleStatusTopic[] = "fmu/out/vehicle_status_v1";
+inline constexpr char Px4VehicleGpsTopic[] = "fmu/out/vehicle_gps_position";
+
 }  // namespace ah_ros_names
 
 
