@@ -29,8 +29,8 @@ Rectangle {
         // scaleRatio: 8.5
         adi.angleOfAttack: flight_telemetry.angleOfAttack
         adi.sideSlipAngle: flight_telemetry.angleOfSideSlip
-        adi.roll: flight_telemetry.roll
-        adi.pitch: flight_telemetry.pitch
+        adi.roll: px4Vehicle.attitudeValid ? px4Vehicle.rollDeg : flight_telemetry.roll
+        adi.pitch: px4Vehicle.attitudeValid ? px4Vehicle.pitchDeg : flight_telemetry.pitch
         adi.slipSkid: flight_telemetry.slipSkid
         adi.turnRate: flight_telemetry.turnRate
         adi.dotH: flight_telemetry.ilsLOC
@@ -48,7 +48,7 @@ Rectangle {
         alt.altitude: flight_telemetry.altitude
         alt.bugValue: flight_telemetry.altitudeBug
 
-        hsi.heading: flight_telemetry.heading
+        hsi.heading: px4Vehicle.attitudeValid ? px4Vehicle.headingDeg : flight_telemetry.heading
         hsi.bugValue: flight_telemetry.headingBug
 
         vsi.climbRate: flight_telemetry.climbRate
