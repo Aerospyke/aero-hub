@@ -71,6 +71,9 @@ struct AhPx4OdomSample {
 struct AhPx4StatusSample {
   std::uint8_t arming_state = 0;
   std::uint8_t nav_state = 0;
+  std::uint8_t system_id = 0;
+  std::uint8_t vehicle_type = 0;
+  bool is_vtol = false;
 };
 
 struct AhPx4GpsSample {

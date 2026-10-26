@@ -5,6 +5,7 @@
 #include <cstdint>
 
 #include <QString>
+#include <QStringList>
 
 /// Qt-facing thin wrapper around ah::Settings (std-only AhCommon).
 /// Prefer settings.Ros().DomainId() via Core() when writing new code.
@@ -27,9 +28,18 @@ class AhSettings final {
 
   [[nodiscard]] QString RosNamespace() const { return QString::fromStdString(settings_.Ros().NamespaceName()); }
 
-  /// PX4 vehicle namespace ([Vehicle] namespace). Default "rover".
+  /// First PX4 vehicle namespace. Default "rover". Hub and the legacy panel use this.
   [[nodiscard]] QString VehicleNamespace() const {
     return QString::fromStdString(settings_.Vehicle().NamespaceName());
+  }
+
+  /// [Vehicle] namespaces, in display order. One entry when the ini only has namespace=.
+  [[nodiscard]] QStringList VehicleNamespaces() const {
+    QStringList names;
+    for (const std::string& name : settings_.Vehicle().NamespaceNames()) {
+      names.push_back(QString::fromStdString(name));
+    }
+    return names;
   }
 
  private:

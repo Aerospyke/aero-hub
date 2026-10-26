@@ -6,7 +6,7 @@
 #include <QString>
 #include <QTimer>
 
-/// Live PX4 rover state for QML. ROS callbacks copy a sample, then
+/// Live PX4 state for one vehicle namespace. ROS callbacks copy a sample, then
 /// Apply* runs on the Qt thread. Each stream goes stale after ~2 s of silence.
 class AhPx4Telemetry final : public QObject {
   Q_OBJECT
@@ -29,6 +29,10 @@ class AhPx4Telemetry final : public QObject {
   Q_PROPERTY(bool hasStatus READ HasStatus NOTIFY statusChanged)
   Q_PROPERTY(QString armingState READ ArmingState NOTIFY statusChanged)
   Q_PROPERTY(QString navState READ NavState NOTIFY statusChanged)
+  /// MAVLink system id from vehicle_status_v1. Display only; the namespace is the identity.
+  Q_PROPERTY(int systemId READ SystemId NOTIFY statusChanged)
+  /// Rover, Multicopter, Fixed wing, or VTOL. Display only.
+  Q_PROPERTY(QString vehicleType READ VehicleType NOTIFY statusChanged)
   Q_PROPERTY(bool hasGps READ HasGps NOTIFY gpsChanged)
   /// Fix type 4 is "DGPS/SBAS". The label never uses a carrier-phase name for that code.
   Q_PROPERTY(QString gpsFixType READ GpsFixType NOTIFY gpsChanged)
@@ -56,6 +60,8 @@ class AhPx4Telemetry final : public QObject {
   [[nodiscard]] bool HasStatus() const { return has_status_; }
   [[nodiscard]] QString ArmingState() const { return arming_state_; }
   [[nodiscard]] QString NavState() const { return nav_state_; }
+  [[nodiscard]] int SystemId() const { return system_id_; }
+  [[nodiscard]] QString VehicleType() const { return vehicle_type_; }
   [[nodiscard]] bool HasGps() const { return has_gps_; }
   [[nodiscard]] QString GpsFixType() const { return gps_fix_type_; }
   [[nodiscard]] int SatellitesUsed() const { return satellites_used_; }
@@ -109,6 +115,8 @@ class AhPx4Telemetry final : public QObject {
   bool has_status_ = false;
   QString arming_state_ = QStringLiteral("—");
   QString nav_state_ = QStringLiteral("—");
+  int system_id_ = 0;
+  QString vehicle_type_ = QStringLiteral("—");
 
   bool has_gps_ = false;
   QString gps_fix_type_ = QStringLiteral("—");

@@ -6,10 +6,12 @@
 #include <QQmlContext>
 #include <QQuickStyle>
 #include <QString>
+#include <QVariant>
 #include <QtGlobal>
 
 #include <cstdlib>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -78,7 +80,16 @@ int main(int argument_count, char* argument_values[]) {
   auto* system_status = new AhSystemStatus(QCoreApplication::instance());
   auto* video_feed = new AhVideoFeed(QCoreApplication::instance());
   auto* detections_model = new AhDetectionsModel(QCoreApplication::instance());
-  auto* px4_vehicle = new AhPx4Telemetry(app_settings.VehicleNamespace(), QCoreApplication::instance());
+  const QStringList vehicle_names = app_settings.VehicleNamespaces();
+  std::vector<AhPx4Telemetry*> px4_vehicles;
+  px4_vehicles.reserve(static_cast<size_t>(vehicle_names.size()));
+  std::unordered_map<std::string, AhPx4Telemetry*> px4_by_namespace;
+  for (const QString& name : vehicle_names) {
+    auto* vehicle = new AhPx4Telemetry(name, QCoreApplication::instance());
+    px4_vehicles.push_back(vehicle);
+    px4_by_namespace.emplace(name.toStdString(), vehicle);
+  }
+  AhPx4Telemetry* px4_vehicle = px4_vehicles.front();
 
   AhRosBridge::Hooks hooks;
   hooks.on_executor_stopped = []() {
@@ -104,21 +115,41 @@ int main(int argument_count, char* argument_values[]) {
         detections_model, [detections_model, payload]() { detections_model->ApplyJson(payload); },
         Qt::QueuedConnection);
   };
-  hooks.on_px4_odometry = [px4_vehicle](AhPx4OdomSample sample) {
+  hooks.on_px4_odometry = [px4_by_namespace](const std::string& ns, AhPx4OdomSample sample) {
+    const auto it = px4_by_namespace.find(ns);
+    if (it == px4_by_namespace.end()) {
+      return;
+    }
+    AhPx4Telemetry* vehicle = it->second;
     QMetaObject::invokeMethod(
-        px4_vehicle, [px4_vehicle, sample]() { px4_vehicle->ApplyOdometry(sample); }, Qt::QueuedConnection);
+        vehicle, [vehicle, sample]() { vehicle->ApplyOdometry(sample); }, Qt::QueuedConnection);
   };
-  hooks.on_px4_status = [px4_vehicle](AhPx4StatusSample sample) {
+  hooks.on_px4_status = [px4_by_namespace](const std::string& ns, AhPx4StatusSample sample) {
+    const auto it = px4_by_namespace.find(ns);
+    if (it == px4_by_namespace.end()) {
+      return;
+    }
+    AhPx4Telemetry* vehicle = it->second;
     QMetaObject::invokeMethod(
-        px4_vehicle, [px4_vehicle, sample]() { px4_vehicle->ApplyStatus(sample); }, Qt::QueuedConnection);
+        vehicle, [vehicle, sample]() { vehicle->ApplyStatus(sample); }, Qt::QueuedConnection);
   };
-  hooks.on_px4_gps = [px4_vehicle](AhPx4GpsSample sample) {
+  hooks.on_px4_gps = [px4_by_namespace](const std::string& ns, AhPx4GpsSample sample) {
+    const auto it = px4_by_namespace.find(ns);
+    if (it == px4_by_namespace.end()) {
+      return;
+    }
+    AhPx4Telemetry* vehicle = it->second;
     QMetaObject::invokeMethod(
-        px4_vehicle, [px4_vehicle, sample]() { px4_vehicle->ApplyGps(sample); }, Qt::QueuedConnection);
+        vehicle, [vehicle, sample]() { vehicle->ApplyGps(sample); }, Qt::QueuedConnection);
   };
 
+  std::vector<std::string> vehicle_namespaces;
+  vehicle_namespaces.reserve(px4_vehicles.size());
+  for (const QString& name : vehicle_names) {
+    vehicle_namespaces.push_back(name.toStdString());
+  }
   const AhRosBridge RosBridge(app_settings.RosDomainId(), app_settings.RosNamespace().toStdString(),
-                              app_settings.VehicleNamespace().toStdString(), std::move(hooks));
+                              std::move(vehicle_namespaces), std::move(hooks));
   auto* track_controller = new AhTrackController(RosBridge.Node(), QCoreApplication::instance());
   auto* camera_controller = new AhCameraController(RosBridge.Node(), QCoreApplication::instance());
   auto* yolo_controller = new AhYoloController(RosBridge.Node(), QCoreApplication::instance());
@@ -158,6 +189,12 @@ int main(int argument_count, char* argument_values[]) {
   engine.rootContext()->setContextProperty("cameraController", camera_controller);
   engine.rootContext()->setContextProperty("yoloController", yolo_controller);
   engine.rootContext()->setContextProperty("detectionsModel", detections_model);
+  QVariantList px4_vehicle_list;
+  for (AhPx4Telemetry* vehicle : px4_vehicles) {
+    px4_vehicle_list.append(QVariant::fromValue(static_cast<QObject*>(vehicle)));
+  }
+  engine.rootContext()->setContextProperty("px4Vehicles", px4_vehicle_list);
+  // First ini entry. Hub and any panel that still binds one vehicle keep working.
   engine.rootContext()->setContextProperty("px4Vehicle", px4_vehicle);
   engine.load(RootUrl);
 

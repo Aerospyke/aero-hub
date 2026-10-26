@@ -2,6 +2,7 @@
 
 #include "ah_common/string_util.hpp"
 
+#include <algorithm>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -31,6 +32,7 @@ constexpr DefaultEntry DefaultSettings[] = {
     {.path = "Camera/backend", .value = ""},
 
     // PX4 uXRCE vehicle graph. Relative fmu/out/... topics resolve under this.
+    // Vehicle/namespaces (comma list) is optional and wins when it has a name.
     {.path = "Vehicle/namespace", .value = "rover"},
 
     {.path = "JSBSim/command_line/executable", .value = ""},
@@ -534,8 +536,49 @@ const Settings::Node* Settings::JsbSimSection::Tree() const {
 
 // --- VehicleSection ---
 
+namespace {
+
+std::vector<std::string> SplitNamespaceList(const std::string& raw) {
+  std::vector<std::string> names;
+  std::string token;
+  const auto Push = [&]() {
+    std::string ns = SanitizeNamespace(token);
+    token.clear();
+    if (ns.empty() || std::find(names.begin(), names.end(), ns) != names.end()) {
+      return;
+    }
+    names.push_back(std::move(ns));
+  };
+  for (const char c : raw) {
+    if (c == ',') {
+      Push();
+    } else {
+      token.push_back(c);
+    }
+  }
+  Push();
+  return names;
+}
+
+}  // namespace
+
+std::vector<std::string> Settings::VehicleSection::NamespaceNames() const {
+  std::vector<std::string> names = SplitNamespaceList(owner_->Get({"Vehicle", "namespaces"}, ""));
+  if (names.empty()) {
+    const std::string single = SanitizeNamespace(owner_->Get({"Vehicle", "namespace"}, "rover"));
+    if (!single.empty()) {
+      names.push_back(single);
+    }
+  }
+  if (names.empty()) {
+    names.emplace_back("rover");
+  }
+  return names;
+}
+
 std::string Settings::VehicleSection::NamespaceName() const {
-  return SanitizeNamespace(owner_->Get({"Vehicle", "namespace"}, "rover"));
+  const std::vector<std::string> names = NamespaceNames();
+  return names.empty() ? std::string("rover") : names.front();
 }
 
 void Settings::VehicleSection::SetNamespaceName(const std::string& value) const {

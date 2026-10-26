@@ -7,6 +7,25 @@
 
 namespace {
 
+QString VehicleTypeName(std::uint8_t type, bool is_vtol) {
+  if (is_vtol) {
+    return QStringLiteral("VTOL");
+  }
+  using Status = px4_msgs::msg::VehicleStatus;
+  switch (type) {
+    case Status::VEHICLE_TYPE_ROTARY_WING:
+      return QStringLiteral("Multicopter");
+    case Status::VEHICLE_TYPE_FIXED_WING:
+      return QStringLiteral("Fixed wing");
+    case Status::VEHICLE_TYPE_ROVER:
+      return QStringLiteral("Rover");
+    case Status::VEHICLE_TYPE_UNSPECIFIED:
+      return QStringLiteral("Unspecified");
+    default:
+      return QStringLiteral("Unknown (%1)").arg(type);
+  }
+}
+
 QString ArmingName(std::uint8_t state) {
   using Status = px4_msgs::msg::VehicleStatus;
   switch (state) {
@@ -208,6 +227,8 @@ void AhPx4Telemetry::ApplyStatus(AhPx4StatusSample sample) {
 
   arming_state_ = ArmingName(sample.arming_state);
   nav_state_ = NavName(sample.nav_state);
+  system_id_ = static_cast<int>(sample.system_id);
+  vehicle_type_ = VehicleTypeName(sample.vehicle_type, sample.is_vtol);
   emit statusChanged();
 }
 

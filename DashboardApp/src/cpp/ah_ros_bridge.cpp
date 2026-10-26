@@ -3,6 +3,7 @@
 #include "ah_common/string_util.hpp"
 #include "ah_ros_names.h"
 
+#include <algorithm>
 #include <cmath>
 #include <iostream>
 #include <utility>
@@ -45,13 +46,29 @@ rclcpp::QoS Px4SensorQos() {
   return qos;
 }
 
+std::vector<std::string> NormalizeVehicleNamespaces(std::vector<std::string> raw) {
+  std::vector<std::string> names;
+  names.reserve(raw.size());
+  for (std::string& name : raw) {
+    std::string ns = ah::SanitizeNamespace(std::move(name));
+    if (ns.empty() || std::find(names.begin(), names.end(), ns) != names.end()) {
+      continue;
+    }
+    names.push_back(std::move(ns));
+  }
+  if (names.empty()) {
+    names.emplace_back("rover");
+  }
+  return names;
+}
+
 }  // namespace
 
-AhRosBridge::AhRosBridge(std::uint8_t ros_domain_id, std::string ros_namespace, std::string vehicle_namespace,
-                         Hooks hooks)
+AhRosBridge::AhRosBridge(std::uint8_t ros_domain_id, std::string ros_namespace,
+                         std::vector<std::string> vehicle_namespaces, Hooks hooks)
     : ros_domain_id_(SanitizeDomainId(ros_domain_id)),
-      ros_namespace_(ah::SanitizeNamespace(ros_namespace)),
-      vehicle_namespace_(ah::SanitizeNamespace(std::move(vehicle_namespace))),
+      ros_namespace_(ah::SanitizeNamespace(std::move(ros_namespace))),
+      vehicle_namespaces_(NormalizeVehicleNamespaces(std::move(vehicle_namespaces))),
       hooks_(std::move(hooks)) {
   if (!rclcpp::ok()) {
     rclcpp::InitOptions init_options;
@@ -67,19 +84,31 @@ AhRosBridge::AhRosBridge(std::uint8_t ros_domain_id, std::string ros_namespace, 
   executor_ = std::make_shared<rclcpp::executors::SingleThreadedExecutor>();
   executor_->add_node(node_);
 
-  // Separate node so relative fmu/out/... names pick up the vehicle namespace
-  // without moving the dashboard's own ah/... graph.
-  try {
-    px4_node_ = std::make_shared<rclcpp::Node>("ah_dashboard_px4", vehicle_namespace_);
-    SetupPx4Subscriptions();
-    executor_->add_node(px4_node_);
-    px4_node_added_ = true;
-  } catch (const std::exception& ex) {
-    std::cerr << "AhRosBridge: PX4 node unavailable (" << ex.what() << "); dashboard continues without it\n";
-    px4_odom_sub_.reset();
-    px4_status_sub_.reset();
-    px4_gps_sub_.reset();
-    px4_node_.reset();
+  // One node per vehicle so relative fmu/out/... names resolve under that
+  // namespace. The dashboard's own ah/... graph stays on ros_namespace_.
+  // A vehicle that fails to attach does not stop the others.
+  px4_links_.reserve(vehicle_namespaces_.size());
+  for (const std::string& ns : vehicle_namespaces_) {
+    try {
+      auto px4_node = std::make_shared<rclcpp::Node>("ah_dashboard_px4", ns);
+      px4_links_.push_back(Px4Link{});
+      Px4Link& link = px4_links_.back();
+      link.ns = ns;
+      link.node = std::move(px4_node);
+      SetupPx4Subscriptions(px4_links_.size() - 1);
+      executor_->add_node(link.node);
+      link.added = true;
+    } catch (const std::exception& ex) {
+      std::cerr << "AhRosBridge: PX4 node for \"" << ns << "\" unavailable (" << ex.what()
+                << "); other vehicles continue\n";
+      if (!px4_links_.empty() && px4_links_.back().ns == ns && !px4_links_.back().added) {
+        px4_links_.back().odom_sub.reset();
+        px4_links_.back().status_sub.reset();
+        px4_links_.back().gps_sub.reset();
+        px4_links_.back().node.reset();
+        px4_links_.pop_back();
+      }
+    }
   }
 
   spin_thread_ = std::thread([this]() {
@@ -128,110 +157,119 @@ void AhRosBridge::SetupSubscriptions() {
               ah_ros_names::StatusTopic, ah_ros_names::VideoCompressedTopic, ah_ros_names::DetectionsTopic);
 }
 
-void AhRosBridge::SetupPx4Subscriptions() {
-  if (!px4_node_) {
+void AhRosBridge::SetupPx4Subscriptions(std::size_t index) {
+  if (index >= px4_links_.size() || !px4_links_[index].node) {
     return;
   }
 
   const rclcpp::QoS px4_qos = Px4SensorQos();
-  const auto LogResolved = [this](const char* relative_topic) {
+  const std::string ns = px4_links_[index].ns;
+  const rclcpp::Node::SharedPtr px4_node = px4_links_[index].node;
+  const auto LogResolved = [px4_node](const char* relative_topic) {
     try {
       const std::string resolved = rclcpp::expand_topic_or_service_name(
-          relative_topic, px4_node_->get_name(), px4_node_->get_namespace(), false);
-      RCLCPP_INFO(px4_node_->get_logger(), "PX4 subscribe %s -> %s (best_effort, volatile, keep_last)",
+          relative_topic, px4_node->get_name(), px4_node->get_namespace(), false);
+      RCLCPP_INFO(px4_node->get_logger(), "PX4 subscribe %s -> %s (best_effort, volatile, keep_last)",
                   relative_topic, resolved.c_str());
     } catch (const std::exception& ex) {
-      RCLCPP_ERROR(px4_node_->get_logger(), "PX4 topic %s did not resolve: %s", relative_topic, ex.what());
+      RCLCPP_ERROR(px4_node->get_logger(), "PX4 topic %s did not resolve: %s", relative_topic, ex.what());
     }
   };
 
   try {
     LogResolved(ah_ros_names::Px4VehicleOdometryTopic);
-    px4_odom_sub_ = px4_node_->create_subscription<px4_msgs::msg::VehicleOdometry>(
+    px4_links_[index].odom_sub = px4_node->create_subscription<px4_msgs::msg::VehicleOdometry>(
         ah_ros_names::Px4VehicleOdometryTopic, px4_qos,
-        [this](const px4_msgs::msg::VehicleOdometry::SharedPtr msg) {
-          if (!msg) {
+        [this, index, ns](const px4_msgs::msg::VehicleOdometry::SharedPtr msg) {
+          if (!msg || index >= px4_links_.size()) {
             return;
           }
           try {
             const AhPx4OdomSample sample = MakeOdomSample(*msg);
-            if (!logged_px4_odom_) {
-              logged_px4_odom_ = true;
-              RCLCPP_INFO(px4_node_->get_logger(),
+            if (!px4_links_[index].logged_odom) {
+              px4_links_[index].logged_odom = true;
+              RCLCPP_INFO(px4_links_[index].node->get_logger(),
                           "PX4 odometry live N=%.2f E=%.2f D=%.2f heading=%.1f roll=%.1f pitch=%.1f",
                           sample.north_m, sample.east_m, sample.down_m, sample.heading_deg, sample.roll_deg,
                           sample.pitch_deg);
             }
             if (hooks_.on_px4_odometry) {
-              hooks_.on_px4_odometry(sample);
+              hooks_.on_px4_odometry(ns, sample);
             }
           } catch (const std::exception& ex) {
-            RCLCPP_ERROR(px4_node_->get_logger(), "PX4 odometry callback: %s", ex.what());
+            RCLCPP_ERROR(px4_links_[index].node->get_logger(), "PX4 odometry callback: %s", ex.what());
           } catch (...) {
-            RCLCPP_ERROR(px4_node_->get_logger(), "PX4 odometry callback failed");
+            RCLCPP_ERROR(px4_links_[index].node->get_logger(), "PX4 odometry callback failed");
           }
         });
   } catch (const std::exception& ex) {
-    RCLCPP_ERROR(px4_node_->get_logger(), "PX4 odometry subscribe failed: %s", ex.what());
+    RCLCPP_ERROR(px4_node->get_logger(), "PX4 odometry subscribe failed: %s", ex.what());
   }
 
   try {
     LogResolved(ah_ros_names::Px4VehicleStatusTopic);
-    px4_status_sub_ = px4_node_->create_subscription<px4_msgs::msg::VehicleStatus>(
+    px4_links_[index].status_sub = px4_node->create_subscription<px4_msgs::msg::VehicleStatus>(
         ah_ros_names::Px4VehicleStatusTopic, px4_qos,
-        [this](const px4_msgs::msg::VehicleStatus::SharedPtr msg) {
-          if (!msg) {
+        [this, index, ns](const px4_msgs::msg::VehicleStatus::SharedPtr msg) {
+          if (!msg || index >= px4_links_.size()) {
             return;
           }
           try {
             AhPx4StatusSample sample;
             sample.arming_state = msg->arming_state;
             sample.nav_state = msg->nav_state;
-            if (!logged_px4_status_) {
-              logged_px4_status_ = true;
-              RCLCPP_INFO(px4_node_->get_logger(), "PX4 status live arming=%u nav=%u",
-                          static_cast<unsigned>(sample.arming_state), static_cast<unsigned>(sample.nav_state));
+            sample.system_id = msg->system_id;
+            sample.vehicle_type = msg->vehicle_type;
+            sample.is_vtol = msg->is_vtol;
+            if (!px4_links_[index].logged_status) {
+              px4_links_[index].logged_status = true;
+              RCLCPP_INFO(px4_links_[index].node->get_logger(),
+                          "PX4 status live arming=%u nav=%u system_id=%u vehicle_type=%u vtol=%d",
+                          static_cast<unsigned>(sample.arming_state), static_cast<unsigned>(sample.nav_state),
+                          static_cast<unsigned>(sample.system_id), static_cast<unsigned>(sample.vehicle_type),
+                          sample.is_vtol ? 1 : 0);
             }
             if (hooks_.on_px4_status) {
-              hooks_.on_px4_status(sample);
+              hooks_.on_px4_status(ns, sample);
             }
           } catch (const std::exception& ex) {
-            RCLCPP_ERROR(px4_node_->get_logger(), "PX4 status callback: %s", ex.what());
+            RCLCPP_ERROR(px4_links_[index].node->get_logger(), "PX4 status callback: %s", ex.what());
           } catch (...) {
-            RCLCPP_ERROR(px4_node_->get_logger(), "PX4 status callback failed");
+            RCLCPP_ERROR(px4_links_[index].node->get_logger(), "PX4 status callback failed");
           }
         });
   } catch (const std::exception& ex) {
-    RCLCPP_ERROR(px4_node_->get_logger(), "PX4 status subscribe failed: %s", ex.what());
+    RCLCPP_ERROR(px4_node->get_logger(), "PX4 status subscribe failed: %s", ex.what());
   }
 
   try {
     LogResolved(ah_ros_names::Px4VehicleGpsTopic);
-    px4_gps_sub_ = px4_node_->create_subscription<px4_msgs::msg::SensorGps>(
-        ah_ros_names::Px4VehicleGpsTopic, px4_qos, [this](const px4_msgs::msg::SensorGps::SharedPtr msg) {
-          if (!msg) {
+    px4_links_[index].gps_sub = px4_node->create_subscription<px4_msgs::msg::SensorGps>(
+        ah_ros_names::Px4VehicleGpsTopic, px4_qos,
+        [this, index, ns](const px4_msgs::msg::SensorGps::SharedPtr msg) {
+          if (!msg || index >= px4_links_.size()) {
             return;
           }
           try {
             AhPx4GpsSample sample;
             sample.fix_type = msg->fix_type;
             sample.satellites_used = static_cast<int>(msg->satellites_used);
-            if (!logged_px4_gps_) {
-              logged_px4_gps_ = true;
-              RCLCPP_INFO(px4_node_->get_logger(), "PX4 GPS live fix_type=%u satellites=%d",
+            if (!px4_links_[index].logged_gps) {
+              px4_links_[index].logged_gps = true;
+              RCLCPP_INFO(px4_links_[index].node->get_logger(), "PX4 GPS live fix_type=%u satellites=%d",
                           static_cast<unsigned>(sample.fix_type), sample.satellites_used);
             }
             if (hooks_.on_px4_gps) {
-              hooks_.on_px4_gps(sample);
+              hooks_.on_px4_gps(ns, sample);
             }
           } catch (const std::exception& ex) {
-            RCLCPP_ERROR(px4_node_->get_logger(), "PX4 GPS callback: %s", ex.what());
+            RCLCPP_ERROR(px4_links_[index].node->get_logger(), "PX4 GPS callback: %s", ex.what());
           } catch (...) {
-            RCLCPP_ERROR(px4_node_->get_logger(), "PX4 GPS callback failed");
+            RCLCPP_ERROR(px4_links_[index].node->get_logger(), "PX4 GPS callback failed");
           }
         });
   } catch (const std::exception& ex) {
-    RCLCPP_ERROR(px4_node_->get_logger(), "PX4 GPS subscribe failed: %s", ex.what());
+    RCLCPP_ERROR(px4_node->get_logger(), "PX4 GPS subscribe failed: %s", ex.what());
   }
 }
 
@@ -245,17 +283,22 @@ AhRosBridge::~AhRosBridge() {
   if (executor_ && node_) {
     executor_->remove_node(node_);
   }
-  if (executor_ && px4_node_added_ && px4_node_) {
-    executor_->remove_node(px4_node_);
+  for (Px4Link& link : px4_links_) {
+    if (executor_ && link.added && link.node) {
+      executor_->remove_node(link.node);
+    }
   }
   status_sub_.reset();
   video_sub_.reset();
   detections_sub_.reset();
-  px4_odom_sub_.reset();
-  px4_status_sub_.reset();
-  px4_gps_sub_.reset();
+  for (Px4Link& link : px4_links_) {
+    link.odom_sub.reset();
+    link.status_sub.reset();
+    link.gps_sub.reset();
+    link.node.reset();
+  }
+  px4_links_.clear();
   node_.reset();
-  px4_node_.reset();
   executor_.reset();
 
   if (rclcpp::ok()) {

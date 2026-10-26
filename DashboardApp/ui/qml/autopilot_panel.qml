@@ -1,7 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Layouts 1.15
 
-// Live PX4 state from /<vehicle>/fmu/out (odometry, status, GPS).
+// One card per PX4 namespace. px4Vehicle (the first entry) still drives the hub.
 Rectangle {
   id: root
   color: "#0d1620"
@@ -20,22 +20,16 @@ Rectangle {
     return fresh ? valueColor : staleColor
   }
 
-  function meters(valid, value) {
-    if (!px4Vehicle.hasOdometry || !valid)
+  function meters(vehicle, valid, value) {
+    if (!vehicle || !vehicle.hasOdometry || !valid)
       return "—"
     return Number(value).toFixed(2) + " m"
   }
 
-  function signedDeg(valid, value) {
-    if (!px4Vehicle.attitudeValid)
+  function headingText(vehicle) {
+    if (!vehicle || !vehicle.attitudeValid)
       return "—"
-    return Number(value).toFixed(1) + "°"
-  }
-
-  function headingText() {
-    if (!px4Vehicle.attitudeValid)
-      return "—"
-    var h = Number(px4Vehicle.headingDeg)
+    var h = Number(vehicle.headingDeg)
     if (h < 0)
       h = 0
     if (h >= 360)
@@ -48,36 +42,118 @@ Rectangle {
     return body + "°"
   }
 
-  component Readout: Row {
-    property string label: ""
-    property string value: ""
-    property color valueColor: "#e8eef5"
-    width: parent.width
-    spacing: 8
-
-    Text {
-      width: 118
-      text: label
-      color: "#8a96a5"
-      font.pixelSize: 13
-    }
-    Text {
-      text: value
-      color: parent.valueColor
-      font.pixelSize: 14
-      font.bold: true
-    }
+  function linkLabel(state) {
+    if (state === "live")
+      return "LIVE"
+    if (state === "stale")
+      return "STALE"
+    return "WAITING"
   }
 
-  component SectionTitle: Text {
-    property string title: ""
-    property bool known: false
-    property bool fresh: false
-    text: title + (known && !fresh ? "  · stale" : "")
-    color: fresh ? "#8a96a5" : (known ? "#e6c35c" : "#5a6572")
-    font.pixelSize: 12
-    font.bold: true
-    font.capitalization: Font.AllUppercase
+  function linkColor(state) {
+    if (state === "live")
+      return liveColor
+    if (state === "stale")
+      return staleColor
+    return waitColor
+  }
+
+  component VehicleCard: Rectangle {
+    id: card
+    required property var modelData
+    required property int index
+
+    readonly property var vehicle: modelData
+    readonly property string state: vehicle ? vehicle.linkState : "waiting"
+
+    color: "#101820"
+    radius: 4
+    border.width: 1
+    border.color: state === "live" ? "#1f6b45" : (state === "stale" ? "#8a6a2f" : "#243140")
+    height: cardBody.implicitHeight + 16
+
+    Column {
+      id: cardBody
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.top: parent.top
+      anchors.margins: 8
+      spacing: 3
+
+      Row {
+        width: parent.width
+        spacing: 8
+
+        Text {
+          width: parent.width - linkText.implicitWidth - 8
+          text: card.vehicle && card.vehicle.vehicleNamespace.length > 0
+                ? card.vehicle.vehicleNamespace : "—"
+          color: "#e8eef5"
+          font.pixelSize: 15
+          font.bold: true
+          elide: Text.ElideRight
+        }
+        Text {
+          id: linkText
+          text: root.linkLabel(card.state)
+          color: root.linkColor(card.state)
+          font.pixelSize: 11
+          font.bold: true
+        }
+      }
+
+      Text {
+        width: parent.width
+        text: {
+          if (!card.vehicle || !card.vehicle.hasStatus)
+            return "—  ·  ID —"
+          return card.vehicle.vehicleType + "  ·  ID " + card.vehicle.systemId
+        }
+        color: root.valueColorFor(card.vehicle && card.vehicle.hasStatus, card.vehicle && card.vehicle.statusFresh)
+        font.pixelSize: 12
+        elide: Text.ElideRight
+      }
+
+      Text {
+        width: parent.width
+        text: {
+          if (!card.vehicle || !card.vehicle.hasStatus)
+            return "Arming —    Nav —"
+          return card.vehicle.armingState + "    " + card.vehicle.navState
+        }
+        color: root.valueColorFor(card.vehicle && card.vehicle.hasStatus, card.vehicle && card.vehicle.statusFresh)
+        font.pixelSize: 12
+        elide: Text.ElideRight
+      }
+
+      Text {
+        width: parent.width
+        text: {
+          if (!card.vehicle)
+            return "N —   E —   D —"
+          return "N " + root.meters(card.vehicle, card.vehicle.positionValid, card.vehicle.northM)
+              + "   E " + root.meters(card.vehicle, card.vehicle.positionValid, card.vehicle.eastM)
+              + "   D " + root.meters(card.vehicle, card.vehicle.positionValid, card.vehicle.downM)
+        }
+        color: root.valueColorFor(card.vehicle && card.vehicle.positionValid, card.vehicle && card.vehicle.odometryFresh)
+        font.pixelSize: 12
+        elide: Text.ElideRight
+      }
+
+      Text {
+        width: parent.width
+        text: {
+          if (!card.vehicle)
+            return "Hdg —    GPS —"
+          var fix = card.vehicle.hasGps ? card.vehicle.gpsFixType : "—"
+          var sats = card.vehicle.hasGps ? String(card.vehicle.satellitesUsed) : "—"
+          return "Hdg " + root.headingText(card.vehicle) + "    GPS " + fix + "    " + sats + " sats"
+        }
+        color: card.state === "stale" ? root.staleColor : (card.state === "waiting" ? "#5a6572" : "#c8d1dc")
+        font.pixelSize: 12
+        elide: Text.ElideRight
+      }
+    }
   }
 
   ColumnLayout {
@@ -85,138 +161,32 @@ Rectangle {
     anchors.margins: 12
     spacing: 8
 
-    RowLayout {
+    Text {
+      text: "Autopilot (PX4)"
+      color: "#c8d1dc"
+      font.pixelSize: 18
+      font.bold: true
       Layout.fillWidth: true
-      spacing: 8
-
-      Text {
-        text: "Autopilot (PX4)"
-        color: "#c8d1dc"
-        font.pixelSize: 18
-        font.bold: true
-      }
-
-      Item {
-        Layout.fillWidth: true
-      }
-
-      Text {
-        text: px4Vehicle.linkState === "live" ? "LIVE"
-            : (px4Vehicle.linkState === "stale" ? "STALE" : "WAITING")
-        color: px4Vehicle.linkState === "live" ? root.liveColor
-             : (px4Vehicle.linkState === "stale" ? root.staleColor : root.waitColor)
-        font.pixelSize: 12
-        font.bold: true
-        Layout.alignment: Qt.AlignVCenter
-      }
-
-      Text {
-        text: px4Vehicle.vehicleNamespace.length > 0 ? ("/" + px4Vehicle.vehicleNamespace) : "/"
-        color: "#5a6572"
-        font.pixelSize: 12
-        Layout.alignment: Qt.AlignVCenter
-      }
     }
 
     Flickable {
+      id: flick
       Layout.fillWidth: true
       Layout.fillHeight: true
-      contentHeight: body.implicitHeight
+      contentHeight: cards.implicitHeight
       clip: true
       boundsBehavior: Flickable.StopAtBounds
 
       Column {
-        id: body
-        width: parent.width
+        id: cards
+        width: flick.width
         spacing: 8
 
-        SectionTitle {
-          title: "Position"
-          known: px4Vehicle.hasOdometry
-          fresh: px4Vehicle.odometryFresh
-        }
-        Readout {
-          label: "North"
-          value: root.meters(px4Vehicle.positionValid, px4Vehicle.northM)
-          valueColor: root.valueColorFor(px4Vehicle.positionValid, px4Vehicle.odometryFresh)
-        }
-        Readout {
-          label: "East"
-          value: root.meters(px4Vehicle.positionValid, px4Vehicle.eastM)
-          valueColor: root.valueColorFor(px4Vehicle.positionValid, px4Vehicle.odometryFresh)
-        }
-        Readout {
-          label: "Down"
-          value: root.meters(px4Vehicle.positionValid, px4Vehicle.downM)
-          valueColor: root.valueColorFor(px4Vehicle.positionValid, px4Vehicle.odometryFresh)
-        }
-
-        Item {
-          width: 1
-          height: 4
-        }
-
-        SectionTitle {
-          title: "Attitude"
-          known: px4Vehicle.attitudeValid
-          fresh: px4Vehicle.odometryFresh
-        }
-        Readout {
-          label: "Heading"
-          value: root.headingText()
-          valueColor: root.valueColorFor(px4Vehicle.attitudeValid, px4Vehicle.odometryFresh)
-        }
-        Readout {
-          label: "Roll"
-          value: root.signedDeg(px4Vehicle.attitudeValid, px4Vehicle.rollDeg)
-          valueColor: root.valueColorFor(px4Vehicle.attitudeValid, px4Vehicle.odometryFresh)
-        }
-        Readout {
-          label: "Pitch"
-          value: root.signedDeg(px4Vehicle.attitudeValid, px4Vehicle.pitchDeg)
-          valueColor: root.valueColorFor(px4Vehicle.attitudeValid, px4Vehicle.odometryFresh)
-        }
-
-        Item {
-          width: 1
-          height: 4
-        }
-
-        SectionTitle {
-          title: "State"
-          known: px4Vehicle.hasStatus
-          fresh: px4Vehicle.statusFresh
-        }
-        Readout {
-          label: "Arming"
-          value: px4Vehicle.hasStatus ? px4Vehicle.armingState : "—"
-          valueColor: root.valueColorFor(px4Vehicle.hasStatus, px4Vehicle.statusFresh)
-        }
-        Readout {
-          label: "Navigation"
-          value: px4Vehicle.hasStatus ? px4Vehicle.navState : "—"
-          valueColor: root.valueColorFor(px4Vehicle.hasStatus, px4Vehicle.statusFresh)
-        }
-
-        Item {
-          width: 1
-          height: 4
-        }
-
-        SectionTitle {
-          title: "GPS"
-          known: px4Vehicle.hasGps
-          fresh: px4Vehicle.gpsFresh
-        }
-        Readout {
-          label: "Fix"
-          value: px4Vehicle.hasGps ? px4Vehicle.gpsFixType : "—"
-          valueColor: root.valueColorFor(px4Vehicle.hasGps, px4Vehicle.gpsFresh)
-        }
-        Readout {
-          label: "Satellites"
-          value: px4Vehicle.hasGps ? String(px4Vehicle.satellitesUsed) : "—"
-          valueColor: root.valueColorFor(px4Vehicle.hasGps, px4Vehicle.gpsFresh)
+        Repeater {
+          model: px4Vehicles
+          delegate: VehicleCard {
+            width: cards.width
+          }
         }
       }
     }

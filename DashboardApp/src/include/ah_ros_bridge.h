@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -21,9 +22,9 @@ class AhRosBridge {
   using StatusJsonCallback = std::function<void(const std::string& json)>;
   using VideoJpegCallback = std::function<void(std::vector<uint8_t> jpeg)>;
   using DetectionsJsonCallback = std::function<void(const std::string& json)>;
-  using Px4OdometryCallback = std::function<void(AhPx4OdomSample sample)>;
-  using Px4StatusCallback = std::function<void(AhPx4StatusSample sample)>;
-  using Px4GpsCallback = std::function<void(AhPx4GpsSample sample)>;
+  using Px4OdometryCallback = std::function<void(const std::string& vehicle_namespace, AhPx4OdomSample sample)>;
+  using Px4StatusCallback = std::function<void(const std::string& vehicle_namespace, AhPx4StatusSample sample)>;
+  using Px4GpsCallback = std::function<void(const std::string& vehicle_namespace, AhPx4GpsSample sample)>;
 
   struct Hooks {
     ExecutorStoppedCallback on_executor_stopped;
@@ -41,11 +42,13 @@ class AhRosBridge {
   /// @param ros_domain_id DDS domain for this process.
   /// @param ros_namespace Node namespace (empty = root). Topics use relative
   ///        ah/... names so they become /{namespace}/ah/... when set.
-  /// @param vehicle_namespace PX4 graph namespace (default "rover"). A second
-  ///        node uses it so relative fmu/out/... names resolve under it.
-  /// @param hooks Optional status/video/PX4/stop callbacks.
+  /// @param vehicle_namespaces PX4 graph namespaces, in display order. One
+  ///        ah_dashboard_px4 node is created in each so relative fmu/out/...
+  ///        names resolve under that vehicle. Empty becomes "rover".
+  /// @param hooks Optional status/video/PX4/stop callbacks. PX4 hooks receive
+  ///        the vehicle namespace the sample came from.
   explicit AhRosBridge(std::uint8_t ros_domain_id, std::string ros_namespace = {},
-                       std::string vehicle_namespace = "rover", Hooks hooks = {});
+                       std::vector<std::string> vehicle_namespaces = {}, Hooks hooks = {});
   ~AhRosBridge();
 
   AhRosBridge(const AhRosBridge&) = delete;
@@ -57,30 +60,35 @@ class AhRosBridge {
 
   [[nodiscard]] const std::string& RosNamespace() const { return ros_namespace_; }
 
-  [[nodiscard]] const std::string& VehicleNamespace() const { return vehicle_namespace_; }
+  [[nodiscard]] const std::vector<std::string>& VehicleNamespaces() const { return vehicle_namespaces_; }
 
  private:
+  struct Px4Link {
+    std::string ns;
+    rclcpp::Node::SharedPtr node;
+    bool added = false;
+    // Type-erased so this header stays free of px4_msgs. Real types live in the cpp.
+    rclcpp::SubscriptionBase::SharedPtr odom_sub;
+    rclcpp::SubscriptionBase::SharedPtr status_sub;
+    rclcpp::SubscriptionBase::SharedPtr gps_sub;
+    bool logged_odom = false;
+    bool logged_status = false;
+    bool logged_gps = false;
+  };
+
   [[nodiscard]] static std::uint8_t SanitizeDomainId(std::uint8_t ros_domain_id);
   void SetupSubscriptions();
-  void SetupPx4Subscriptions();
+  void SetupPx4Subscriptions(std::size_t index);
 
   std::uint8_t ros_domain_id_;
   std::string ros_namespace_;
-  std::string vehicle_namespace_;
+  std::vector<std::string> vehicle_namespaces_;
   Hooks hooks_;
   rclcpp::Node::SharedPtr node_;
-  rclcpp::Node::SharedPtr px4_node_;
-  bool px4_node_added_ = false;
+  std::vector<Px4Link> px4_links_;
   rclcpp::Subscription<std_msgs::msg::String>::SharedPtr status_sub_;
   rclcpp::Subscription<sensor_msgs::msg::CompressedImage>::SharedPtr video_sub_;
   rclcpp::Subscription<std_msgs::msg::String>::SharedPtr detections_sub_;
-  // Type-erased so this header stays free of px4_msgs. Real types live in the cpp.
-  rclcpp::SubscriptionBase::SharedPtr px4_odom_sub_;
-  rclcpp::SubscriptionBase::SharedPtr px4_status_sub_;
-  rclcpp::SubscriptionBase::SharedPtr px4_gps_sub_;
-  bool logged_px4_odom_ = false;
-  bool logged_px4_status_ = false;
-  bool logged_px4_gps_ = false;
   std::shared_ptr<rclcpp::executors::SingleThreadedExecutor> executor_;
   std::thread spin_thread_;
 };

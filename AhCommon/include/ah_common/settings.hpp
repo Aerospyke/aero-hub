@@ -139,12 +139,16 @@ class Settings {
     Settings* MutableOwner() const { return const_cast<Settings*>(owner_); }
   };
 
-  /// PX4 vehicle graph ([Vehicle] namespace). Default "rover".
-  /// Independent of the dashboard node's ROS namespace.
+  /// PX4 vehicle graph ([Vehicle]). Independent of the dashboard node's ROS namespace.
+  /// `namespaces` is a comma-separated display list. When that key is missing or
+  /// empty, the single `namespace` key is used so older ini files still work.
   class VehicleSection {
    public:
     explicit VehicleSection(const Settings* owner) : owner_(owner) {}
 
+    /// Ordered names. Always at least one; "rover" when nothing usable is set.
+    [[nodiscard]] std::vector<std::string> NamespaceNames() const;
+    /// First entry of NamespaceNames().
     [[nodiscard]] std::string NamespaceName() const;
     void SetNamespaceName(const std::string& value) const;
 
