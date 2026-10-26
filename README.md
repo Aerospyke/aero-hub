@@ -8,12 +8,6 @@ Modular companion stack:
 | **FlightInstruments** | QML flight instruments module |
 | **ros/** | Colcon workspace: `ah_msgs`, `ah_core` stub |
 
-Primary project docs (decisions, tasks, interface map) live in the Obsidian vault:
-
-```text
-~/Documents/obsidian-vault/projects/aerohub/
-```
-
 ---
 
 ## Target environment: lab ROS install (macOS + Linux)
@@ -27,7 +21,7 @@ AeroHub is a **lab stack**, not a self-contained consumer app.
 | **Runtime uses the lab install** | RMW plugins, typesupport, OpenCV, etc. come from the ROS prefix — we do **not** ship a full private ROS tree inside the dashboard package |
 | **Operational root** | Always [`run/`](run/) as CWD (settings, init script, optional installed UI) |
 
-**macOS:** RoboStack + host UI/core (same machine) is the usual demo. Docker Desktop on Mac still does not bridge DDS to the host for Mac UI ↔ container core (vault Task_26).
+**macOS:** RoboStack + host UI/core (same machine) is the usual demo. Docker Desktop on Mac still does not bridge DDS to the host for Mac UI ↔ container core.
 
 **Linux:** Same lab model — native Jazzy or RoboStack; colcon overlay; run from `run/`. Dashboard is an ELF (or whatever CMake produces), not `AeroHub.app`. Prefer a sourced ROS env (or the small ament/rpath lab hooks) rather than AppImage-style ROS bundling.
 
@@ -254,8 +248,5 @@ weights under `yolo-models/` keep their own terms — see `NOTICE`.
 
 | Topic | Where |
 |-------|--------|
-| Lab ROS notes | Vault `reference/ros-lab-notes.md` |
-| Topics / services contract | Vault `reference/ros2-interface-map.md` |
-| Milestone_1 acceptance | Vault `milestones/milestone_1/acceptance.md` |
-| Task board | Vault `milestones/milestone_1/kanban.md` |
 | Colcon / Docker details | [`ros/README.md`](ros/README.md) |
+| Day-to-day ops | [`run/README.md`](run/README.md) |

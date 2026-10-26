@@ -3,7 +3,6 @@
 Colcon workspace for ROS 2 packages (`ah_common`, `ah_msgs`, `ah_core`, `ah_yolo`, …).
 
 **Lab baseline:** Jazzy · `rmw_fastrtps_cpp` · domain **42** (from `run/aerohub_settings.ini` via AhCommon)  
-See vault: `projects/aerohub/reference/ros-lab-notes.md`.  
 **Day-to-day ops (host):** [`../run/README.md`](../run/README.md).
 
 ## Layout
@@ -154,7 +153,7 @@ ros2 service call /ah/tracking/start ah_msgs/srv/StartTracking \
 ros2 service call /ah/camera/list ah_msgs/srv/ListCameras "{refresh: true}"
 ```
 
-**Mac host ↔ Docker DDS:** default Docker Desktop networking usually **does not** discover host RoboStack nodes. Prefer same-host stack for UI demos (vault Task_26).
+**Mac host ↔ Docker DDS:** default Docker Desktop networking usually **does not** discover host RoboStack nodes. Prefer same-host stack for UI demos.
 
 ### Optional: `rqt_image_view` (XQuartz on Mac)
 
