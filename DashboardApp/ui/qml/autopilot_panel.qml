@@ -1,10 +1,45 @@
 import QtQuick 2.15
 import QtQuick.Layouts 1.15
+import QtQuick.Window 2.15
 
 // One card per PX4 namespace. px4Vehicle (the first entry) still drives the hub.
+// A click opens a detail window for that vehicle. A later click raises the same window.
 Rectangle {
   id: root
   color: "#0d1620"
+
+  property var detailComponent: null
+  property var detailWindows: ({})
+
+  function openVehicleDetail(vehicle) {
+    if (!vehicle || !detailComponent || detailComponent.status !== Component.Ready)
+      return
+    var key = String(vehicle.vehicleNamespace)
+    var windows = detailWindows
+    var existing = windows[key]
+    if (existing) {
+      existing.show()
+      existing.raise()
+      existing.requestActivate()
+      return
+    }
+    var win = detailComponent.createObject(root, { vehicle: vehicle })
+    if (!win) {
+      console.warn("Vehicle detail:", detailComponent.errorString())
+      return
+    }
+    windows[key] = win
+    detailWindows = windows
+    win.show()
+    win.raise()
+    win.requestActivate()
+  }
+
+  Component.onCompleted: {
+    detailComponent = Qt.createComponent("qrc:/qml/VehicleDetailWindow.qml", Component.PreferSynchronous, root)
+    if (detailComponent.status === Component.Error)
+      console.warn("Vehicle detail:", detailComponent.errorString())
+  }
   border.color: "#243140"
   border.width: 1
   radius: 6
@@ -66,10 +101,11 @@ Rectangle {
     readonly property var vehicle: modelData
     readonly property string state: vehicle ? vehicle.linkState : "waiting"
 
-    color: "#101820"
+    color: clickArea.containsMouse ? "#172433" : "#101820"
     radius: 4
     border.width: 1
-    border.color: state === "live" ? "#1f6b45" : (state === "stale" ? "#8a6a2f" : "#243140")
+    border.color: clickArea.containsMouse ? "#3d9eff"
+                 : (state === "live" ? "#1f6b45" : (state === "stale" ? "#8a6a2f" : "#243140"))
     height: cardBody.implicitHeight + 16
 
     Column {
@@ -153,6 +189,14 @@ Rectangle {
         font.pixelSize: 12
         elide: Text.ElideRight
       }
+    }
+
+    MouseArea {
+      id: clickArea
+      anchors.fill: parent
+      hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      onClicked: root.openVehicleDetail(card.vehicle)
     }
   }
 
