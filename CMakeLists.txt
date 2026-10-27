@@ -66,7 +66,7 @@ add_subdirectory(AhCommon)
 
 # Optional: rebuild ROS packages via colcon (not a hard dependency of AeroHub).
 # Invokes ros/scripts/build_ros.sh so colcon is found when CMake/CLion lack conda PATH.
-# Builds: ah_common (AhCommon lib + libah_common_c for ah_yolo), ah_msgs, ah_core, ah_yolo.
+# Builds: ah_common (AhCommon lib + libah_common_c for ah_yolo), ah_msgs, ah_core, ah_yolo, ah_px4_odom.
 # Ends by populating run/bin (ah_settings_shell_exports).
 # Usage:  cmake --build <build-dir> --target build_ros
 # Then:   cd run && source ./init_ah_ros_in_terminal.sh

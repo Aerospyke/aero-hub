@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Rebuild ah_msgs / ah_core / ah_yolo via colcon.
+# Rebuild ah_msgs / ah_core / ah_yolo / ah_px4_odom via colcon.
 # Used by CMake target "build_ros" and safe to run by hand.
 #
 #   ./ros/scripts/build_ros.sh
@@ -75,6 +75,22 @@ export CMAKE_PREFIX_PATH="${CONDA_PREFIX}${CMAKE_PREFIX_PATH:+:${CMAKE_PREFIX_PA
 export PYTHONPATH="${CONDA_PREFIX}/lib/python3.12/site-packages${PYTHONPATH:+:${PYTHONPATH}}"
 # rosidl_generator_rs (and some tools) require ROS_DISTRO; RoboStack is Jazzy.
 export ROS_DISTRO="${ROS_DISTRO:-jazzy}"
+
+# px4_msgs (release/1.17) lives in the sibling colcon install on the Mac lab.
+# The Linux mapping box sources its own px4 workspace instead; skip when absent.
+_AH_PX4_PREFIX="${_AH_ROS_DIR}/../../3rd-party/px4_ws/install/px4_msgs"
+if [[ -d "${_AH_PX4_PREFIX}/share/ament_index" ]]; then
+  _AH_PX4_PREFIX="$(cd "${_AH_PX4_PREFIX}" && pwd)"
+  case ":${AMENT_PREFIX_PATH:-}:" in
+    *":${_AH_PX4_PREFIX}:"*) ;;
+    *) export AMENT_PREFIX_PATH="${_AH_PX4_PREFIX}${AMENT_PREFIX_PATH:+:${AMENT_PREFIX_PATH}}" ;;
+  esac
+  case ":${CMAKE_PREFIX_PATH:-}:" in
+    *":${_AH_PX4_PREFIX}:"*) ;;
+    *) export CMAKE_PREFIX_PATH="${_AH_PX4_PREFIX}${CMAKE_PREFIX_PATH:+:${CMAKE_PREFIX_PATH}}" ;;
+  esac
+fi
+
 # Do not set ROS_DOMAIN_ID / RMW_IMPLEMENTATION / AERO_HUB_YOLO_MODELS here —
 # those come from aerohub_settings.ini via AhCommon when nodes or
 # run/init_ah_ros_in_terminal.sh bootstrap.
@@ -84,7 +100,7 @@ echo "[build_ros] cwd=${_AH_ROS_DIR}"
 echo "[build_ros] CONDA_PREFIX=${CONDA_PREFIX:-}"
 
 "${COLCON_BIN}" build \
-  --packages-select ah_common ah_msgs ah_core ah_yolo \
+  --packages-select ah_common ah_msgs ah_core ah_yolo ah_px4_odom \
   --cmake-args -DCMAKE_BUILD_TYPE=Release \
   "$@"
 
