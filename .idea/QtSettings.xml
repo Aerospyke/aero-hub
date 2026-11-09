@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="QtSettings">
+    <option name="myCurrentProfile" value="conan-debug - conan-debug" />
+    <option name="mySettingsPerProfile">
+      <map>
+        <entry key="conan-debug - conan-debug">
+          <value>
+            <PerProfileState>
+              <option name="myQmlPath" value="$USER_HOME$/Qt/6.11.0/macos/qml" />
+              <option name="myQtBinPath" value="$USER_HOME$/Qt/6.11.0/macos/bin" />
+            </PerProfileState>
+          </value>
+        </entry>
+        <entry key="conan-release - conan-release">
+          <value>
+            <PerProfileState>
+              <option name="myQmlPath" value="$USER_HOME$/Qt/6.11.0/macos/qml" />
+              <option name="myQtBinPath" value="$USER_HOME$/Qt/6.11.0/macos/bin" />
+            </PerProfileState>
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+</project>

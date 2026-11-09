@@ -66,7 +66,7 @@ Prefer a dated name so versions stay clear:
 
 ```bash
 cp /path/to/runs/detect/.../weights/best.pt \
-  ~/Documents/projects/pix-eagle-stack/aero-hub/yolo-models/mini_tank_MMDD.pt
+  /path/to/aero-hub/yolo-models/mini_tank_MMDD.pt
 ```
 
 `profile:=tank` prefers **`mini_tank_0308`**, then other `mini_tank*`, then `tank.pt`.  

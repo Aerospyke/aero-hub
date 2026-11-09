@@ -1,12 +1,21 @@
 # AeroHub (code)
 
+AeroHub is the desktop app for [miniCREW](https://mini-crew.com), a fleet of real and simulated vehicles that work together. It talks to every vehicle over ROS 2, so a real vehicle and its simulated twins show up in the same app.
+
+**Where it is today**
+
+- The real rover and simulated vehicles show up side by side in AeroHub.
+- The `ah_px4_odom` node turns PX4's position estimate into ROS 2 odometry, and it has run on live data from the real rover.
+
+**In development:** camera video, object tracking and fault injection. The video and tracking paths in this repo are still stubs or experiments.
+
 Modular companion stack:
 
 | Piece | Role |
 |-------|------|
 | **DashboardApp** | Qt 6 / QML UI + in-process `rclcpp` (`ah_dashboard`) |
 | **FlightInstruments** | QML flight instruments module |
-| **ros/** | Colcon workspace: `ah_msgs`, `ah_core` stub |
+| **ros/** | Colcon workspace: `ah_common`, `ah_msgs`, `ah_core`, `ah_yolo`, `ah_px4_odom` (PX4 position to ROS 2 odometry) |
 
 ---
 
@@ -141,6 +150,8 @@ Settings: **`run/aerohub_settings.ini`** only (AhCommon creates defaults if miss
 
 ### Manual test script (acceptance)
 
+This checks the stub status, video and tracking path. Real camera and object detection are still in development.
+
 With both processes running (domain **42**, matching **namespace**):
 
 1. **Status** — Footer **ROS** green; Control page shows live fields (`video_status`, etc.). Banner hidden.  
@@ -199,7 +210,7 @@ aero-hub/
   DashboardApp/               # UI + rclcpp bridge (C++23)
   FlightInstruments/          # QML instruments module
   run/                        # operational CWD (init, settings, bin/)
-  ros/                        # colcon: ah_common, ah_msgs, ah_core, ah_yolo
+  ros/                        # colcon: ah_common, ah_msgs, ah_core, ah_yolo, ah_px4_odom
     README.md
 ```
 

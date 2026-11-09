@@ -7,7 +7,15 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_INSTALL_PREFIX "${CMAKE_SOURCE_DIR}/run")
 
-set(QT_INSTALL_LOCATION "/Users/aerospyke/Qt/6.11.0/macos")
+# Qt install prefix: pass -DQT_INSTALL_LOCATION=... or set the QT_INSTALL_LOCATION
+# environment variable; defaults to the Qt online installer location under $HOME.
+if(NOT DEFINED QT_INSTALL_LOCATION)
+    if(DEFINED ENV{QT_INSTALL_LOCATION})
+        set(QT_INSTALL_LOCATION "$ENV{QT_INSTALL_LOCATION}")
+    else()
+        set(QT_INSTALL_LOCATION "$ENV{HOME}/Qt/6.11.0/macos")
+    endif()
+endif()
 set(QT_VERSION_TO_USE 6.11)
 
 set(APPLICATION_NAME "AeroHub")

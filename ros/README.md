@@ -122,7 +122,7 @@ docker run -it --rm --name ros2_dev \
   --env="RMW_IMPLEMENTATION=rmw_fastrtps_cpp" \
   --env="ROS_DOMAIN_ID=42" \
   --volume /tmp/.X11-unix:/tmp/.X11-unix:rw \
-  --volume ~/Documents/projects/pix-eagle-stack/aero-hub/ros:/aero-hub-ros \
+  --volume /path/to/aero-hub/ros:/aero-hub-ros \
   -p 2222:22 \
   conorco/ros:jazzy-desktop-full-with-clion
 ```
