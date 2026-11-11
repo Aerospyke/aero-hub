@@ -47,8 +47,11 @@ class AhRosBridge {
   ///        names resolve under that vehicle. Empty becomes "rover".
   /// @param hooks Optional status/video/PX4/stop callbacks. PX4 hooks receive
   ///        the vehicle namespace the sample came from.
+  /// @param video_topic CompressedImage topic for the Video panel ([Camera] video_topic).
+  ///        Empty means the default relative ah/video/compressed.
   explicit AhRosBridge(std::uint8_t ros_domain_id, std::string ros_namespace = {},
-                       std::vector<std::string> vehicle_namespaces = {}, Hooks hooks = {});
+                       std::vector<std::string> vehicle_namespaces = {}, Hooks hooks = {},
+                       std::string video_topic = {});
   ~AhRosBridge();
 
   AhRosBridge(const AhRosBridge&) = delete;
@@ -84,6 +87,7 @@ class AhRosBridge {
   std::string ros_namespace_;
   std::vector<std::string> vehicle_namespaces_;
   Hooks hooks_;
+  std::string video_topic_;
   rclcpp::Node::SharedPtr node_;
   std::vector<Px4Link> px4_links_;
   rclcpp::Subscription<std_msgs::msg::String>::SharedPtr status_sub_;

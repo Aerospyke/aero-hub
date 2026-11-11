@@ -149,7 +149,8 @@ int main(int argument_count, char* argument_values[]) {
     vehicle_namespaces.push_back(name.toStdString());
   }
   const AhRosBridge RosBridge(app_settings.RosDomainId(), app_settings.RosNamespace().toStdString(),
-                              std::move(vehicle_namespaces), std::move(hooks));
+                              std::move(vehicle_namespaces), std::move(hooks),
+                              app_settings.Core().GetPath("Camera/video_topic"));
   auto* track_controller = new AhTrackController(RosBridge.Node(), QCoreApplication::instance());
   auto* camera_controller = new AhCameraController(RosBridge.Node(), QCoreApplication::instance());
   auto* yolo_controller = new AhYoloController(RosBridge.Node(), QCoreApplication::instance());

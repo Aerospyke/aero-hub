@@ -65,11 +65,13 @@ std::vector<std::string> NormalizeVehicleNamespaces(std::vector<std::string> raw
 }  // namespace
 
 AhRosBridge::AhRosBridge(std::uint8_t ros_domain_id, std::string ros_namespace,
-                         std::vector<std::string> vehicle_namespaces, Hooks hooks)
+                         std::vector<std::string> vehicle_namespaces, Hooks hooks,
+                         std::string video_topic)
     : ros_domain_id_(SanitizeDomainId(ros_domain_id)),
       ros_namespace_(ah::SanitizeNamespace(std::move(ros_namespace))),
       vehicle_namespaces_(NormalizeVehicleNamespaces(std::move(vehicle_namespaces))),
-      hooks_(std::move(hooks)) {
+      hooks_(std::move(hooks)),
+      video_topic_(video_topic.empty() ? std::string(ah_ros_names::VideoCompressedTopic) : std::move(video_topic)) {
   if (!rclcpp::ok()) {
     rclcpp::InitOptions init_options;
     init_options.set_domain_id(static_cast<size_t>(ros_domain_id_));
@@ -138,7 +140,7 @@ void AhRosBridge::SetupSubscriptions() {
   video_qos.best_effort();
 
   video_sub_ = node_->create_subscription<sensor_msgs::msg::CompressedImage>(
-      ah_ros_names::VideoCompressedTopic, video_qos, [this](const sensor_msgs::msg::CompressedImage::SharedPtr msg) {
+      video_topic_, video_qos, [this](const sensor_msgs::msg::CompressedImage::SharedPtr msg) {
         if (!hooks_.on_video_jpeg || !msg || msg->data.empty()) {
           return;
         }
@@ -154,7 +156,7 @@ void AhRosBridge::SetupSubscriptions() {
       });
 
   RCLCPP_INFO(node_->get_logger(), "subscribed to %s + %s + %s (relative; under node namespace)",
-              ah_ros_names::StatusTopic, ah_ros_names::VideoCompressedTopic, ah_ros_names::DetectionsTopic);
+              ah_ros_names::StatusTopic, video_topic_.c_str(), ah_ros_names::DetectionsTopic);
 }
 
 void AhRosBridge::SetupPx4Subscriptions(std::size_t index) {
