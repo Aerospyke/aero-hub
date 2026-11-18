@@ -146,7 +146,7 @@ class Settings {
    public:
     explicit VehicleSection(const Settings* owner) : owner_(owner) {}
 
-    /// Ordered names. Always at least one; "rover" when nothing usable is set.
+    /// Ordered names. Always at least one; kDefaultVehicleNamespace when nothing usable is set.
     [[nodiscard]] std::vector<std::string> NamespaceNames() const;
     /// First entry of NamespaceNames().
     [[nodiscard]] std::string NamespaceName() const;

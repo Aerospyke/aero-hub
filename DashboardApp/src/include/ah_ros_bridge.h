@@ -44,7 +44,7 @@ class AhRosBridge {
   ///        ah/... names so they become /{namespace}/ah/... when set.
   /// @param vehicle_namespaces PX4 graph namespaces, in display order. One
   ///        ah_dashboard_px4 node is created in each so relative fmu/out/...
-  ///        names resolve under that vehicle. Empty becomes "rover".
+  ///        names resolve under that vehicle. Empty becomes ah::kDefaultVehicleNamespace.
   /// @param hooks Optional status/video/PX4/stop callbacks. PX4 hooks receive
   ///        the vehicle namespace the sample came from.
   /// @param video_topic CompressedImage topic for the Video panel ([Camera] video_topic).

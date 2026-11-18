@@ -57,7 +57,7 @@ std::vector<std::string> NormalizeVehicleNamespaces(std::vector<std::string> raw
     names.push_back(std::move(ns));
   }
   if (names.empty()) {
-    names.emplace_back("rover");
+    names.emplace_back(ah::kDefaultVehicleNamespace);
   }
   return names;
 }

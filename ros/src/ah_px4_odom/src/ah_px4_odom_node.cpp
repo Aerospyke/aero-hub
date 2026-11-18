@@ -11,6 +11,10 @@
 namespace ah_px4_odom {
 namespace {
 
+constexpr const char* kDefaultVehicleNamespace = "badger_twin_mark1";
+constexpr const char* kOdomFrame = "odom";
+constexpr const char* kBaseFrame = "base_link";
+
 std::string SanitizeVehicleNamespace(std::string raw) {
   const auto IsTrim = [](unsigned char c) { return c == ' ' || c == '\t' || c == '"'; };
   while (!raw.empty() && IsTrim(static_cast<unsigned char>(raw.front()))) {
@@ -26,7 +30,7 @@ std::string SanitizeVehicleNamespace(std::string raw) {
     raw.pop_back();
   }
   if (raw.empty() || raw.find("//") != std::string::npos) {
-    return "rover_sim";
+    return kDefaultVehicleNamespace;
   }
   return raw;
 }
@@ -41,8 +45,13 @@ rclcpp::QoS Px4SensorQos() {
 }  // namespace
 
 AhPx4OdomNode::AhPx4OdomNode(const rclcpp::NodeOptions& options) : Node("ah_px4_odom", options) {
-  declare_parameter<std::string>("vehicle_namespace", "rover_sim");
+  declare_parameter<std::string>("vehicle_namespace", kDefaultVehicleNamespace);
+  // When true, frames become <namespace>/odom and <namespace>/base_link so several vehicles can share /tf.
+  declare_parameter<bool>("use_frame_prefix", false);
   vehicle_namespace_ = SanitizeVehicleNamespace(get_parameter("vehicle_namespace").as_string());
+  const std::string frame_prefix = get_parameter("use_frame_prefix").as_bool() ? vehicle_namespace_ + "/" : "";
+  odom_frame_ = frame_prefix + kOdomFrame;
+  base_frame_ = frame_prefix + kBaseFrame;
 
   const std::string prefix = "/" + vehicle_namespace_;
   const std::string px4_topic = prefix + "/fmu/out/vehicle_odometry";
@@ -54,8 +63,8 @@ AhPx4OdomNode::AhPx4OdomNode(const rclcpp::NodeOptions& options) : Node("ah_px4_
                 domain == nullptr ? "unset" : domain);
   }
 
-  RCLCPP_INFO(get_logger(), "PX4 %s (best_effort) -> %s and /tf odom->base_link", px4_topic.c_str(),
-              odom_topic.c_str());
+  RCLCPP_INFO(get_logger(), "PX4 %s (best_effort) -> %s and /tf %s->%s", px4_topic.c_str(),
+              odom_topic.c_str(), odom_frame_.c_str(), base_frame_.c_str());
 
   odom_pub_ = create_publisher<nav_msgs::msg::Odometry>(odom_topic, rclcpp::QoS(10));
   tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(this);
@@ -115,8 +124,8 @@ void AhPx4OdomNode::OnOdometry(const px4_msgs::msg::VehicleOdometry::SharedPtr m
 
   nav_msgs::msg::Odometry odom;
   odom.header.stamp = now;
-  odom.header.frame_id = "odom";
-  odom.child_frame_id = "base_link";
+  odom.header.frame_id = odom_frame_;
+  odom.child_frame_id = base_frame_;
   odom.pose.pose.position.x = flat.x_m;
   odom.pose.pose.position.y = flat.y_m;
   odom.pose.pose.position.z = flat.z_m;

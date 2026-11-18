@@ -28,7 +28,7 @@ class AhSettings final {
 
   [[nodiscard]] QString RosNamespace() const { return QString::fromStdString(settings_.Ros().NamespaceName()); }
 
-  /// First PX4 vehicle namespace. Default "rover". Hub and the legacy panel use this.
+  /// First PX4 vehicle namespace. Default ah::kDefaultVehicleNamespace. Hub and the legacy panel use this.
   [[nodiscard]] QString VehicleNamespace() const {
     return QString::fromStdString(settings_.Vehicle().NamespaceName());
   }

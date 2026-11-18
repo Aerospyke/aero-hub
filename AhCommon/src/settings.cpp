@@ -33,7 +33,7 @@ constexpr DefaultEntry DefaultSettings[] = {
 
     // PX4 uXRCE vehicle graph. Relative fmu/out/... topics resolve under this.
     // Vehicle/namespaces (comma list) is optional and wins when it has a name.
-    {.path = "Vehicle/namespace", .value = "rover"},
+    {.path = "Vehicle/namespace", .value = kDefaultVehicleNamespace},
 
     {.path = "JSBSim/command_line/executable", .value = ""},
     {.path = "JSBSim/command_line/realtime", .value = "--realtime"},
@@ -565,20 +565,20 @@ std::vector<std::string> SplitNamespaceList(const std::string& raw) {
 std::vector<std::string> Settings::VehicleSection::NamespaceNames() const {
   std::vector<std::string> names = SplitNamespaceList(owner_->Get({"Vehicle", "namespaces"}, ""));
   if (names.empty()) {
-    const std::string single = SanitizeNamespace(owner_->Get({"Vehicle", "namespace"}, "rover"));
+    const std::string single = SanitizeNamespace(owner_->Get({"Vehicle", "namespace"}, kDefaultVehicleNamespace));
     if (!single.empty()) {
       names.push_back(single);
     }
   }
   if (names.empty()) {
-    names.emplace_back("rover");
+    names.emplace_back(kDefaultVehicleNamespace);
   }
   return names;
 }
 
 std::string Settings::VehicleSection::NamespaceName() const {
   const std::vector<std::string> names = NamespaceNames();
-  return names.empty() ? std::string("rover") : names.front();
+  return names.empty() ? std::string(kDefaultVehicleNamespace) : names.front();
 }
 
 void Settings::VehicleSection::SetNamespaceName(const std::string& value) const {

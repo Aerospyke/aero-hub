@@ -19,6 +19,8 @@ class AhPx4OdomNode : public rclcpp::Node {
   void OnOdometry(const px4_msgs::msg::VehicleOdometry::SharedPtr msg);
 
   std::string vehicle_namespace_;
+  std::string odom_frame_;
+  std::string base_frame_;
   bool warned_velocity_frame_ = false;
   bool warned_pose_frame_ = false;
   bool logged_first_ = false;
