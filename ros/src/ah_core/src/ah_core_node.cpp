@@ -13,6 +13,7 @@
 #include "ah_core/ros_runtime_settings.hpp"
 #include "ah_core/video_pipeline.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <sstream>
 #include <string>
@@ -20,6 +21,11 @@
 #include <vector>
 
 using namespace std::chrono_literals;
+
+namespace {
+/// ROS topic feed counts as degraded when no frame arrived for this long.
+constexpr auto kRosFeedStaleAfter = 1s;
+}  // namespace
 
 namespace ah_core {
 
@@ -146,6 +152,10 @@ AhCoreNode::AhCoreNode(const std::string& ros_namespace, CameraSelection initial
       },
       camera_callback_group_);
 
+  if (camera_.video_source == kVideoSourceRosTopic && !camera_.device_path.empty()) {
+    SubscribeRosFeed(camera_.device_path);
+  }
+
   const char* ros_domain_id = std::getenv("ROS_DOMAIN_ID");
   RCLCPP_INFO(get_logger(),
               "ah_core ready: fqn=%s ROS_DOMAIN_ID=%s status+video @ %d Hz; "
@@ -204,6 +214,26 @@ bool AhCoreNode::SyncCaptureToSelection(std::string* error_out) {
 void AhCoreNode::OnTimer() {
   const auto now = get_clock()->now();
   ++current_video_frame_id_;
+
+  bool ros_feed = false;
+  {
+    std::lock_guard<std::mutex> lock(camera_mutex_);
+    ros_feed = camera_.video_source == kVideoSourceRosTopic;
+  }
+  if (ros_feed) {
+    // Frames are forwarded as they arrive (OnRosFeedFrame); the timer only reports health.
+    std::string status = "unavailable";
+    {
+      std::lock_guard<std::mutex> lock(ros_feed_mutex_);
+      if (ros_feed_seen_) {
+        status = (std::chrono::steady_clock::now() - ros_feed_last_frame_ < kRosFeedStaleAfter) ? "connected"
+                                                                                                 : "degraded";
+      }
+    }
+    last_video_status_ = status;
+    PublishStatusSnapshot(status.c_str());
+    return;
+  }
 
   VideoGrabResult grab;
   {
@@ -296,6 +326,9 @@ void AhCoreNode::OnListCameras(const std::shared_ptr<ah_msgs::srv::ListCameras::
     }
     snapshot = camera_cache_;
   }
+  for (CameraDevice& d : ListRosFeedTopics()) {
+    snapshot.push_back(std::move(d));
+  }
 
   response->success = true;
   response->ids.clear();
@@ -330,6 +363,9 @@ void AhCoreNode::OnSelectCamera(const std::shared_ptr<ah_msgs::srv::SelectCamera
 
   // Infer source when the client left video_source empty.
   // Camera if they gave a real path or a non-negative id; otherwise synthetic.
+  if (source.empty() && backend == kRosTopicBackend) {
+    source = kVideoSourceRosTopic;
+  }
   if (source.empty()) {
     if (device_id >= 0 || (!path.empty() && path != "synthetic")) {
       source = "camera";
@@ -338,14 +374,45 @@ void AhCoreNode::OnSelectCamera(const std::shared_ptr<ah_msgs::srv::SelectCamera
     }
   }
 
-  if (source != "synthetic" && source != "camera") {
+  if (source != "synthetic" && source != "camera" && source != kVideoSourceRosTopic) {
     response->success = false;
-    response->message = "video_source must be \"synthetic\" or \"camera\"";
+    response->message = std::string("video_source must be \"synthetic\", \"camera\" or \"") +
+                        kVideoSourceRosTopic + "\"";
     FillSelectResponse(response);
     return;
   }
 
+  if (source == kVideoSourceRosTopic) {
+    if (path.empty() || path == video_pub_->get_topic_name()) {
+      response->success = false;
+      response->message = std::string("ROS topic source needs device_path set to a CompressedImage topic other than ") +
+                          video_pub_->get_topic_name();
+      FillSelectResponse(response);
+      return;
+    }
+    SubscribeRosFeed(path);
+    {
+      std::lock_guard<std::mutex> lock(camera_mutex_);
+      camera_capture_.Close();
+      camera_.video_source = kVideoSourceRosTopic;
+      camera_.device_id = kRosTopicDeviceId;
+      camera_.device_path = ros_feed_sub_->get_topic_name();
+      camera_.backend = kRosTopicBackend;
+      last_video_status_ = "unavailable";  // until the first frame arrives
+    }
+    ApplySelectionToParams();
+    PersistSelectionToSettingsFile();
+    const auto track_clear = tracking_.ClearForVideoFeedChange();
+    PublishStatusSnapshot(last_video_status_.c_str());
+    response->success = true;
+    response->message = "selected ROS topic " + camera_.device_path;
+    FillSelectResponse(response);
+    RCLCPP_INFO(get_logger(), "%s (%s)", response->message.c_str(), track_clear.message.c_str());
+    return;
+  }
+
   if (source == "synthetic") {
+    StopRosFeed();
     {
       std::lock_guard<std::mutex> lock(camera_mutex_);
       camera_.video_source = "synthetic";
@@ -423,6 +490,7 @@ void AhCoreNode::OnSelectCamera(const std::shared_ptr<ah_msgs::srv::SelectCamera
     }
     camera_ = next;
     last_video_status_ = "connected";
+    StopRosFeed();
     capture_open_fail_log_count_ = 0;
   }
 
@@ -439,6 +507,49 @@ void AhCoreNode::OnSelectCamera(const std::shared_ptr<ah_msgs::srv::SelectCamera
                       " (live capture open)";
   FillSelectResponse(response);
   RCLCPP_INFO(get_logger(), "%s (%s)", response->message.c_str(), track_clear.message.c_str());
+}
+
+std::vector<CameraDevice> AhCoreNode::ListRosFeedTopics() const {
+  std::vector<CameraDevice> out;
+  const std::string own_output = video_pub_->get_topic_name();
+  for (const auto& [name, types] : get_topic_names_and_types()) {
+    if (name == own_output ||
+        std::find(types.begin(), types.end(), kCompressedImageType) == types.end()) {
+      continue;
+    }
+    CameraDevice d;
+    d.id = kRosTopicDeviceId;
+    d.path = name;
+    d.name = "ROS topic";
+    d.backend = kRosTopicBackend;
+    out.push_back(std::move(d));
+  }
+  return out;
+}
+
+void AhCoreNode::SubscribeRosFeed(const std::string& topic) {
+  StopRosFeed();
+  rclcpp::QoS qos(rclcpp::KeepLast(1));
+  qos.best_effort();
+  ros_feed_sub_ = create_subscription<sensor_msgs::msg::CompressedImage>(
+      topic, qos, [this](const sensor_msgs::msg::CompressedImage::SharedPtr msg) { OnRosFeedFrame(msg); });
+  RCLCPP_INFO(get_logger(), "forwarding %s to %s", ros_feed_sub_->get_topic_name(), video_pub_->get_topic_name());
+}
+
+void AhCoreNode::StopRosFeed() {
+  ros_feed_sub_.reset();
+  std::lock_guard<std::mutex> lock(ros_feed_mutex_);
+  ros_feed_seen_ = false;
+}
+
+void AhCoreNode::OnRosFeedFrame(const sensor_msgs::msg::CompressedImage::SharedPtr& msg) {
+  if (!msg || msg->data.empty()) {
+    return;
+  }
+  video_pub_->publish(*msg);  // JPEG bytes and header passed through unchanged
+  std::lock_guard<std::mutex> lock(ros_feed_mutex_);
+  ros_feed_seen_ = true;
+  ros_feed_last_frame_ = std::chrono::steady_clock::now();
 }
 
 void AhCoreNode::FillSelectResponse(const std::shared_ptr<ah_msgs::srv::SelectCamera::Response>& response) const {

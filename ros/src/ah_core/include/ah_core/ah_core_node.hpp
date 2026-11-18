@@ -7,6 +7,7 @@
 #include "ah_core/camera_devices.hpp"
 #include "ah_core/tracking_controller.hpp"
 
+#include <chrono>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -53,6 +54,13 @@ class AhCoreNode : public rclcpp::Node {
                          const std::shared_ptr<ah_msgs::srv::AiTrackingClick::Response>& response);
   void OnDetections(std_msgs::msg::String::SharedPtr msg);
 
+  /// ROS topic source: live CompressedImage topics other than our own output.
+  std::vector<CameraDevice> ListRosFeedTopics() const;
+  /// Subscribe to topic and forward each frame to ah/video/compressed.
+  void SubscribeRosFeed(const std::string& topic);
+  void StopRosFeed();
+  void OnRosFeedFrame(const sensor_msgs::msg::CompressedImage::SharedPtr& msg);
+
   /// Publish /ah/system/status immediately (lock changes should not wait for the video timer).
   void PublishStatusSnapshot(const char* video_status);
 
@@ -70,6 +78,10 @@ class AhCoreNode : public rclcpp::Node {
   } ros_services_;
 
   rclcpp::Subscription<std_msgs::msg::String>::SharedPtr detections_sub_;
+  rclcpp::Subscription<sensor_msgs::msg::CompressedImage>::SharedPtr ros_feed_sub_;
+  std::mutex ros_feed_mutex_;
+  bool ros_feed_seen_{false};
+  std::chrono::steady_clock::time_point ros_feed_last_frame_{};
   rclcpp::CallbackGroup::SharedPtr camera_callback_group_;
   rclcpp::TimerBase::SharedPtr timer_;
   rclcpp::TimerBase::SharedPtr probe_timer_;

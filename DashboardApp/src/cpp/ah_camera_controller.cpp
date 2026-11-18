@@ -6,6 +6,12 @@
 
 #include <utility>
 
+namespace {
+/// Must match ah_core kRosTopicBackend / kVideoSourceRosTopic (ROS topic feed entries).
+constexpr char kRosTopicBackend[] = "ros_topic";
+constexpr char kVideoSourceRosTopic[] = "ros_topic";
+}  // namespace
+
 AhCameraController::AhCameraController(rclcpp::Node::SharedPtr node, QObject* parent)
     : QObject(parent), node_(std::move(node)) {
   list_client_ = node_->create_client<ah_msgs::srv::ListCameras>(ah_ros_names::CameraListService);
@@ -163,7 +169,12 @@ void AhCameraController::SelectDeviceAt(int list_index) {
   const QString backend = list_index < device_backends_.size() ? device_backends_[list_index]
                                                                : QString();
 
-  if (id < 0 || path == QStringLiteral("synthetic")) {
+  if (backend == QLatin1String(kRosTopicBackend)) {
+    request->video_source = kVideoSourceRosTopic;
+    request->device_id = id;
+    request->device_path = path.toStdString();
+    request->backend = kRosTopicBackend;
+  } else if (id < 0 || path == QStringLiteral("synthetic")) {
     request->video_source = "synthetic";
     request->device_id = -1;
     request->device_path = "synthetic";

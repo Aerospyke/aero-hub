@@ -13,6 +13,14 @@
 namespace ah_core
 {
 
+/// Third video source: forward an existing sensor_msgs/CompressedImage topic
+/// (e.g. a Gazebo twin's camera) onto ah/video/compressed unchanged.
+inline constexpr char kVideoSourceRosTopic[] = "ros_topic";
+/// ListCameras id and backend used for ROS topic entries (device_path = topic).
+inline constexpr int kRosTopicDeviceId = -2;
+inline constexpr char kRosTopicBackend[] = "ros_topic";
+inline constexpr char kCompressedImageType[] = "sensor_msgs/msg/CompressedImage";
+
 struct CameraDevice
 {
   int id{-1};
@@ -23,7 +31,7 @@ struct CameraDevice
 
 struct CameraSelection
 {
-  std::string video_source{"synthetic"};  // synthetic | camera
+  std::string video_source{"synthetic"};  // synthetic | camera | ros_topic
   int device_id{-1};
   std::string device_path;
   std::string backend;
