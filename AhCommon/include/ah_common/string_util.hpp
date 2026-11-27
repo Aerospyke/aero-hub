@@ -18,6 +18,6 @@ std::string Trim(const std::string& full_string, std::string_view chars_to_trim)
 std::string SanitizeNamespace(const std::string& raw_namespace_setting);
 
 /// Vehicle namespace used when no usable name is configured (the physical badger).
-inline constexpr const char* kDefaultVehicleNamespace = "badger_physical_mark1";
+inline constexpr const char* kDefaultVehicleNamespace = "badger_physical_mark1_0";
 
 }  // namespace ah

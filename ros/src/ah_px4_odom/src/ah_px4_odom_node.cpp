@@ -11,7 +11,7 @@
 namespace ah_px4_odom {
 namespace {
 
-constexpr const char* kDefaultVehicleNamespace = "badger_twin_mark1";
+constexpr const char* kDefaultVehicleNamespace = "badger_twin_mark1_0";
 constexpr const char* kOdomFrame = "odom";
 constexpr const char* kBaseFrame = "base_link";
 

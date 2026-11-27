@@ -1,8 +1,7 @@
 // ah_px4_odom_node — PX4 vehicle_odometry to /<ns>/odom and odom -> base_link.
 //
 //   export ROS_DOMAIN_ID=42
-//   ros2 run ah_px4_odom ah_px4_odom_node --ros-args \
-//     -p vehicle_namespace:=badger_twin_mark1 -p use_frame_prefix:=true -p use_sim_time:=true
+//   ros2 run ah_px4_odom ah_px4_odom_node --ros-args -p vehicle_namespace:=badger_twin_mark1_0 -p use_frame_prefix:=true -p use_sim_time:=true
 
 #include "ah_px4_odom/ah_px4_odom_node.hpp"
 
